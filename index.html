@@ -211,17 +211,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
   <div class="hdr">
     <div class="hdr-row">
       <div>
-        <div class="hdr-title" id="hdr-title" onclick="isAdmin()&&openModal('modal-event')">🥩 <span id="evt-name">Asado</span> <span class="ldot" id="ldot" style="display:none"></span></div>
+        <div class="hdr-title" id="hdr-title">🥩 <span id="evt-name">Asado</span> <span class="ldot" id="ldot" style="display:none"></span></div>
         <div class="hdr-sub" id="hdr-sub">cargando...</div>
       </div>
-      <div class="uc" onclick="logout()">
-        <div class="av" id="uav"></div>
-        <span id="udisp"></span>
+      <div style="display:flex;align-items:center;gap:7px">
+        <button id="admin-toggle" onclick="toggleAdminBar()" style="display:none;background:none;border:none;font-size:16px;cursor:pointer;opacity:0.35;padding:4px 6px;transition:opacity .2s" title="Admin">⚙️</button>
+        <div class="uc" onclick="logout()">
+          <div class="av" id="uav"></div>
+          <span id="udisp"></span>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Admin bar (solo Cris) -->
+  <!-- Admin bar (oculta por defecto, toggle con ⚙️) -->
   <div class="admin-bar" id="admin-bar" style="display:none">
     <span>⚙️ Admin</span>
     <button class="abtn" onclick="openModal('modal-event')">✏️ Editar asado</button>
@@ -476,13 +479,25 @@ function doLogin() {
   document.getElementById('uav').textContent=v[0].toUpperCase();
   document.getElementById('udisp').textContent=v;
   if (isAdmin()) {
-    document.getElementById('admin-bar').style.display='flex';
-    document.getElementById('tabs').classList.add('with-admin');
+    document.getElementById('admin-toggle').style.display='block';
   }
   fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
+  startAutoRefresh();
 }
 function logout(){ if(!confirm('¿Salir?')) return; localStorage.removeItem('asado_user'); location.reload(); }
+
+// ══ ADMIN TOGGLE ══════════════════════════════════
+let adminBarOpen = false;
+function toggleAdminBar() {
+  adminBarOpen = !adminBarOpen;
+  const bar = document.getElementById('admin-bar');
+  const btn = document.getElementById('admin-toggle');
+  const tabs = document.getElementById('tabs');
+  bar.style.display  = adminBarOpen ? 'flex' : 'none';
+  btn.style.opacity  = adminBarOpen ? '1' : '0.35';
+  tabs.classList.toggle('with-admin', adminBarOpen);
+}
 
 // ══ MODALES ════════════════════════════════════════
 function openModal(id) {
@@ -835,9 +850,14 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
   bg.addEventListener('click', e=>{ if(e.target===bg) bg.classList.remove('open'); });
 });
 
+// ══ AUTO-REFRESH cada 30 segundos ════════════════
+function startAutoRefresh() {
+  setInterval(() => fetchAll(), 30000);
+}
+
 // ══ INIT ══════════════════════════════════════════
 buildLogin();
-if (me) doLogin();
+if (me) { doLogin(); startAutoRefresh(); }
 </script>
 </body>
 </html>
