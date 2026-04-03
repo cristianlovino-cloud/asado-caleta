@@ -5,179 +5,214 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>🔥 Asado en la Caleta</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-<!-- ══════════════════════════════════════════════════
-     🔧 CONFIGURACIÓN — editá estas 2 líneas con tus keys de Supabase
-     Settings → API dentro de tu proyecto
-══════════════════════════════════════════════════ -->
 <script>
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
+  const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-
 <style>
-:root {
-  --fire:#FF4500; --ember:#FF8C00; --gold:#FFBF00;
-  --coal:#141414; --smoke:#1E1E1E; --ash:#2A2A2A; --rim:#383838;
-  --text:#F0EBE3; --muted:#888;
-  --green:#27AE60; --red:#E74C3C; --blue:#2E86DE;
+:root{
+  --fire:#FF4500;--ember:#FF8C00;--gold:#FFBF00;
+  --coal:#141414;--smoke:#1E1E1E;--ash:#2A2A2A;--rim:#383838;
+  --text:#F0EBE3;--muted:#888;
+  --green:#27AE60;--red:#E74C3C;--blue:#2E86DE;--wine:#722F37;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden}
 
-/* LOGIN */
-#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:radial-gradient(ellipse at 50% 0%,rgba(255,69,0,.18) 0%,transparent 60%),var(--coal)}
-.lf{font-size:72px;animation:flk 1.8s ease-in-out infinite alternate;margin-bottom:8px;filter:drop-shadow(0 0 20px rgba(255,69,0,.6))}
-@keyframes flk{0%{transform:scale(1) rotate(-1deg);opacity:1}50%{transform:scale(1.06) rotate(1deg);opacity:.9}100%{transform:scale(1.03) rotate(-1deg);opacity:.95}}
-.lt{font-family:'Bebas Neue',cursive;font-size:38px;letter-spacing:3px;text-align:center;line-height:1;margin-bottom:4px}
-.ls{font-size:13px;color:var(--ember);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:36px}
-.lc{width:100%;background:var(--smoke);border-radius:20px;padding:26px 22px;border:1px solid var(--rim);box-shadow:0 8px 40px rgba(0,0,0,.4)}
-.ll{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;display:block}
-.ng{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
-.nb{padding:11px 8px;background:var(--ash);border:1px solid var(--rim);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px}
-.nb:hover,.nb.sel{background:rgba(255,69,0,.15);border-color:var(--fire);color:var(--fire)}
-.avs{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;text-transform:uppercase;flex-shrink:0}
-.od{text-align:center;color:var(--muted);font-size:12px;margin:10px 0;display:flex;align-items:center;gap:10px}
-.od::before,.od::after{content:'';flex:1;height:1px;background:var(--rim)}
-.li{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;margin-bottom:14px;transition:border-color .2s}
-.li:focus{border-color:var(--fire)}
-.li::placeholder{color:var(--muted)}
-.lb{width:100%;padding:14px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:12px;color:white;font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 20px rgba(255,69,0,.4);transition:transform .1s}
-.lb:active{transform:scale(.98)}
-.wn{margin-top:22px;background:rgba(114,47,55,.2);border:1px solid rgba(114,47,55,.4);border-radius:12px;padding:13px 15px;display:flex;align-items:flex-start;gap:10px}
-.wni{font-size:22px;flex-shrink:0}
-.wnt{font-size:12px;color:#C9A0A5;line-height:1.5}
-.wnt strong{color:#E8C4C8;display:block;margin-bottom:2px}
+/* ── LOGIN ─────────────────────── */
+#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 22px;background:radial-gradient(ellipse at 50% 0%,rgba(255,69,0,.18) 0%,transparent 60%),var(--coal)}
+.lfire{font-size:68px;animation:flk 1.8s ease-in-out infinite alternate;margin-bottom:8px;filter:drop-shadow(0 0 20px rgba(255,69,0,.6))}
+@keyframes flk{0%{transform:scale(1) rotate(-1deg)}50%{transform:scale(1.06) rotate(1deg)}100%{transform:scale(1.03) rotate(-1deg)}}
+.ltitle{font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:3px;text-align:center;line-height:1;margin-bottom:4px}
+.lsub{font-size:12px;color:var(--ember);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:32px}
+.lcard{width:100%;background:var(--smoke);border-radius:20px;padding:24px 20px;border:1px solid var(--rim);box-shadow:0 8px 40px rgba(0,0,0,.4)}
+.llabel{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:9px;display:block}
+.ngrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px}
+.nbtn{padding:10px 7px;background:var(--ash);border:1px solid var(--rim);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:7px}
+.nbtn:hover,.nbtn.sel{background:rgba(255,69,0,.15);border-color:var(--fire);color:var(--fire)}
+.nbtn .badge-admin{font-size:9px;margin-left:auto;background:var(--fire);color:white;border-radius:4px;padding:1px 5px}
+.avs{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;text-transform:uppercase;flex-shrink:0}
+.ordiv{text-align:center;color:var(--muted);font-size:12px;margin:10px 0;display:flex;align-items:center;gap:10px}
+.ordiv::before,.ordiv::after{content:'';flex:1;height:1px;background:var(--rim)}
+.linput{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:10px;padding:11px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;margin-bottom:13px;transition:border-color .2s}
+.linput:focus{border-color:var(--fire)}
+.linput::placeholder{color:var(--muted)}
+.lbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:12px;color:white;font-family:'Bebas Neue',cursive;font-size:19px;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 20px rgba(255,69,0,.4);transition:transform .1s}
+.lbtn:active{transform:scale(.98)}
+.wnote{margin-top:20px;background:rgba(114,47,55,.2);border:1px solid rgba(114,47,55,.4);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:9px}
+.wnote-i{font-size:20px;flex-shrink:0}
+.wnote-t{font-size:12px;color:#C9A0A5;line-height:1.5}
+.wnote-t strong{color:#E8C4C8;display:block;margin-bottom:1px}
 
-/* SHELL */
-#app-screen{display:none}
-.hdr{background:linear-gradient(180deg,#1A0D05 0%,var(--smoke) 100%);padding:13px 15px 11px;border-bottom:1px solid var(--rim);position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.5)}
-.hr{display:flex;align-items:center;justify-content:space-between}
-.ht{font-family:'Bebas Neue',cursive;font-size:21px;letter-spacing:2px;line-height:1}
-.hs{font-size:11px;color:var(--ember);letter-spacing:1px;text-transform:uppercase;margin-top:1px}
-.uc{display:flex;align-items:center;gap:7px;background:rgba(255,69,0,.12);border:1px solid rgba(255,69,0,.25);border-radius:20px;padding:5px 12px 5px 6px;cursor:pointer}
-.uc .av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;text-transform:uppercase}
-.uc span{font-size:13px;font-weight:600;color:var(--ember)}
-.ld{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-left:6px;animation:pulse 2s infinite;vertical-align:middle}
+/* ── SHELL ──────────────────────── */
+#app{display:none}
+.hdr{background:linear-gradient(180deg,#1A0D05,var(--smoke));padding:12px 14px 10px;border-bottom:1px solid var(--rim);position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.5)}
+.hdr-row{display:flex;align-items:center;justify-content:space-between}
+.hdr-title{font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;line-height:1;cursor:pointer}
+.hdr-sub{font-size:11px;color:var(--ember);letter-spacing:1px;text-transform:uppercase;margin-top:1px}
+.uc{display:flex;align-items:center;gap:6px;background:rgba(255,69,0,.12);border:1px solid rgba(255,69,0,.25);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer}
+.uc .av{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;text-transform:uppercase}
+.uc span{font-size:12px;font-weight:600;color:var(--ember)}
+.ldot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-left:5px;animation:pulse 2s infinite;vertical-align:middle}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.admin-bar{background:rgba(255,69,0,.08);border-bottom:1px solid rgba(255,69,0,.2);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.admin-bar span{font-size:10px;color:var(--fire);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s}
+.abtn:hover{border-color:var(--fire);color:var(--fire)}
+.abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
 
-.tabs{display:flex;background:var(--smoke);border-bottom:1px solid var(--rim);position:sticky;top:64px;z-index:99}
-.tab{flex:1;padding:10px 2px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tabs{display:flex;background:var(--smoke);border-bottom:1px solid var(--rim);position:sticky;top:62px;z-index:99}
+.tabs.with-admin{top:102px}
+.tab{flex:1;padding:9px 2px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
 .tab.active{color:var(--fire);border-bottom-color:var(--fire)}
-.tab .ti{font-size:16px;display:block;margin-bottom:2px}
-.panel{display:none;padding:13px 13px 90px}
+.tab .ti{font-size:15px;display:block;margin-bottom:2px}
+.panel{display:none;padding:12px 12px 90px}
 .panel.active{display:block}
 
-/* COMPONENTS */
-.sh{font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:2px;color:var(--ember);margin-bottom:9px}
+/* ── COMPONENTES ────────────────── */
+.sh{font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:2px;color:var(--ember);margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .card{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);overflow:hidden;margin-bottom:10px}
-.sg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
-.sb{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:13px 11px;position:relative;overflow:hidden}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+.sb{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:12px 11px;position:relative;overflow:hidden}
 .sb::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
 .sbf::after{background:linear-gradient(90deg,var(--fire),var(--ember))}
 .sbg::after{background:linear-gradient(90deg,var(--gold),#FF9500)}
 .sbgr::after{background:linear-gradient(90deg,var(--green),#1A7A40)}
 .sbb::after{background:linear-gradient(90deg,var(--blue),#1A5FA8)}
-.sl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
-.sv{font-family:'Bebas Neue',cursive;font-size:23px;letter-spacing:1px;line-height:1}
+.sl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:3px}
+.sv{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px;line-height:1}
 .cf{color:var(--fire)}.cg{color:var(--gold)}.cgr{color:var(--green)}.cb{color:var(--blue)}.cr{color:var(--red)}.cm{color:var(--muted)}
 
-.pr{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid var(--rim)}
+.pr{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--rim)}
 .pr:last-child{border-bottom:none}
 .pr.me{background:rgba(255,69,0,.06)}
-.pl{display:flex;align-items:center;gap:9px}
-.av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;text-transform:uppercase;flex-shrink:0}
+.pl{display:flex;align-items:center;gap:8px}
+.av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:white;text-transform:uppercase;flex-shrink:0}
 .av.n{background:linear-gradient(135deg,#444,#666)}
-.pn{font-weight:600;font-size:14px}
-.ps{font-size:11px;color:var(--muted);margin-top:1px}
-.bv{font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px}
-.bl{font-size:10px;text-align:right;color:var(--muted);margin-top:1px}
+.pname{font-weight:600;font-size:13px}
+.psub{font-size:11px;color:var(--muted);margin-top:1px}
+.bval{font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:1px}
+.blbl{font-size:10px;text-align:right;color:var(--muted);margin-top:1px}
 
-.fw{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:13px;margin-bottom:11px;display:none}
+.fw{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:12px;margin-bottom:10px;display:none}
 .fw.open{display:block}
 .fl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:5px;display:block}
-.fi,.fsel{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;margin-bottom:9px;transition:border-color .2s}
+.fi,.fsel{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;margin-bottom:8px;transition:border-color .2s}
 .fi:focus,.fsel:focus{border-color:var(--fire)}
 .fsel option{background:var(--ash)}
-.fr{display:flex;gap:8px}
-.btp{flex:1;padding:11px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:8px;color:white;font-weight:600;font-size:13px;cursor:pointer}
-.btg{padding:11px 14px;background:var(--ash);border:1px solid var(--rim);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer}
-.bta{width:100%;padding:12px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:10px;color:white;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:2px;cursor:pointer;margin-bottom:10px;box-shadow:0 3px 14px rgba(255,69,0,.35);transition:transform .1s}
+.frow{display:flex;gap:7px}
+.btp{flex:1;padding:10px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:8px;color:white;font-weight:600;font-size:13px;cursor:pointer}
+.btg{padding:10px 13px;background:var(--ash);border:1px solid var(--rim);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer}
+.bta{width:100%;padding:11px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:10px;color:white;font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;cursor:pointer;margin-bottom:9px;box-shadow:0 3px 14px rgba(255,69,0,.35);transition:transform .1s}
 .bta:active{transform:scale(.98)}
 
-.tkr{display:flex;align-items:flex-start;gap:11px;padding:11px 13px;border-bottom:1px solid var(--rim)}
+/* TASK */
+.tkr{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid var(--rim)}
 .tkr:last-child{border-bottom:none}
 .tkr.dn{opacity:.5}
-.tkc{width:22px;height:22px;border-radius:50%;border:2px solid var(--rim);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:1px;transition:all .2s}
+.tkc{width:21px;height:21px;border-radius:50%;border:2px solid var(--rim);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:1px;transition:all .2s}
 .tkc.ck{background:var(--green);border-color:var(--green)}
-.tkc.ck::after{content:'✓';color:white;font-size:12px;font-weight:700}
-.tkb{flex:1}
-.tkn{font-size:14px;font-weight:500}
-.tkr.dn .tkn{text-decoration:line-through}
-.ac{background:rgba(255,69,0,.12);border:1px solid rgba(255,69,0,.2);border-radius:20px;padding:2px 8px;font-size:10px;color:var(--ember);font-weight:600}
+.tkc.ck::after{content:'✓';color:white;font-size:11px;font-weight:700}
+.tkbody{flex:1}
+.tknm{font-size:13px;font-weight:500}
+.tkr.dn .tknm{text-decoration:line-through}
+.ac{background:rgba(255,69,0,.12);border:1px solid rgba(255,69,0,.2);border-radius:20px;padding:2px 7px;font-size:10px;color:var(--ember);font-weight:600}
 .ac.mine{background:rgba(255,69,0,.25);border-color:var(--fire);color:var(--fire)}
-.ch{padding:7px 13px 3px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)}
+.ach{padding:6px 12px 3px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)}
+.tk-actions{display:flex;gap:5px;margin-top:4px}
+.tk-act{padding:2px 7px;border-radius:5px;font-size:10px;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--muted)}
+.tk-act:hover{border-color:var(--fire);color:var(--fire)}
+.tk-act.danger:hover{border-color:var(--red);color:var(--red)}
 
-.mr{display:flex;align-items:center;justify-content:space-between;padding:12px 13px;border-bottom:1px solid var(--rim)}
+/* MENU */
+.mr{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid var(--rim)}
 .mr:last-child{border-bottom:none}
-.ml{display:flex;align-items:center;gap:11px}
-.me_{font-size:25px}
-.mn{font-weight:600;font-size:14px}
-.md{font-size:11px;color:var(--muted);margin-top:1px}
-.tok{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(39,174,96,.12);color:var(--green);border:1px solid rgba(39,174,96,.25);text-transform:uppercase}
-.tpn{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,140,0,.12);color:var(--ember);border:1px solid rgba(255,140,0,.25);text-transform:uppercase}
+.ml{display:flex;align-items:center;gap:10px}
+.mem{font-size:24px}
+.mnm{font-weight:600;font-size:13px}
+.mdt{font-size:11px;color:var(--muted);margin-top:1px}
+.mright{display:flex;align-items:center;gap:6px}
+.tok{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(39,174,96,.12);color:var(--green);border:1px solid rgba(39,174,96,.25);text-transform:uppercase;cursor:pointer}
+.tpn{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,140,0,.12);color:var(--ember);border:1px solid rgba(255,140,0,.25);text-transform:uppercase;cursor:pointer}
+.mdel{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;display:none}
 
-.tbr{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px}
-.tbt{padding:6px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:var(--ash);border:1px solid var(--rim);color:var(--muted);transition:all .15s}
+/* WS */
+.tbr{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.tbt{padding:6px 11px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;background:var(--ash);border:1px solid var(--rim);color:var(--muted);transition:all .15s}
 .tbt.active{background:rgba(255,69,0,.15);border-color:var(--fire);color:var(--fire)}
-.wsp{background:#0C1A10;border:1px solid #1A3A20;border-radius:10px;padding:13px;font-size:13px;line-height:1.75;color:#D4F0D8;white-space:pre-wrap;margin-bottom:10px;max-height:300px;overflow-y:auto}
-.wbs{display:flex;gap:8px}
-.bwa{flex:1;padding:12px;border:none;border-radius:8px;background:#25D366;color:white;font-weight:700;font-size:13px;cursor:pointer}
-.bcp{padding:12px 16px;border:1px solid var(--rim);border-radius:8px;background:var(--ash);color:var(--text);font-size:13px;cursor:pointer}
+.wsprev{background:#0C1A10;border:1px solid #1A3A20;border-radius:10px;padding:12px;font-size:13px;line-height:1.75;color:#D4F0D8;white-space:pre-wrap;margin-bottom:9px;max-height:280px;overflow-y:auto}
+.wbtns{display:flex;gap:7px}
+.bwa{flex:1;padding:11px;border:none;border-radius:8px;background:#25D366;color:white;font-weight:700;font-size:13px;cursor:pointer}
+.bcp{padding:11px 15px;border:1px solid var(--rim);border-radius:8px;background:var(--ash);color:var(--text);font-size:13px;cursor:pointer}
 
-.er{display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid var(--rim)}
+/* GASTOS */
+.er{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--rim)}
 .er:last-child{border-bottom:none}
-.ei{width:32px;height:32px;border-radius:8px;background:rgba(255,140,0,.12);border:1px solid rgba(255,140,0,.2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.ei{width:30px;height:30px;border-radius:7px;background:rgba(255,140,0,.12);border:1px solid rgba(255,140,0,.2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
 .eb{flex:1}
 .en{font-size:13px;font-weight:500}
 .ew{font-size:11px;color:var(--muted)}
-.ea{font-family:'Bebas Neue',cursive;font-size:16px;color:var(--green)}
+.ea{font-family:'Bebas Neue',cursive;font-size:15px;color:var(--green)}
 
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:10px 22px;border-radius:30px;font-weight:600;font-size:13px;opacity:0;transition:opacity .3s;z-index:999;pointer-events:none;white-space:nowrap}
+/* HISTORIAL */
+.event-card{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:14px;margin-bottom:9px;cursor:pointer;transition:border-color .2s}
+.event-card:hover{border-color:var(--ember)}
+.event-card.current{border-color:var(--fire);background:rgba(255,69,0,.05)}
+.ec-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.ec-title{font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:1px}
+.ec-badge{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,69,0,.15);color:var(--fire);border:1px solid rgba(255,69,0,.3)}
+.ec-badge.arch{background:var(--ash);color:var(--muted);border-color:var(--rim)}
+.ec-meta{font-size:12px;color:var(--muted)}
+.ec-stats{display:flex;gap:12px;margin-top:8px}
+.ec-stat{font-size:11px;color:var(--muted)}
+.ec-stat strong{color:var(--text)}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;display:none}
+.modal-bg.open{display:flex}
+.modal{background:var(--smoke);border-radius:20px 20px 0 0;border:1px solid var(--rim);padding:24px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
+.modal-title{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.modal-close{background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--muted);font-size:14px}
+
+/* UTILS */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:9px 20px;border-radius:30px;font-weight:600;font-size:13px;opacity:0;transition:opacity .3s;z-index:999;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
-.empty{text-align:center;padding:28px 16px;color:var(--muted);font-size:14px}
-.empty .em{font-size:38px;margin-bottom:8px}
-.div{height:1px;background:var(--rim);margin:13px 0}
+.empty{text-align:center;padding:26px 14px;color:var(--muted);font-size:13px}
+.empty .em{font-size:36px;margin-bottom:7px}
+.div{height:1px;background:var(--rim);margin:12px 0}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
+.pill-assign{background:rgba(46,134,222,.12);border:1px solid rgba(46,134,222,.25);color:var(--blue)}
 </style>
 </head>
 <body>
 
 <!-- LOGIN -->
 <div id="login-screen">
-  <div class="lf">🔥</div>
-  <div class="lt">Asado en la Caleta</div>
-  <div class="ls">Sáb 11 Abril · 10:00–16:30</div>
-  <div class="lc">
-    <label class="ll">¿Quién sos?</label>
-    <div class="ng" id="name-grid"></div>
-    <div class="od">o escribí tu nombre</div>
-    <input class="li" id="cname" placeholder="Tu nombre..." maxlength="20">
-    <button class="lb" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
+  <div class="lfire">🔥</div>
+  <div class="ltitle" id="login-title">Asado en la Caleta</div>
+  <div class="lsub" id="login-sub">Cargando...</div>
+  <div class="lcard">
+    <label class="llabel">¿Quién sos?</label>
+    <div class="ngrid" id="name-grid"></div>
+    <div class="ordiv">o escribí tu nombre</div>
+    <input class="linput" id="cname" placeholder="Tu nombre..." maxlength="20">
+    <button class="lbtn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
-  <div class="wn">
-    <div class="wni">🍷</div>
-    <div class="wnt"><strong>Recordá traer:</strong>Vino de más de 1.200 mts de altura y tus propios cubiertos</div>
+  <div class="wnote">
+    <div class="wnote-i">🍷</div>
+    <div class="wnote-t"><strong>Recordá traer:</strong>Vino de más de 1.200 mts de altura y tus propios cubiertos</div>
   </div>
 </div>
 
 <!-- APP -->
-<div id="app-screen">
+<div id="app">
   <div class="hdr">
-    <div class="hr">
+    <div class="hdr-row">
       <div>
-        <div class="ht">🥩 Asado en la Caleta <span class="ld" id="ldot" style="display:none"></span></div>
-        <div class="hs">Sáb 11 Abril · 10:00–16:30</div>
+        <div class="hdr-title" id="hdr-title" onclick="isAdmin()&&openModal('modal-event')">🥩 <span id="evt-name">Asado</span> <span class="ldot" id="ldot" style="display:none"></span></div>
+        <div class="hdr-sub" id="hdr-sub">cargando...</div>
       </div>
       <div class="uc" onclick="logout()">
         <div class="av" id="uav"></div>
@@ -186,7 +221,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
     </div>
   </div>
 
-  <div class="tabs">
+  <!-- Admin bar (solo Cris) -->
+  <div class="admin-bar" id="admin-bar" style="display:none">
+    <span>⚙️ Admin</span>
+    <button class="abtn" onclick="openModal('modal-event')">✏️ Editar asado</button>
+    <button class="abtn" onclick="openModal('modal-participants')">👥 Participantes</button>
+    <button class="abtn" onclick="openModal('modal-history')">📚 Historial</button>
+    <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
+  </div>
+
+  <div class="tabs" id="tabs">
     <div class="tab active" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab"        onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
     <div class="tab"        onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
@@ -196,18 +240,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
   <!-- GASTOS -->
   <div class="panel active" id="panel-gastos">
     <div class="sg">
-      <div class="sb sbf" ><div class="sl">Total gastado</div><div class="sv cf"  id="st">$0</div></div>
-      <div class="sb sbg" ><div class="sl">Por persona</div>  <div class="sv cg"  id="spp">$0</div></div>
-      <div class="sb sbb" ><div class="sl">Participantes</div><div class="sv cb"  id="sc">0</div></div>
-      <div class="sb sbgr"><div class="sl">Tu saldo</div>     <div class="sv"     id="sm">$0</div></div>
+      <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
+      <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
+      <div class="sb sbb"><div class="sl">Participantes</div><div class="sv cb" id="sc">0</div></div>
+      <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
     </div>
     <button class="bta" onclick="tf('fexp')">+ CARGAR MI GASTO</button>
     <div class="fw" id="fexp">
       <label class="fl">Concepto</label>
-      <input class="fi" id="fedesc" placeholder="ej: carne, bebidas, hielo...">
+      <input class="fi" id="fedesc" placeholder="ej: carne, bebidas...">
       <label class="fl">Monto $</label>
       <input class="fi" id="feamt" type="number" placeholder="0" inputmode="numeric">
-      <div class="fr">
+      <div class="frow">
         <button class="btp" onclick="addExpense()">GUARDAR</button>
         <button class="btg" onclick="tf('fexp')">✕</button>
       </div>
@@ -234,7 +278,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
         <option>🔥 Insumos</option><option>🍰 Postres</option>
         <option>🛒 Otros</option>
       </select>
-      <div class="fr">
+      <div class="frow">
         <button class="btp" onclick="addTask()">GUARDAR</button>
         <button class="btg" onclick="tf('ftask')">✕</button>
       </div>
@@ -249,12 +293,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
     <div class="card" id="menulist"></div>
     <div class="div"></div>
     <div class="sh">➕ Sugerir ítem</div>
-    <div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;padding:13px">
+    <div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;padding:12px">
       <label class="fl">Plato / bebida</label>
       <input class="fi" id="mname" placeholder="ej: postre casero...">
       <label class="fl">Emoji</label>
-      <input class="fi" id="memoji" placeholder="🍽️" style="max-width:80px;text-align:center">
-      <button class="btp" style="width:100%;margin-top:2px" onclick="addMenuItem()">AGREGAR AL MENÚ</button>
+      <input class="fi" id="memoji" placeholder="🍽️" style="max-width:74px;text-align:center">
+      <button class="btp" style="width:100%;margin-top:1px" onclick="addMenuItem()">AGREGAR AL MENÚ</button>
     </div>
   </div>
 
@@ -268,12 +312,75 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
       <div class="tbt"        onclick="setTmpl(this,'cuentas')"     >💰 Cuentas</div>
       <div class="tbt"        onclick="setTmpl(this,'cierre')"      >🙌 Cierre</div>
     </div>
-    <div class="card" style="padding:0;margin-bottom:10px">
-      <div class="wsp" id="wsprev"></div>
+    <div class="card" style="padding:0;margin-bottom:9px">
+      <div class="wsprev" id="wsprev"></div>
     </div>
-    <div class="wbs">
+    <div class="wbtns">
       <button class="bwa" onclick="openWA()">📲 Abrir en WhatsApp</button>
       <button class="bcp" onclick="copyMsg()">📋 Copiar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALES ════════════════════════════════════════ -->
+
+<!-- Editar evento -->
+<div class="modal-bg" id="modal-event">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar Asado <button class="modal-close" onclick="closeModal('modal-event')">✕</button></div>
+    <label class="fl">Nombre del evento</label>
+    <input class="fi" id="me-title" placeholder="Asado en la Caleta">
+    <label class="fl">Fecha</label>
+    <input class="fi" id="me-date" placeholder="Sáb 11 Abril">
+    <label class="fl">Horario</label>
+    <input class="fi" id="me-time" placeholder="10:00–16:30">
+    <label class="fl">Lugar</label>
+    <input class="fi" id="me-loc" placeholder="La Caleta">
+    <div class="frow">
+      <button class="btp" onclick="saveEvent()">GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-event')">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Participantes -->
+<div class="modal-bg" id="modal-participants">
+  <div class="modal">
+    <div class="modal-title">👥 Participantes <button class="modal-close" onclick="closeModal('modal-participants')">✕</button></div>
+    <div id="part-list"></div>
+    <div class="div"></div>
+    <label class="fl">Agregar participante</label>
+    <div class="frow">
+      <input class="fi" id="new-part" placeholder="Nombre..." style="margin-bottom:0">
+      <button class="btp" style="flex:none;padding:10px 14px" onclick="addParticipant()">+</button>
+    </div>
+  </div>
+</div>
+
+<!-- Historial -->
+<div class="modal-bg" id="modal-history">
+  <div class="modal">
+    <div class="modal-title">📚 Historial <button class="modal-close" onclick="closeModal('modal-history')">✕</button></div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<!-- Nuevo asado confirm -->
+<div class="modal-bg" id="modal-new-asado">
+  <div class="modal">
+    <div class="modal-title">🔥 Nuevo Asado <button class="modal-close" onclick="closeModal('modal-new-asado')">✕</button></div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.6">El asado actual se va a archivar. Podés verlo en el historial.<br><br>Configurá el nuevo:</p>
+    <label class="fl">Nombre</label>
+    <input class="fi" id="na-title" value="Asado en la Caleta">
+    <label class="fl">Fecha</label>
+    <input class="fi" id="na-date" placeholder="Sáb 25 Abril">
+    <label class="fl">Horario</label>
+    <input class="fi" id="na-time" value="10:00–16:30">
+    <label class="fl">Lugar</label>
+    <input class="fi" id="na-loc" value="La Caleta">
+    <div class="frow">
+      <button class="btp" onclick="createNewAsado()">CREAR NUEVO ASADO 🔥</button>
+      <button class="btg" onclick="closeModal('modal-new-asado')">CANCELAR</button>
     </div>
   </div>
 </div>
@@ -281,78 +388,199 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
 <div class="toast" id="toast"></div>
 
 <script>
-// ══ CONFIG ══════════════════════════════════════════
-const PARTICIPANTS = ['yo','fide','herny','edu','gael','ruli','nestor','guille','sandy','adri','jorge'];
-
+// ══ SUPABASE ══════════════════════════════════════
+const { createClient } = supabase;
 let sb = null, sbOk = false;
 try {
-  if (SUPABASE_URL !== 'TU_PROJECT_URL') {
-    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    sbOk = true;
-  }
-} catch(e) { console.warn('Supabase:', e); }
+  sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  sbOk = true;
+} catch(e) { console.warn(e); }
 
-// ══ STATE ════════════════════════════════════════════
-let S = { expenses:[], tasks:[], menu:[], extra:[] };
+// ══ STATE ═════════════════════════════════════════
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[] };
 let me = localStorage.getItem('asado_user') || '';
 let tmpl = 'convocatoria';
 
-function allP() { return [...new Set([...PARTICIPANTS,...S.extra])]; }
+const isAdmin = () => me === ADMIN_USER;
+const allP    = () => S.participants.filter(p=>p.active).map(p=>p.name);
+const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
-// ══ SUPABASE ═════════════════════════════════════════
+// ══ FETCH ═════════════════════════════════════════
 async function fetchAll() {
   if (!sbOk) return;
-  const [a,b,c] = await Promise.all([
-    sb.from('expenses').select('*').order('created_at'),
-    sb.from('tasks').select('*').order('created_at'),
-    sb.from('menu_items').select('*').order('created_at'),
+  // Evento activo (no archivado)
+  const {data:evts} = await sb.from('events').select('*').order('created_at',{ascending:false});
+  if (!evts?.length) return;
+  S.allEvents = evts;
+  S.event = evts.find(e=>!e.archived) || evts[0];
+  const eid = S.event.id;
+
+  const [pa,ex,tk,mn] = await Promise.all([
+    sb.from('participants').select('*').order('created_at'),
+    sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
+    sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
+    sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
   ]);
-  if (a.data) S.expenses = a.data;
-  if (b.data) S.tasks    = b.data;
-  if (c.data) S.menu     = c.data;
+  if (pa.data) S.participants = pa.data;
+  if (ex.data) S.expenses     = ex.data;
+  if (tk.data) S.tasks        = tk.data;
+  if (mn.data) S.menu         = mn.data;
   renderAll();
 }
 
 function subscribe() {
   if (!sbOk) return;
-  sb.channel('rt')
-    .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},  ()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},     ()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},()=>fetchAll())
-    .subscribe(s => { document.getElementById('ldot').style.display = s==='SUBSCRIBED'?'inline-block':'none'; });
+  sb.channel('rt-all')
+    .on('postgres_changes',{event:'*',schema:'public',table:'events'},      ()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'participants'}, ()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},     ()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},        ()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},   ()=>fetchAll())
+    .subscribe(s=>{
+      document.getElementById('ldot').style.display = s==='SUBSCRIBED'?'inline-block':'none';
+    });
 }
 
-// ══ LOGIN ════════════════════════════════════════════
-function buildLogin() {
-  document.getElementById('name-grid').innerHTML = PARTICIPANTS.map(n=>
-    `<button class="nb" onclick="selectN('${n}')"><div class="avs">${n[0].toUpperCase()}</div>${n}</button>`
-  ).join('');
+// ══ LOGIN ═════════════════════════════════════════
+async function buildLogin() {
+  // Cargar evento para mostrar nombre/fecha en login
+  if (sbOk) {
+    const {data} = await sb.from('events').select('*').eq('archived',false).order('created_at',{ascending:false}).limit(1);
+    if (data?.[0]) {
+      document.getElementById('login-title').textContent = data[0].title;
+      document.getElementById('login-sub').textContent   = data[0].event_date+' · '+data[0].time_range;
+    }
+    const {data:parts} = await sb.from('participants').select('*').eq('active',true).order('created_at');
+    if (parts) {
+      document.getElementById('name-grid').innerHTML = parts.map(p=>`
+        <button class="nbtn" onclick="selectN('${p.name}')">
+          <div class="avs">${p.name[0].toUpperCase()}</div>${p.name}
+          ${p.name===ADMIN_USER?'<span class="badge-admin">admin</span>':''}
+        </button>`).join('');
+    }
+  }
 }
+
 function selectN(n) {
-  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('sel'));
-  document.querySelectorAll('.nb').forEach(b=>{ if(b.textContent.trim()===n) b.classList.add('sel'); });
-  document.getElementById('cname').value = n;
+  document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('sel'));
+  document.querySelectorAll('.nbtn').forEach(b=>{if(b.textContent.trim().startsWith(n))b.classList.add('sel');});
+  document.getElementById('cname').value=n;
 }
+
 function doLogin() {
-  const v = document.getElementById('cname').value.trim();
+  const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  if (!PARTICIPANTS.includes(v) && !S.extra.includes(v)) S.extra.push(v);
-  me = v;
-  localStorage.setItem('asado_user', v);
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display   = 'block';
-  document.getElementById('uav').textContent   = v[0].toUpperCase();
-  document.getElementById('udisp').textContent = v;
-  populateSel();
+  me=v; localStorage.setItem('asado_user',v);
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('uav').textContent=v[0].toUpperCase();
+  document.getElementById('udisp').textContent=v;
+  if (isAdmin()) {
+    document.getElementById('admin-bar').style.display='flex';
+    document.getElementById('tabs').classList.add('with-admin');
+  }
   fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
 }
-function logout() {
-  if (!confirm('¿Salir?')) return;
-  localStorage.removeItem('asado_user'); location.reload();
+function logout(){ if(!confirm('¿Salir?')) return; localStorage.removeItem('asado_user'); location.reload(); }
+
+// ══ MODALES ════════════════════════════════════════
+function openModal(id) {
+  if (id==='modal-event' && S.event) {
+    document.getElementById('me-title').value = S.event.title;
+    document.getElementById('me-date').value  = S.event.event_date;
+    document.getElementById('me-time').value  = S.event.time_range;
+    document.getElementById('me-loc').value   = S.event.location;
+  }
+  if (id==='modal-participants') renderParticipantsModal();
+  if (id==='modal-history') renderHistory();
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ══ ADMIN: EDITAR EVENTO ═══════════════════════════
+async function saveEvent() {
+  const title = document.getElementById('me-title').value.trim();
+  const date  = document.getElementById('me-date').value.trim();
+  const time  = document.getElementById('me-time').value.trim();
+  const loc   = document.getElementById('me-loc').value.trim();
+  if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
+  await sb.from('events').update({title,event_date:date,time_range:time,location:loc}).eq('id',S.event.id);
+  closeModal('modal-event');
+  await fetchAll();
+  toast('✅ Asado actualizado!');
 }
 
-// ══ UI HELPERS ═══════════════════════════════════════
+// ══ ADMIN: PARTICIPANTES ═══════════════════════════
+function renderParticipantsModal() {
+  document.getElementById('part-list').innerHTML = S.participants.map(p=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="av${p.active?'':' n'}" style="width:28px;height:28px;font-size:11px">${p.name[0].toUpperCase()}</div>
+        <span style="font-size:13px;font-weight:500;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}</span>
+        ${p.name===ADMIN_USER?'<span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px">admin</span>':''}
+      </div>
+      ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'Quitar':'Activar'}</button>`:''}
+    </div>`).join('');
+}
+
+async function toggleParticipant(id, active) {
+  await sb.from('participants').update({active:!active}).eq('id',id);
+  await fetchAll();
+  renderParticipantsModal();
+}
+
+async function addParticipant() {
+  const name=document.getElementById('new-part').value.trim();
+  if (!name) return;
+  const exists=S.participants.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if (exists) { await sb.from('participants').update({active:true}).eq('id',exists.id); }
+  else         { await sb.from('participants').insert({name,active:true}); }
+  document.getElementById('new-part').value='';
+  await fetchAll();
+  renderParticipantsModal();
+  toast('✅ Participante agregado!');
+}
+
+// ══ ADMIN: NUEVO ASADO ════════════════════════════
+function newAsado() { openModal('modal-new-asado'); }
+
+async function createNewAsado() {
+  const title=document.getElementById('na-title').value.trim();
+  const date =document.getElementById('na-date').value.trim();
+  const time =document.getElementById('na-time').value.trim();
+  const loc  =document.getElementById('na-loc').value.trim();
+  if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
+  // Archivar actual
+  await sb.from('events').update({archived:true}).eq('id',S.event.id);
+  // Crear nuevo
+  const {data} = await sb.from('events').insert({title,event_date:date,time_range:time,location:loc,creator:me}).select().single();
+  if (data) {
+    // Copiar tareas base al nuevo evento
+    await sb.from('tasks').insert([
+      {event_id:data.id,name:'Definir menú',category:'🛒 Otros',assignee:me,done:false},
+    ]);
+  }
+  closeModal('modal-new-asado');
+  await fetchAll();
+  toast('🔥 Nuevo asado creado!');
+}
+
+// ══ HISTORIAL ═════════════════════════════════════
+function renderHistory() {
+  const el=document.getElementById('history-list');
+  if (!S.allEvents.length) { el.innerHTML='<div class="empty"><div class="em">📚</div>Sin historial</div>'; return; }
+  el.innerHTML = S.allEvents.map(ev=>`
+    <div class="event-card${!ev.archived?' current':''}">
+      <div class="ec-top">
+        <div class="ec-title">${ev.title}</div>
+        <span class="ec-badge${ev.archived?' arch':''}">${ev.archived?'archivado':'activo 🟢'}</span>
+      </div>
+      <div class="ec-meta">📅 ${ev.event_date} · ${ev.time_range} · 📍 ${ev.location}</div>
+    </div>`).join('');
+}
+
+// ══ TABS ══════════════════════════════════════════
 function showTab(t) {
   document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(e=>e.classList.remove('active'));
@@ -362,17 +590,11 @@ function showTab(t) {
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
 function populateSel() {
-  const o = '<option value="">Sin asignar</option>'+allP().map(p=>`<option value="${p}">${p}</option>`).join('');
-  document.getElementById('ftassign').innerHTML = o;
+  const o='<option value="">Sin asignar</option>'+allP().map(p=>`<option value="${p}">${p}</option>`).join('');
+  document.getElementById('ftassign').innerHTML=o;
 }
-function toast(msg, bg='var(--green)') {
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.style.background=bg;
-  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400);
-}
-function fmt(n) { return '$'+Math.abs(Math.round(n)).toLocaleString('es-AR'); }
 
-// ══ GASTOS ═══════════════════════════════════════════
+// ══ GASTOS ════════════════════════════════════════
 const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
 const getPP    = ()=> { const n=allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer===n).reduce((a,e)=>a+parseFloat(e.amount),0);
@@ -382,21 +604,14 @@ async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
   const amt=parseFloat(document.getElementById('feamt').value);
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  document.getElementById('fedesc').value='';
-  document.getElementById('feamt').value='';
-  tf('fexp');
-  if (sbOk) {
-    const {error}=await sb.from('expenses').insert({payer:me,description:desc,amount:amt});
-    if (error) { toast('Error guardando','var(--red)'); return; }
-    await fetchAll();
-  } else {
-    S.expenses.push({id:Date.now(),payer:me,description:desc,amount:amt}); renderAll();
-  }
+  document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
+  await sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt});
   toast('✅ Gasto cargado!');
 }
 
 function renderGastos() {
-  const pp=getPP(), total=getTotal(), mb=bal(me);
+  if (!S.event) return;
+  const pp=getPP(),total=getTotal(),mb=bal(me);
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
   document.getElementById('sc').textContent  = allP().length;
@@ -405,56 +620,54 @@ function renderGastos() {
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
   document.getElementById('ballist').innerHTML = allP().map(p=>{
-    const b=bal(p), im=p===me;
+    const b=bal(p),im=p===me;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
-        <div>
-          <div class="pn">${p}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
-          <div class="ps">Pagó: ${fmt(paid(p))}</div>
-        </div>
+        <div><div class="pname">${p}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
+        <div class="psub">Pagó: ${fmt(paid(p))}</div></div>
       </div>
       <div>
-        <div class="bv ${b>=0?'cgr':'cr'}">${b>=0?'+':'-'}${fmt(b)}</div>
-        <div class="bl">${b>=0?'a cobrar':'debe pagar'}</div>
+        <div class="bval ${b>=0?'cgr':'cr'}">${b>=0?'+':'-'}${fmt(b)}</div>
+        <div class="blbl">${b>=0?'a cobrar':'debe pagar'}</div>
       </div>
     </div>`;
   }).join('');
 
   const el=document.getElementById('explist');
-  el.innerHTML = S.expenses.length===0
-    ? '<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
-    : [...S.expenses].reverse().map(e=>`
-        <div class="er">
-          <div class="ei">🧾</div>
-          <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer}</div></div>
-          <div class="ea">${fmt(e.amount)}</div>
-        </div>`).join('');
+  el.innerHTML=S.expenses.length===0
+    ?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
+    :[...S.expenses].reverse().map(e=>`
+      <div class="er">
+        <div class="ei">🧾</div>
+        <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer}</div></div>
+        <div class="ea">${fmt(e.amount)}</div>
+      </div>`).join('');
 }
 
-// ══ TAREAS ═══════════════════════════════════════════
+// ══ TAREAS ════════════════════════════════════════
 async function addTask() {
   const name=document.getElementById('ftname').value.trim();
   const assignee=document.getElementById('ftassign').value;
   const cat=document.getElementById('ftcat').value;
   if (!name) { toast('Escribí la tarea','var(--red)'); return; }
   document.getElementById('ftname').value=''; tf('ftask');
-  if (sbOk) {
-    await sb.from('tasks').insert({name,category:cat,assignee,done:false});
-    await fetchAll();
-  } else {
-    S.tasks.push({id:Date.now(),name,category:cat,assignee,done:false}); renderAll();
-  }
+  await sb.from('tasks').insert({event_id:S.event.id,name,category:cat,assignee,done:false});
   toast('✅ Tarea agregada!');
 }
 
-async function toggleTask(id, current) {
-  if (sbOk) {
-    await sb.from('tasks').update({done:!current}).eq('id',id);
-    await fetchAll();
-  } else {
-    const t=S.tasks.find(x=>x.id===id); if(t) t.done=!t.done; renderAll();
-  }
+async function toggleTask(id,current) {
+  await sb.from('tasks').update({done:!current}).eq('id',id);
+}
+
+async function assignToMe(id) {
+  await sb.from('tasks').update({assignee:me}).eq('id',id);
+  toast('✅ Tarea asignada a vos!');
+}
+
+async function deleteTask(id) {
+  if (!confirm('¿Eliminar tarea?')) return;
+  await sb.from('tasks').delete().eq('id',id);
 }
 
 function renderTasks() {
@@ -463,65 +676,83 @@ function renderTasks() {
   const cats={};
   S.tasks.forEach(t=>{ (cats[t.category]=cats[t.category]||[]).push(t); });
   el.innerHTML=Object.entries(cats).map(([cat,tasks])=>`
-    <div class="ch">${cat}</div>
+    <div class="ach">${cat}</div>
     ${tasks.map(t=>`
       <div class="tkr${t.done?' dn':''}">
         <div class="tkc${t.done?' ck':''}" onclick="toggleTask(${t.id},${t.done})"></div>
-        <div class="tkb">
-          <div class="tkn">${t.name}</div>
-          <div style="margin-top:3px">
+        <div class="tkbody">
+          <div class="tknm">${t.name}</div>
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
             ${t.assignee
               ?`<span class="ac${t.assignee===me?' mine':''}">👤 ${t.assignee}</span>`
               :`<span style="color:var(--muted);font-size:10px">Sin asignar</span>`}
+            ${!t.assignee||t.assignee!==me?`<span class="pill pill-assign" onclick="assignToMe(${t.id})">✋ Yo me encargo</span>`:''}
+            ${isAdmin()?`<span class="pill" style="background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.2);color:var(--red)" onclick="deleteTask(${t.id})">🗑</span>`:''}
           </div>
         </div>
       </div>`).join('')}`).join('');
 }
 
-// ══ MENÚ ═════════════════════════════════════════════
+// ══ MENÚ ══════════════════════════════════════════
 async function addMenuItem() {
   const name=document.getElementById('mname').value.trim();
   const emoji=document.getElementById('memoji').value.trim()||'🍽️';
   if (!name) { toast('Escribí el nombre','var(--red)'); return; }
   document.getElementById('mname').value=''; document.getElementById('memoji').value='';
-  const detail=`Sugerido por ${me}`;
-  if (sbOk) {
-    await sb.from('menu_items').insert({emoji,name,detail,status:'pending'});
-    await fetchAll();
-  } else {
-    S.menu.push({id:Date.now(),emoji,name,detail,status:'pending'}); renderAll();
-  }
+  await sb.from('menu_items').insert({event_id:S.event.id,emoji,name,detail:`Sugerido por ${me}`,status:'pending'});
   toast('✅ Ítem agregado!');
 }
 
+async function toggleMenuStatus(id,current) {
+  const next = current==='confirmed'?'pending':'confirmed';
+  await sb.from('menu_items').update({status:next}).eq('id',id);
+}
+
+async function deleteMenuItem(id) {
+  if (!isAdmin()) { toast('Solo el admin puede eliminar','var(--red)'); return; }
+  await sb.from('menu_items').delete().eq('id',id);
+}
+
 function renderMenu() {
-  document.getElementById('menulist').innerHTML = S.menu.map(m=>`
+  const el=document.getElementById('menulist');
+  if (!S.menu.length) { el.innerHTML='<div class="empty"><div class="em">🍽️</div>Menú vacío</div>'; return; }
+  el.innerHTML=S.menu.map(m=>`
     <div class="mr">
       <div class="ml">
-        <div class="me_">${m.emoji}</div>
-        <div><div class="mn">${m.name}</div><div class="md">${m.detail}</div></div>
+        <div class="mem">${m.emoji}</div>
+        <div><div class="mnm">${m.name}</div><div class="mdt">${m.detail}</div></div>
       </div>
-      <span class="${m.status==='confirmed'?'tok':'tpn'}">${m.status==='confirmed'?'✓ listo':'pendiente'}</span>
+      <div class="mright">
+        <span class="${m.status==='confirmed'?'tok':'tpn'}" onclick="toggleMenuStatus(${m.id},'${m.status}')">${m.status==='confirmed'?'✓ listo':'pendiente'}</span>
+        ${isAdmin()?`<button style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px" onclick="deleteMenuItem(${m.id})">🗑</button>`:''}
+      </div>
     </div>`).join('');
 }
 
-// ══ WS ═══════════════════════════════════════════════
-function setTmpl(el,t) {
-  document.querySelectorAll('.tbt').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active'); tmpl=t; renderWS();
+// ══ HEADER ════════════════════════════════════════
+function renderHeader() {
+  if (!S.event) return;
+  document.getElementById('evt-name').textContent = S.event.title;
+  document.getElementById('hdr-sub').textContent  = S.event.event_date+' · '+S.event.time_range+(S.event.location?' · '+S.event.location:'');
 }
+
+// ══ WS ════════════════════════════════════════════
+function setTmpl(el,t){ document.querySelectorAll('.tbt').forEach(b=>b.classList.remove('active')); el.classList.add('active'); tmpl=t; renderWS(); }
+
 function buildMsg(type) {
-  const pp=fmt(getPP()), tot=fmt(getTotal());
-  const mn  = S.menu.map(m=>`   ${m.emoji} ${m.name}`).join('\n')||'   (en construcción)';
-  const pt  = S.tasks.filter(t=>!t.done);
-  const deu = allP().filter(p=>bal(p)<-100);
-  const acr = allP().filter(p=>bal(p)>100);
+  const ev=S.event||{};
+  const pp=fmt(getPP()),tot=fmt(getTotal());
+  const mn=S.menu.map(m=>`   ${m.emoji} ${m.name}`).join('\n')||'   (en construcción)';
+  const pt=S.tasks.filter(t=>!t.done);
+  const deu=allP().filter(p=>bal(p)<-100);
+  const acr=allP().filter(p=>bal(p)>100);
   return ({
     convocatoria:
-`🔥 *ASADO EN LA CALETA* 🔥
+`🔥 *${ev.title||'ASADO'}* 🔥
 
-📅 Sábado 11 de Abril
-🕙 10:00 hs
+📅 ${ev.event_date||''}
+🕙 ${ev.time_range||''}
+📍 ${ev.location||''}
 
 🍽️ *Menú:*
 ${mn}
@@ -542,20 +773,20 @@ ${pt.length===0?'✅ ¡Todo comprado!':pt.map(t=>`⬜ ${t.name}${t.assignee?' �
 Quien pueda agarrar algo, avisa 👆`,
 
     recordatorio:
-`⏰ *RECORDA — ASADO MAÑANA*
+`⏰ *RECORDA — ${ev.title||'ASADO'} MAÑANA*
 
-🔥 Asado en la Caleta
-📅 Mañana sábado · 10:00 hs
+📅 ${ev.event_date||''} · ${ev.time_range||''}
+📍 ${ev.location||''}
 
 Traer:
-🍷 Vino +1.200 mts de altura
+🍷 Vino +1.200 mts
 🍴 Cubiertos propios
 💰 Plata si no transfirieron (${pp})
 
 ¡Los esperamos! 🥩`,
 
     cuentas:
-`💰 *CUENTAS DEL ASADO*
+`💰 *CUENTAS — ${ev.title||'ASADO'}*
 
 Total: *${tot}* · ${allP().length} personas · *${pp}* c/u
 ${deu.length?'\n⚡ *Deben transferir:*\n'+deu.map(p=>`   • ${p}: ${fmt(Math.abs(bal(p)))}`).join('\n'):''}
@@ -564,7 +795,7 @@ ${acr.length?'\n✅ *A cobrar:*\n'+acr.map(p=>`   • ${p}: ${fmt(bal(p))}`).joi
 Pagan por CBU/CVU o efectivo 💵`,
 
     cierre:
-`🙌 *¡GRACIAS A TODOS!*
+`🙌 *¡GRACIAS A TODOS! — ${ev.title||'ASADO'}*
 
 Qué asadazo 🔥🥩
 Gracias por la buena onda y los vinos de altura 🍷
@@ -572,19 +803,39 @@ Gracias por la buena onda y los vinos de altura 🍷
 ¡Hasta la próxima! #AsadoEnLaCaleta`
   })[type];
 }
-function renderWS() { document.getElementById('wsprev').textContent=buildMsg(tmpl); }
-function openWA()   { window.open(`https://wa.me/?text=${encodeURIComponent(buildMsg(tmpl))}`,'_blank'); }
-function copyMsg()  {
+
+function renderWS(){ if(S.event) document.getElementById('wsprev').textContent=buildMsg(tmpl); }
+function openWA()  { window.open(`https://wa.me/?text=${encodeURIComponent(buildMsg(tmpl))}`,'_blank'); }
+function copyMsg() {
   const m=buildMsg(tmpl);
   if(navigator.clipboard) navigator.clipboard.writeText(m);
-  else { const t=document.createElement('textarea');t.value=m;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t); }
+  else{const t=document.createElement('textarea');t.value=m;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}
   toast('📋 Copiado!');
 }
 
-// ══ RENDER ALL ═══════════════════════════════════════
-function renderAll() { renderGastos(); renderTasks(); renderMenu(); renderWS(); populateSel(); }
+// ══ RENDER ALL ════════════════════════════════════
+function renderAll() {
+  renderHeader();
+  renderGastos();
+  renderTasks();
+  renderMenu();
+  renderWS();
+  populateSel();
+}
 
-// ══ INIT ═════════════════════════════════════════════
+// ══ UTILS ═════════════════════════════════════════
+function toast(msg,bg='var(--green)') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.style.background=bg;
+  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+// cerrar modal tocando fondo
+document.querySelectorAll('.modal-bg').forEach(bg=>{
+  bg.addEventListener('click', e=>{ if(e.target===bg) bg.classList.remove('open'); });
+});
+
+// ══ INIT ══════════════════════════════════════════
 buildLogin();
 if (me) doLogin();
 </script>
