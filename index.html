@@ -12,24 +12,60 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-:root{
-  --fire:#FF4500;--ember:#FF8C00;--gold:#FFBF00;
-  --coal:#141414;--smoke:#1E1E1E;--ash:#2A2A2A;--rim:#383838;
-  --text:#F0EBE3;--muted:#888;
-  --green:#27AE60;--red:#E74C3C;--blue:#2E86DE;--wine:#722F37;
+/* ── DARK (default) ─────────────────────── */
+:root {
+  --fire:#FF4500; --ember:#FF8C00; --gold:#FFBF00;
+  --coal:#141414; --smoke:#1E1E1E; --ash:#2A2A2A; --rim:#383838;
+  --text:#F0EBE3; --muted:#888; --wine:#722F37;
+  --green:#27AE60; --red:#E74C3C; --blue:#2E86DE;
+  --shadow: 0 2px 12px rgba(0,0,0,.4);
 }
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden}
+
+/* ── LIGHT ──────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root {
+    --coal:#F0EAE2; --smoke:#FFFFFF; --ash:#F5EFE8;
+    --rim:#DDD5C8; --text:#1A1208; --muted:#7A6E64;
+    --shadow: 0 2px 12px rgba(0,0,0,.08);
+  }
+  body { background: #F0EAE2; }
+  .hdr { background: linear-gradient(180deg,#FFF5EC,#FFFFFF) !important; box-shadow: 0 2px 12px rgba(0,0,0,.08) !important; }
+  #login-screen { background: radial-gradient(ellipse at 50% 0%,rgba(255,140,0,.15) 0%,transparent 60%), #F0EAE2 !important; }
+  .wsprev { background:#F0FFF4 !important; color:#1A3A20 !important; border-color:#B2DFBB !important; }
+  .admin-bar { background: rgba(255,69,0,.05) !important; }
+  .wnote { background: rgba(114,47,55,.08) !important; }
+}
+
+/* ── RESET ──────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { font-size:16px; }
+body {
+  font-family:'DM Sans',sans-serif;
+  background:var(--coal); color:var(--text);
+  min-height:100vh; overflow-x:hidden;
+}
+
+/* ── RESPONSIVE ─────────────────────────── */
+#login-screen, #app { max-width:min(480px,100vw); margin:0 auto; }
+
+@media (min-width:600px) {
+  #login-screen, #app { max-width:520px; }
+}
+@media (min-width:1024px) {
+  body { display:flex; justify-content:center; align-items:flex-start; background:color-mix(in srgb, var(--coal) 85%, #000); }
+  #login-screen, #app { max-width:480px; min-height:100vh; box-shadow:0 0 60px rgba(0,0,0,.25); }
+}
+
 
 /* ── LOGIN ─────────────────────── */
-#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 22px;background:radial-gradient(ellipse at 50% 0%,rgba(255,69,0,.18) 0%,transparent 60%),var(--coal)}
+#login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 22px;background:radial-gradient(ellipse at 50% 0%,rgba(255,69,0,.18) 0%,transparent 60%),var(--coal);transition:background .3s}
 .lfire{font-size:68px;animation:flk 1.8s ease-in-out infinite alternate;margin-bottom:8px;filter:drop-shadow(0 0 20px rgba(255,69,0,.6))}
 @keyframes flk{0%{transform:scale(1) rotate(-1deg)}50%{transform:scale(1.06) rotate(1deg)}100%{transform:scale(1.03) rotate(-1deg)}}
 .ltitle{font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:3px;text-align:center;line-height:1;margin-bottom:4px}
 .lsub{font-size:12px;color:var(--ember);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:32px}
 .lcard{width:100%;background:var(--smoke);border-radius:20px;padding:24px 20px;border:1px solid var(--rim);box-shadow:0 8px 40px rgba(0,0,0,.4)}
 .llabel{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:9px;display:block}
-.ngrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px}
+.ngrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px} @media(min-width:400px){.ngrid{grid-template-columns:1fr 1fr 1fr}}
 .nbtn{padding:10px 7px;background:var(--ash);border:1px solid var(--rim);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:7px}
 .nbtn:hover,.nbtn.sel{background:rgba(255,69,0,.15);border-color:var(--fire);color:var(--fire)}
 .nbtn .badge-admin{font-size:9px;margin-left:auto;background:var(--fire);color:white;border-radius:4px;padding:1px 5px}
@@ -74,7 +110,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
 /* ── COMPONENTES ────────────────── */
 .sh{font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:2px;color:var(--ember);margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .card{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);overflow:hidden;margin-bottom:10px}
-.sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px} @media(min-width:400px){.sg{gap:10px}} 
 .sb{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:12px 11px;position:relative;overflow:hidden}
 .sb::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
 .sbf::after{background:linear-gradient(90deg,var(--fire),var(--ember))}
@@ -257,7 +293,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
     <div class="tab active" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab"        onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
     <div class="tab"        onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
-    <div class="tab"        onclick="showTab('ws')"    ><span class="ti">📲</span>WS</div>
+    <div class="tab" id="tab-ws" style="display:none" onclick="showTab('ws')"><span class="ti">📲</span>WS</div>
   </div>
 
   <!-- GASTOS -->
@@ -598,6 +634,7 @@ function doLogin() {
   document.getElementById('udisp').textContent=v;
   if (isAdmin()) {
     document.getElementById('admin-toggle').style.display='block';
+    document.getElementById('tab-ws').style.display='flex';
   }
   fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
