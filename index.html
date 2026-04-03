@@ -406,6 +406,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
     <input class="fi" id="me-time" placeholder="10:00–16:30">
     <label class="fl">Lugar</label>
     <input class="fi" id="me-loc" placeholder="La Caleta">
+    <label class="fl">Comensales <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(opcional — si no completás, usa la lista de participantes)</span></label>
+    <input class="fi" id="me-comensales" type="number" inputmode="numeric" placeholder="ej: 11" min="1" max="100">
     <div class="frow">
       <button class="btp" onclick="saveEvent()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-event')">CANCELAR</button>
@@ -579,6 +581,7 @@ function openModal(id) {
     document.getElementById('me-date').value  = S.event.event_date;
     document.getElementById('me-time').value  = S.event.time_range;
     document.getElementById('me-loc').value   = S.event.location;
+    document.getElementById('me-comensales').value = S.event.comensales || '';
   }
   if (id==='modal-participants') renderParticipantsModal();
   if (id==='modal-history') renderHistory();
@@ -593,7 +596,9 @@ async function saveEvent() {
   const time  = document.getElementById('me-time').value.trim();
   const loc   = document.getElementById('me-loc').value.trim();
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
-  await sb.from('events').update({title,event_date:date,time_range:time,location:loc}).eq('id',S.event.id);
+  const comen_val = document.getElementById('me-comensales').value;
+  const comensales = comen_val ? parseInt(comen_val) : null;
+  await sb.from('events').update({title,event_date:date,time_range:time,location:loc,comensales}).eq('id',S.event.id);
   closeModal('modal-event');
   await fetchAll();
   toast('✅ Asado actualizado!');
