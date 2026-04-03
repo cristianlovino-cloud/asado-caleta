@@ -245,7 +245,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
       <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
-      <div class="sb sbb"><div class="sl">Participantes</div><div class="sv cb" id="sc">0</div></div>
+      <div class="sb sbb" style="cursor:pointer" onclick="isAdmin()&&openModal('modal-comensales')">
+        <div class="sl">Comensales <span id="comen-edit" style="display:none;font-size:9px;color:var(--blue)">✏️</span></div>
+        <div class="sv cb" id="sc">0</div>
+      </div>
       <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
     </div>
     <button class="bta" onclick="tf('fexp')">+ CARGAR MI GASTO</button>
@@ -325,7 +328,71 @@ body{font-family:'DM Sans',sans-serif;background:var(--coal);color:var(--text);m
   </div>
 </div>
 
+<!-- Modal comensales -->
+<div class="modal-bg" id="modal-comensales">
+  <div class="modal">
+    <div class="modal-title">👥 Comensales <button class="modal-close" onclick="closeModal('modal-comensales')">✕</button></div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Cantidad de personas que dividen el costo. Puede ser distinto a los participantes registrados.</p>
+    <label class="fl">Cantidad de comensales</label>
+    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="11" min="1" max="100">
+    <div class="frow">
+      <button class="btp" onclick="saveComensales()">GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-comensales')">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar gasto -->
+<div class="modal-bg" id="modal-edit-expense">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar Gasto <button class="modal-close" onclick="closeModal('modal-edit-expense')">✕</button></div>
+    <input type="hidden" id="edit-exp-id">
+    <label class="fl">Concepto</label>
+    <input class="fi" id="edit-exp-desc" placeholder="Concepto...">
+    <label class="fl">Monto $</label>
+    <input class="fi" id="edit-exp-amt" type="number" inputmode="numeric" placeholder="0">
+    <label class="fl">Pagado por</label>
+    <select class="fsel" id="edit-exp-payer"></select>
+    <div class="frow">
+      <button class="btp" onclick="saveEditExpense()">GUARDAR</button>
+      <button class="btg" style="color:var(--red);border-color:rgba(231,76,60,.3)" onclick="deleteExpense()">🗑 ELIMINAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODALES ════════════════════════════════════════ -->
+
+<!-- Modal comensales -->
+<div class="modal-bg" id="modal-comensales">
+  <div class="modal">
+    <div class="modal-title">👥 Comensales <button class="modal-close" onclick="closeModal('modal-comensales')">✕</button></div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Cantidad de personas que dividen el costo. Puede ser diferente a los participantes registrados.</p>
+    <label class="fl">Cantidad de comensales</label>
+    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="11" min="1" max="100">
+    <div class="frow">
+      <button class="btp" onclick="saveComensales()">GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-comensales')">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar gasto -->
+<div class="modal-bg" id="modal-edit-expense">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar Gasto <button class="modal-close" onclick="closeModal('modal-edit-expense')">✕</button></div>
+    <input type="hidden" id="edit-exp-id">
+    <label class="fl">Concepto</label>
+    <input class="fi" id="edit-exp-desc" placeholder="Concepto...">
+    <label class="fl">Monto $</label>
+    <input class="fi" id="edit-exp-amt" type="number" inputmode="numeric" placeholder="0">
+    <label class="fl">Pagado por</label>
+    <select class="fsel" id="edit-exp-payer"></select>
+    <div class="frow">
+      <button class="btp" onclick="saveEditExpense()">GUARDAR</button>
+      <button class="btg" style="color:var(--red);border-color:rgba(231,76,60,.3)" onclick="deleteExpense()">🗑 ELIMINAR</button>
+    </div>
+  </div>
+</div>
 
 <!-- Editar evento -->
 <div class="modal-bg" id="modal-event">
@@ -501,6 +568,12 @@ function toggleAdminBar() {
 
 // ══ MODALES ════════════════════════════════════════
 function openModal(id) {
+  if (id==='modal-comensales' && S.event) {
+    document.getElementById('comen-input').value = S.event.comensales || allP().length;
+  }
+  if (id==='modal-comensales' && S.event) {
+    document.getElementById('comen-input').value = S.event.comensales || allP().length;
+  }
   if (id==='modal-event' && S.event) {
     document.getElementById('me-title').value = S.event.title;
     document.getElementById('me-date').value  = S.event.event_date;
@@ -611,7 +684,7 @@ function populateSel() {
 
 // ══ GASTOS ════════════════════════════════════════
 const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
-const getPP    = ()=> { const n=allP().length; return n?Math.round(getTotal()/n):0; };
+const getPP    = ()=> { const n = S.event?.comensales || allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer===n).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
 
@@ -629,7 +702,9 @@ function renderGastos() {
   const pp=getPP(),total=getTotal(),mb=bal(me);
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
-  document.getElementById('sc').textContent  = allP().length;
+  const comen = S.event?.comensales || allP().length;
+  document.getElementById('sc').textContent  = comen;
+  if(isAdmin()) document.getElementById('comen-edit').style.display='inline';
   const sm=document.getElementById('sm');
   sm.textContent=(mb>=0?'+':'-')+fmt(mb);
   sm.className='sv '+(mb>=0?'cgr':'cr');
@@ -656,7 +731,10 @@ function renderGastos() {
       <div class="er">
         <div class="ei">🧾</div>
         <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer}</div></div>
-        <div class="ea">${fmt(e.amount)}</div>
+        <div style="display:flex;align-items:center;gap:7px">
+          <div class="ea">${fmt(e.amount)}</div>
+          ${isAdmin()?`<button onclick="openEditExpense(${e.id})" style="background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 7px;font-size:12px;cursor:pointer;color:var(--muted)">✏️</button>`:''}
+        </div>
       </div>`).join('');
 }
 
@@ -749,6 +827,94 @@ function renderHeader() {
   if (!S.event) return;
   document.getElementById('evt-name').textContent = S.event.title;
   document.getElementById('hdr-sub').textContent  = S.event.event_date+' · '+S.event.time_range+(S.event.location?' · '+S.event.location:'');
+}
+
+// ══ COMENSALES ═══════════════════════════════════
+function saveComensales() {
+  const n = parseInt(document.getElementById('comen-input').value);
+  if (!n || n < 1) { toast('Ingresá un número válido','var(--red)'); return; }
+  sb.from('events').update({comensales: n}).eq('id', S.event.id).then(()=>{
+    closeModal('modal-comensales');
+    fetchAll();
+    toast('✅ Comensales actualizados!');
+  });
+}
+
+// ══ EDITAR/ELIMINAR GASTOS (admin) ════════════════
+function openEditExpense(id) {
+  const e = S.expenses.find(x=>x.id===id);
+  if (!e) return;
+  document.getElementById('edit-exp-id').value   = id;
+  document.getElementById('edit-exp-desc').value = e.description;
+  document.getElementById('edit-exp-amt').value  = e.amount;
+  // populate payer select
+  const sel = document.getElementById('edit-exp-payer');
+  sel.innerHTML = allP().map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p}</option>`).join('');
+  openModal('modal-edit-expense');
+}
+
+async function saveEditExpense() {
+  const id    = parseInt(document.getElementById('edit-exp-id').value);
+  const desc  = document.getElementById('edit-exp-desc').value.trim();
+  const amt   = parseFloat(document.getElementById('edit-exp-amt').value);
+  const payer = document.getElementById('edit-exp-payer').value;
+  if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
+  await sb.from('expenses').update({description:desc, amount:amt, payer}).eq('id',id);
+  closeModal('modal-edit-expense');
+  await fetchAll();
+  toast('✅ Gasto actualizado!');
+}
+
+async function deleteExpense() {
+  const id = parseInt(document.getElementById('edit-exp-id').value);
+  if (!confirm('¿Eliminar este gasto?')) return;
+  await sb.from('expenses').delete().eq('id',id);
+  closeModal('modal-edit-expense');
+  await fetchAll();
+  toast('🗑 Gasto eliminado');
+}
+
+// ══ COMENSALES ═══════════════════════════════════
+function saveComensales() {
+  const n = parseInt(document.getElementById('comen-input').value);
+  if (!n || n < 1) { toast('Ingresá un número válido','var(--red)'); return; }
+  sb.from('events').update({comensales: n}).eq('id', S.event.id).then(()=>{
+    closeModal('modal-comensales');
+    fetchAll();
+    toast('✅ Comensales actualizados!');
+  });
+}
+
+function openEditExpense(id) {
+  const e = S.expenses.find(x=>x.id===id);
+  if (!e) return;
+  document.getElementById('edit-exp-id').value   = id;
+  document.getElementById('edit-exp-desc').value = e.description;
+  document.getElementById('edit-exp-amt').value  = e.amount;
+  const sel = document.getElementById('edit-exp-payer');
+  sel.innerHTML = allP().map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p}</option>`).join('');
+  openModal('modal-edit-expense');
+}
+
+async function saveEditExpense() {
+  const id    = parseInt(document.getElementById('edit-exp-id').value);
+  const desc  = document.getElementById('edit-exp-desc').value.trim();
+  const amt   = parseFloat(document.getElementById('edit-exp-amt').value);
+  const payer = document.getElementById('edit-exp-payer').value;
+  if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
+  await sb.from('expenses').update({description:desc, amount:amt, payer}).eq('id',id);
+  closeModal('modal-edit-expense');
+  await fetchAll();
+  toast('✅ Gasto actualizado!');
+}
+
+async function deleteExpense() {
+  const id = parseInt(document.getElementById('edit-exp-id').value);
+  if (!confirm('¿Eliminar este gasto?')) return;
+  await sb.from('expenses').delete().eq('id',id);
+  closeModal('modal-edit-expense');
+  await fetchAll();
+  toast('🗑 Gasto eliminado');
 }
 
 // ══ WS ════════════════════════════════════════════
