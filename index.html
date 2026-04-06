@@ -284,6 +284,7 @@ body {
     <button class="abtn" onclick="openModal('modal-event')">✏️ Editar asado</button>
     <button class="abtn" onclick="openModal('modal-participants')">👥 Participantes</button>
     <button class="abtn" onclick="openModal('modal-history')">📚 Historial</button>
+    <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
   </div>
 
@@ -338,6 +339,12 @@ body {
         <option>🔥 Insumos</option><option>🍰 Postres</option>
         <option>🛒 Otros</option>
       </select>
+      <label class="fl">Cantidad <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(opcional, ej: 2 bolsas)</span></label>
+      <div class="frow" style="align-items:center;gap:8px;margin-bottom:8px">
+        <button type="button" onclick="stepQty(-1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:18px;cursor:pointer;flex-shrink:0">−</button>
+        <input class="fi" id="ftqty" type="number" placeholder="1" min="1" style="text-align:center;margin-bottom:0;flex:1">
+        <button type="button" onclick="stepQty(1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:18px;cursor:pointer;flex-shrink:0">+</button>
+      </div>
       <div class="frow">
         <button class="btp" onclick="addTask()">GUARDAR</button>
         <button class="btg" onclick="tf('ftask')">✕</button>
@@ -491,6 +498,21 @@ body {
   </div>
 </div>
 
+<!-- Modal categorías -->
+<div class="modal-bg" id="modal-categories">
+  <div class="modal">
+    <div class="modal-title">🏷️ Categorías <button class="modal-close" onclick="closeModal('modal-categories')">✕</button></div>
+    <div id="cats-list" style="margin-bottom:14px"></div>
+    <div class="div"></div>
+    <label class="fl">Nueva categoría</label>
+    <div class="frow">
+      <input class="fi" id="new-cat-emoji" placeholder="🛒" style="max-width:60px;text-align:center;margin-bottom:0;flex:none">
+      <input class="fi" id="new-cat-name" placeholder="Nombre..." style="margin-bottom:0">
+      <button class="btp" style="flex:none;padding:10px 14px" onclick="addCategory()">+</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal editar tarea -->
 <div class="modal-bg" id="modal-edit-task">
   <div class="modal">
@@ -611,9 +633,19 @@ async function buildLogin() {
 
 // selectN removed - free text login
 
-function doLogin() {
+async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
+  // Validar nombre en uso (case-insensitive, excepto admin)
+  if (sbOk && v.toLowerCase() !== ADMIN_USER.toLowerCase()) {
+    const {data} = await sb.from('active_sessions').select('name').ilike('name', v).limit(1);
+    if (data && data.length > 0) {
+      toast(`⚠️ "${v}" ya está en uso — revisá tu nombre`,'var(--red)');
+      document.getElementById('cname').select();
+      return;
+    }
+    await sb.from('active_sessions').upsert({name: v.toLowerCase(), last_seen: new Date().toISOString()},{onConflict:'name'});
+  }
   me=v; localStorage.setItem('asado_user',v);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -833,9 +865,12 @@ async function addTask() {
   const name=document.getElementById('ftname').value.trim();
   const assignee=document.getElementById('ftassign').value;
   const cat=document.getElementById('ftcat').value;
+  const qty=parseInt(document.getElementById('ftqty').value)||null;
   if (!name) { toast('Escribí la tarea','var(--red)'); return; }
-  document.getElementById('ftname').value=''; tf('ftask');
-  await sb.from('tasks').insert({event_id:S.event.id,name,category:cat,assignee,done:false});
+  document.getElementById('ftname').value='';
+  document.getElementById('ftqty').value='';
+  tf('ftask');
+  await sb.from('tasks').insert({event_id:S.event.id,name,category:cat,assignee,done:false,qty});
   toast('✅ Tarea agregada!');
 }
 
@@ -864,7 +899,7 @@ function renderTasks() {
       <div class="tkr${t.done?' dn':''}">
         <div class="tkc${t.done?' ck':''}" onclick="toggleTask(${t.id},${t.done})"></div>
         <div class="tkbody">
-          <div class="tknm">${t.name}</div>
+          <div class="tknm">${t.name}${t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:13px;color:var(--ember);margin-left:4px">×${t.qty}</span>`:''}</div>
           <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
             ${t.assignee
               ?`<span class="ac${t.assignee===me?' mine':''}">👤 ${t.assignee}</span>`
@@ -874,6 +909,65 @@ function renderTasks() {
           </div>
         </div>
       </div>`).join('')}`).join('');
+}
+
+// ══ CATEGORÍAS ════════════════════════════════════
+const DEFAULT_CATS = ['🥩 Carnes','🥗 Verduras','🧀 Fiambres','🍺 Bebidas','🔥 Insumos','🍰 Postres','🛒 Otros'];
+
+function getCats() {
+  try { return JSON.parse(localStorage.getItem('asado_cats') || 'null') || DEFAULT_CATS; } 
+  catch { return DEFAULT_CATS; }
+}
+function saveCats(cats) { localStorage.setItem('asado_cats', JSON.stringify(cats)); }
+
+function renderCatSelects() {
+  const cats = getCats();
+  const opts = cats.map(c=>`<option>${c}</option>`).join('');
+  ['ftcat','edit-task-cat'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) { const prev=el.value; el.innerHTML=opts; el.value=prev||cats[0]; }
+  });
+}
+
+// openModal defined above
+
+function renderCategoriesModal() {
+  const cats = getCats();
+  document.getElementById('cats-list').innerHTML = cats.map((c,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
+      <span style="font-size:14px">${c}</span>
+      ${DEFAULT_CATS.includes(c)?'':
+        `<button onclick="deleteCategory(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">🗑</button>`}
+    </div>`).join('');
+}
+
+function addCategory() {
+  const emoji = document.getElementById('new-cat-emoji').value.trim() || '📦';
+  const name  = document.getElementById('new-cat-name').value.trim();
+  if (!name) return;
+  const cats = getCats();
+  const full = `${emoji} ${name}`;
+  if (!cats.includes(full)) { cats.push(full); saveCats(cats); }
+  document.getElementById('new-cat-emoji').value='';
+  document.getElementById('new-cat-name').value='';
+  renderCategoriesModal();
+  renderCatSelects();
+  toast('✅ Categoría agregada!');
+}
+
+function deleteCategory(idx) {
+  const cats = getCats();
+  cats.splice(idx, 1);
+  saveCats(cats);
+  renderCategoriesModal();
+  renderCatSelects();
+}
+
+// ══ CANTIDAD TAREAS ════════════════════════════════
+function stepQty(delta) {
+  const el = document.getElementById('ftqty');
+  const val = parseInt(el.value||'0') + delta;
+  el.value = Math.max(1, val);
 }
 
 // ══ EDITAR TAREAS (admin) ════════════════════════
