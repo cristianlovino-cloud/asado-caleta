@@ -631,17 +631,11 @@ async function buildLogin() {
 async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  const storedName = localStorage.getItem('asado_user');
-  if (sbOk && v.toLowerCase() !== ADMIN_USER.toLowerCase() && storedName !== v) {
-    try {
-      const {data} = await sb.from('active_sessions').select('name').ilike('name',v).limit(1);
-      if (data && data.length > 0) {
-        toast('⚠️ "'+v+'" ya está en uso — elegí otro nombre','var(--red)');
-        document.getElementById('cname').select();
-        return;
-      }
-      await sb.from('active_sessions').upsert({name:v.toLowerCase(),last_seen:new Date().toISOString()},{onConflict:'name'});
-    } catch(e) {}
+  // Registrar sesion en background (sin bloquear entrada)
+  if (sbOk && v.toLowerCase() !== ADMIN_USER.toLowerCase()) {
+    sb.from('active_sessions')
+      .upsert({name:v.toLowerCase(),last_seen:new Date().toISOString()},{onConflict:'name'})
+      .then(()=>{}).catch(()=>{});
   }
   me=v; localStorage.setItem('asado_user',v);
   document.getElementById('login-screen').style.display='none';
