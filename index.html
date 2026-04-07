@@ -2432,6 +2432,7 @@ function startAutoRefresh() {
 // ══ MODO ASADO ════════════════════════════════════════════════
 function checkModoAsado() {
   if (!S.event) return;
+  if (!me) return; // solo si está logueado
   const now = new Date();
   // Parsear fecha del evento (formato "Sab 11 Abril" o "Sab 12 Julio")
   const meses = {enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
@@ -2469,7 +2470,7 @@ function showModoAsado(eventStart, now) {
     +'<div class="ma-countdown-lbl" id="ma-cd-lbl">para el inicio</div>'
     +(S.menu.length>0?'<div class="ma-menu"><div class="ma-menu-title">Menu de hoy</div>'+menuItems+'</div>':'')
     +'<button class="ma-btn" style="margin-top:24px" onclick="dismissModoAsado()">ENTRAR A LA APP</button>';
-  document.body.appendChild(overlay);
+  (document.getElementById('app')||document.body).appendChild(overlay);
 
   // Countdown
   function tick() {
