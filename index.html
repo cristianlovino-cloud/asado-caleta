@@ -647,15 +647,9 @@ async function buildLogin() {
 async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  // Validar nombre en uso (case-insensitive, excepto admin)
+  // Registrar sesion sin bloquear
   if (sbOk && v.toLowerCase() !== ADMIN_USER.toLowerCase()) {
-    const {data} = await sb.from('active_sessions').select('name').ilike('name', v).limit(1);
-    if (data && data.length > 0) {
-      toast(`⚠️ "${v}" ya está en uso — revisá tu nombre`,'var(--red)');
-      document.getElementById('cname').select();
-      return;
-    }
-    await sb.from('active_sessions').upsert({name: v.toLowerCase(), last_seen: new Date().toISOString()},{onConflict:'name'});
+    try { await sb.from('active_sessions').upsert({name:v.toLowerCase(),last_seen:new Date().toISOString()},{onConflict:'name'}); } catch(e) {}
   }
   me=v; localStorage.setItem('asado_user',v);
   document.getElementById('login-screen').style.display='none';
@@ -2453,6 +2447,9 @@ function checkModoAsado() {
 }
 
 function showModoAsado(eventStart, now) {
+  // Solo si el login está oculto (usuario logueado)
+  const loginEl = document.getElementById('login-screen');
+  if (loginEl && loginEl.style.display !== 'none') return;
   if (document.getElementById('modo-asado-overlay')) return;
   const dismissed = sessionStorage.getItem('ma_dismissed');
   if (dismissed) return;
