@@ -879,8 +879,12 @@ async function toggleTask(id,current) {
 }
 
 async function assignToMe(id) {
-  await sb.from('tasks').update({assignee:me}).eq('id',id);
+  // Actualizar UI al instante
+  const t = S.tasks.find(x=>x.id===id);
+  if(t){ t.assignee=me; renderTasks(); }
   toast('✅ Tarea asignada a vos!');
+  // Sincronizar en background
+  sb.from('tasks').update({assignee:me}).eq('id',id).then(()=>{}).catch(()=>{});
 }
 
 async function deleteTask(id) {
