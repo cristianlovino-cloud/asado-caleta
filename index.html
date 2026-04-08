@@ -627,26 +627,32 @@ async function buildLogin() {
 
 // selectN removed - free text login
 
-function doLogin() {
+async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  me=v;
-  localStorage.setItem('asado_user',v);
+  // Validar nombre en uso (case-insensitive, excepto admin)
+  if (sbOk && v.toLowerCase() !== ADMIN_USER.toLowerCase()) {
+    const {data} = await sb.from('active_sessions').select('name').ilike('name', v).limit(1);
+    if (data && data.length > 0) {
+      toast(`⚠️ "${v}" ya está en uso — revisá tu nombre`,'var(--red)');
+      document.getElementById('cname').select();
+      return;
+    }
+    await sb.from('active_sessions').upsert({name: v.toLowerCase(), last_seen: new Date().toISOString()},{onConflict:'name'});
+  }
+  me=v; localStorage.setItem('asado_user',v);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('uav').textContent=v[0].toUpperCase();
   document.getElementById('udisp').textContent=v;
-  if (v===ADMIN_USER){
+  if (isAdmin()) {
     document.getElementById('admin-toggle').style.display='block';
     document.getElementById('tab-ws').style.display='flex';
   }
-  fetchAll().then(()=>{if(!sbOk)renderAll();});
+  fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
   startAutoRefresh();
-  // Registrar sesion en background
-  if(sbOk) sb.from('active_sessions').upsert({name:v.toLowerCase(),last_seen:new Date().toISOString()},{onConflict:'name'}).then(()=>{}).catch(()=>{});
 }
-
 function logout(){ if(!confirm('¿Salir?')) return; localStorage.removeItem('asado_user'); location.reload(); }
 
 // ══ ADMIN TOGGLE ══════════════════════════════════
@@ -881,7 +887,6 @@ async function deleteTask(id) {
 }
 
 function parseSubitems(t){try{return t.subitems?JSON.parse(t.subitems):[]}catch{return[]}}
-
 function renderTasks(){
   var el=document.getElementById('tasklist');
   if(!S.tasks.length){el.innerHTML='<div class="empty"><div class="em">📋</div>Sin tareas</div>';return;}
@@ -1178,16 +1183,7 @@ function startAutoRefresh() {
 
 // ══ INIT ══════════════════════════════════════════
 buildLogin();
-if (me) {
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').style.display='block';
-  document.getElementById('uav').textContent=me[0].toUpperCase();
-  document.getElementById('udisp').textContent=me;
-  if (me===ADMIN_USER){document.getElementById('admin-toggle').style.display='block';document.getElementById('tab-ws').style.display='flex';}
-  fetchAll().then(()=>{if(!sbOk)renderAll();});
-  subscribe();
-  startAutoRefresh();
-}
+if (me) { doLogin(); startAutoRefresh(); }
 </script>
 </body>
 </html>
