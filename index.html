@@ -636,16 +636,6 @@ async function buildLogin() {
 async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  // Validar nombre en uso (case-insensitive, excepto admin)
-  if (sbOk && v.toLowerCase() !== ADMIN_USER.toLowerCase()) {
-    const {data} = await sb.from('active_sessions').select('name').ilike('name', v).limit(1);
-    if (data && data.length > 0) {
-      toast(`⚠️ "${v}" ya está en uso — revisá tu nombre`,'var(--red)');
-      document.getElementById('cname').select();
-      return;
-    }
-    await sb.from('active_sessions').upsert({name: v.toLowerCase(), last_seen: new Date().toISOString()},{onConflict:'name'});
-  }
   me=v; localStorage.setItem('asado_user',v);
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
