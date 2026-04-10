@@ -865,7 +865,16 @@ async function addTask() {
 }
 
 async function toggleTask(id,current) {
-  await sb.from('tasks').update({done:!current}).eq('id',id);
+  const t = S.tasks.find(x=>x.id===id);
+  if (!t) return;
+  // Solo el asignado o el admin pueden marcar
+  if (!isAdmin() && t.assignee && t.assignee !== me) {
+    toast('Solo '+t.assignee+' puede marcar esta tarea','var(--red)');
+    return;
+  }
+  const t2 = S.tasks.find(x=>x.id===id);
+  if(t2){ t2.done=!current; renderTasks(); }
+  sb.from('tasks').update({done:!current}).eq('id',id).then(()=>{}).catch(()=>{});
 }
 
 async function assignToMe(id) {
