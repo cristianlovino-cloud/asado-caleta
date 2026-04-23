@@ -244,10 +244,6 @@ body {
   <div class="lcard">
     <label class="llabel">¿Cuál es tu nombre?</label>
     <input class="linput" id="cname" placeholder="Tu nombre..." maxlength="20" onkeydown="if(event.key==='Enter')doLogin()">
-    <div style="display:flex;gap:10px;margin-top:10px;align-items:center">
-      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap">🎂 Cumpleaños</label>
-      <input class="linput" id="ccumple" placeholder="DDMM (ej: 2503)" maxlength="4" style="font-size:14px;text-align:center" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
     <button class="lbtn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
   <div class="wnote">
@@ -318,7 +314,6 @@ body {
     </div>
     <div class="sh">👥 Balances</div>
     <div class="card" id="ballist"></div>
-
     <div class="div"></div>
     <div class="sh">📋 Gastos registrados</div>
     <div class="card" id="explist"><div class="empty"><div class="em">🧾</div>Sin gastos aún</div></div>
@@ -369,24 +364,24 @@ body {
     </div>
   </div>
 
-  <!-- CALCULADORA CARNE -->
+  <!-- CARNE -->
   <div class="panel" id="panel-carne">
     <div class="sh">🥩 Calculadora de Carne</div>
     <div class="card" style="padding:14px 13px">
       <label class="fl">Tipo de asado</label>
       <select class="fsel" id="tipo-asado" onchange="calcularCarne()">
-        <option value="tapeo">🍢 Tapeo (picada + embutidos)</option>
+        <option value="tapeo">🍢 Tapeo</option>
         <option value="completo">🔥 Asado completo</option>
-        <option value="familiar">👨‍👩‍👧 Familiar (variado)</option>
-        <option value="vegano">🌱 Mixto (con vegetarianos)</option>
+        <option value="familiar">👨‍👩‍👧 Familiar</option>
+        <option value="vegano">🌱 Mixto vegetariano</option>
       </select>
       <label class="fl" style="margin-top:10px">Comensales</label>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <button onclick="cambiarComensalesCalc(-1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer;flex-shrink:0">−</button>
+        <button onclick="cambiarComensalesCalc(-1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer">−</button>
         <div id="calc-comen" style="flex:1;text-align:center;font-family:'Bebas Neue',cursive;font-size:28px;color:var(--fire)">12</div>
-        <button onclick="cambiarComensalesCalc(1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer;flex-shrink:0">+</button>
+        <button onclick="cambiarComensalesCalc(1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer">+</button>
       </div>
-      <div id="resultado-carne" style="margin-top:4px"></div>
+      <div id="resultado-carne"></div>
     </div>
   </div>
 
@@ -499,7 +494,7 @@ body {
 
 <!-- Modal Cerrar Cuentas -->
 <div class="modal-bg" id="modal-cuentas">
-  <div class="modal" style="max-height:85vh;overflow-y:auto">
+  <div class="modal">
     <div class="modal-title">💰 Cerrar Cuentas <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
     <button onclick="limpiarCobros()" style="font-size:11px;background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--muted);margin-bottom:10px">🗑 Limpiar cobros registrados</button>
     <div id="cuentas-resumen"></div>
@@ -593,6 +588,7 @@ body {
 </div>
 
 <div class="toast" id="toast"></div>
+
 <script>
 // ══ SUPABASE ══════════════════════════════════════
 const { createClient } = supabase;
@@ -674,12 +670,7 @@ async function doLogin() {
     document.getElementById('admin-toggle').style.display='block';
     document.getElementById('tab-ws').style.display='flex';
   }
-  // Guardar cumpleaños si se ingresó
-  const cumple = document.getElementById('ccumple')?.value.trim();
-  if (cumple && /^\d{4}$/.test(cumple) && sbOk) {
-    sb.from('active_sessions').upsert({name:v.toLowerCase(), last_seen:new Date().toISOString(), cumple:cumple},{onConflict:'name'}).then(()=>{}).catch(()=>{});
-  }
-  fetchAll().then(()=>{ if(!sbOk) renderAll(); checkCumples(); });
+  fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
   startAutoRefresh();
 }
@@ -822,7 +813,7 @@ function showTab(t) {
   document.querySelector(`[onclick="showTab('${t}')"]`).classList.add('active');
   document.getElementById(`panel-${t}`).classList.add('active');
   if (t==='ws') renderWS();
-  if (t==='carne') { calcularCarne(); }
+  if (t==='carne') calcularCarne();
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
 function populateSel() {
@@ -831,33 +822,16 @@ function populateSel() {
 }
 
 // ══ GASTOS ════════════════════════════════════════
-const getTotal = ()=> S.expenses.filter(e=>e.medio!=='cobro_efectivo'&&e.medio!=='cobro_transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);
+const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
 const getPP    = ()=> { const n = S.event?.comensales || allP().length; return n?Math.round(getTotal()/n):0; };
-const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()&&e.medio!=='cobro_efectivo'&&e.medio!=='cobro_transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);
+const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
-
-let medioSeleccionado = 'efectivo';
-
-function selectMedio(medio) {
-  medioSeleccionado = medio;
-  const ef = document.getElementById('btn-ef');
-  const tr = document.getElementById('btn-tr');
-  if (!ef||!tr) return;
-  if (medio==='efectivo') {
-    ef.style.cssText='flex:1;padding:10px;border-radius:9px;border:2px solid var(--fire);background:rgba(255,69,0,.12);color:var(--fire);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
-    tr.style.cssText='flex:1;padding:10px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
-  } else {
-    tr.style.cssText='flex:1;padding:10px;border-radius:9px;border:2px solid var(--blue);background:rgba(46,134,222,.12);color:var(--blue);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
-    ef.style.cssText='flex:1;padding:10px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
-  }
-}
 
 async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
   const amt=parseFloat(document.getElementById('feamt').value);
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  document.getElementById('fedesc').value=''; document.getElementById('feamt').value='';
-  tf('fexp');
+  document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
   await sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt});
   toast('✅ Gasto cargado!');
 }
@@ -874,35 +848,31 @@ function renderGastos() {
   sm.textContent=(mb>=0?'+':'-')+fmt(mb);
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
-  const cobrosGuardados = getCobros();
-  const faltanPagar = allP().filter(p=>bal(p)<-100 && !cobrosGuardados[p.toLowerCase()]);
-
   document.getElementById('ballist').innerHTML = allP().map(p=>{
     const b=bal(p),im=p===me;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
-        <div>
-          <div class="pname">${p}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
-          <div class="psub">Pagó: ${fmt(paid(p))}</div>
-        </div>
+        <div><div class="pname">${p}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
+        <div class="psub">Pagó: ${fmt(paid(p))}</div></div>
       </div>
       <div>
         <div class="bval ${b>=0?'cgr':'cr'}">${b>=0?'+':'-'}${fmt(b)}</div>
         <div class="blbl">${b>=0?'a cobrar':'debe pagar'}</div>
       </div>
     </div>`;
-  }).join('') +
-  (isAdmin() && faltanPagar.length>0?`<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">
-    ⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span>
-  </div>`:'');
+  }).join('');
 
-
+  const faltanPagar = allP().filter(p=>bal(p)<-100);
+  const ballistEl = document.getElementById('ballist');
+  if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
+    ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
+    : '';
 
   const el=document.getElementById('explist');
   el.innerHTML=S.expenses.length===0
     ?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
-    :[...S.expenses].reverse().filter(e=>e.medio!=='cobro_efectivo'&&e.medio!=='cobro_transferencia').map(e=>`
+    :[...S.expenses].reverse().map(e=>`
       <div class="er">
         <div class="ei">🧾</div>
         <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer}</div></div>
@@ -1065,30 +1035,16 @@ async function deleteTask2() {
 function autoEmoji(name) {
   const n = name.toLowerCase();
   const map = [
-    [['cordero','chivito','chivo'], '🐑'],
-    [['vacio','costilla','asado','tira','bife','lomo','cuadril','matambre'], '🥩'],
-    [['chorizo','choripan','chori'], '🌭'],
-    [['morcilla'], '⚫'],
-    [['pollo','alita'], '🍗'],
-    [['cerdo','bondiola','pechito'], '🐷'],
-    [['provoleta','queso'], '🧀'],
-    [['ensalada','verde','tomate','lechuga'], '🥗'],
-    [['papa','papas fritas'], '🥔'],
-    [['pan','marraqueta','baguette'], '🍞'],
-    [['chimichurri','salsa'], '🫙'],
-    [['vino','malbec','cabernet','torrontes'], '🍷'],
-    [['cerveza','birra'], '🍺'],
-    [['gaseosa','coca','sprite','soda','agua'], '🥤'],
-    [['postre','torta','cake','dulce','alfajor'], '🍰'],
-    [['helado'], '🍦'],
-    [['fruta','sandía','melón'], '🍉'],
-    [['cafe','cafe','infusion','te'], '☕'],
-    [['achura','chinchulin','molleja','rinon','higado'], '🫀'],
-    [['vegetariano','vegano'], '🌱'],
+    [['cordero','chivito','chivo'],'🐑'],[['vacio','costilla','asado','tira','bife','lomo','cuadril','matambre'],'🥩'],
+    [['chorizo','choripan','chori'],'🌭'],[['morcilla'],'⚫'],[['pollo','alita'],'🍗'],[['cerdo','bondiola','pechito'],'🐷'],
+    [['provoleta','queso'],'🧀'],[['ensalada','verde','tomate','lechuga'],'🥗'],[['papa'],'🥔'],
+    [['pan','marraqueta','baguette'],'🍞'],[['chimichurri','salsa'],'🫙'],
+    [['vino','malbec','cabernet','torrontes'],'🍷'],[['cerveza','birra'],'🍺'],
+    [['gaseosa','coca','sprite','soda','agua'],'🥤'],[['postre','torta','dulce','alfajor'],'🍰'],
+    [['helado'],'🍦'],[['cafe','te','infusion'],'☕'],
+    [['achura','chinchulin','molleja','rinon','higado'],'🫀'],[['vegetariano','vegano'],'🌱'],
   ];
-  for (const [keys, em] of map) {
-    if (keys.some(k=>n.includes(k))) return em;
-  }
+  for (const [keys,em] of map) if (keys.some(k=>n.includes(k))) return em;
   return '🍽️';
 }
 
@@ -1276,7 +1232,7 @@ Traer:
 `💰 *CUENTAS — ${ev.title||'ASADO'}*
 
 Total: *${tot}* · ${allP().length} personas · *${pp}* c/u
-${deu.length?'\n⚡ *Deben transferir:*\n'+deu.map(p=>{const ef2=S.expenses.filter(e=>e.payer.toLowerCase()===p.toLowerCase()&&e.medio!=='transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);const tr2=S.expenses.filter(e=>e.payer.toLowerCase()===p.toLowerCase()&&e.medio==='transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);const det=(ef2>0?`💵${fmt(ef2)}`:'')+(ef2>0&&tr2>0?'/':'')+(tr2>0?`📲${fmt(tr2)}`:'');return`   • ${p}: debe ${fmt(Math.abs(bal(p)))}${det?' (pagó '+det+')':''}`;}).join('\n'):''}
+${deu.length?'\n⚡ *Deben transferir:*\n'+deu.map(p=>`   • ${p}: ${fmt(Math.abs(bal(p)))}`).join('\n'):''}
 ${acr.length?'\n✅ *A cobrar:*\n'+acr.map(p=>`   • ${p}: ${fmt(bal(p))}`).join('\n'):''}
 
 Pagan por CBU/CVU o efectivo 💵`,
@@ -1327,9 +1283,70 @@ function startAutoRefresh() {
   setInterval(() => fetchAll(), 30000);
 }
 
+// ══ CALCULADORA DE CARNE ══════════════════════════
+let calcComensales = 12;
+const CORTES = {
+  tapeo:[{nombre:'Chorizos',emoji:'🌭',grPorPax:120},{nombre:'Morcillas',emoji:'⚫',grPorPax:60},{nombre:'Provoleta',emoji:'🧀',grPorPax:80},{nombre:'Achuras',emoji:'🫀',grPorPax:100},{nombre:'Pan',emoji:'🍞',grPorPax:80}],
+  completo:[{nombre:'Costilla/Tira de asado',emoji:'🥩',grPorPax:350},{nombre:'Vacío',emoji:'🥩',grPorPax:200},{nombre:'Chorizos',emoji:'🌭',grPorPax:100},{nombre:'Morcillas',emoji:'⚫',grPorPax:50},{nombre:'Achuras',emoji:'🫀',grPorPax:80},{nombre:'Pan',emoji:'🍞',grPorPax:80}],
+  familiar:[{nombre:'Costilla/Asado',emoji:'🥩',grPorPax:300},{nombre:'Pollo',emoji:'🍗',grPorPax:250},{nombre:'Chorizos',emoji:'🌭',grPorPax:100},{nombre:'Morcillas',emoji:'⚫',grPorPax:50},{nombre:'Pan',emoji:'🍞',grPorPax:80}],
+  vegano:[{nombre:'Costilla (carnívoros)',emoji:'🥩',grPorPax:300},{nombre:'Chorizos',emoji:'🌭',grPorPax:80},{nombre:'Hamburguesas vegetales',emoji:'🌱',grPorPax:150},{nombre:'Provoleta',emoji:'🧀',grPorPax:100},{nombre:'Verduras',emoji:'🥦',grPorPax:200},{nombre:'Pan',emoji:'🍞',grPorPax:80}],
+};
+function cambiarComensalesCalc(delta) {
+  calcComensales = Math.max(1, calcComensales + delta);
+  document.getElementById('calc-comen').textContent = calcComensales;
+  calcularCarne();
+}
+function calcularCarne() {
+  const tipo = document.getElementById('tipo-asado')?.value || 'completo';
+  const cortes = CORTES[tipo];
+  const n = calcComensales;
+  const html = cortes.map(co => {
+    const total = Math.ceil(co.grPorPax * n / 100) * 100;
+    const kg = (total/1000).toFixed(1);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
+      <div><span style="font-size:18px;margin-right:7px">${co.emoji}</span><span style="font-size:13px;font-weight:500">${co.nombre}</span></div>
+      <div style="text-align:right"><div style="font-family:'Bebas Neue',cursive;font-size:20px;color:var(--fire)">${kg} kg</div><div style="font-size:10px;color:var(--muted)">${total}g</div></div>
+    </div>`;
+  }).join('');
+  const totalKg = (cortes.reduce((a,co)=>a+co.grPorPax*n,0)/1000).toFixed(1);
+  const el = document.getElementById('resultado-carne');
+  if(el) el.innerHTML = html + `<div style="margin-top:10px;padding:10px;background:rgba(255,69,0,.08);border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--muted)">Total estimado</div><div style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--fire)">${totalKg} kg</div><div style="font-size:10px;color:var(--muted)">para ${n} personas</div></div>`;
+}
+
+// ══ COBROS ADMIN (localStorage) ═══════════════════════════
+function getCobros() { try { return JSON.parse(localStorage.getItem('asado_cobros_'+(S.event?.id||0))||'{}'); } catch { return {}; } }
+function saveCobros(cobros) { localStorage.setItem('asado_cobros_'+(S.event?.id||0), JSON.stringify(cobros)); }
+function limpiarCobros() { if(!confirm('¿Limpiar cobros?')) return; localStorage.removeItem('asado_cobros_'+(S.event?.id||0)); renderCuentas(); toast('Cobros limpiados'); }
+function registrarCobro(persona, monto, medio) {
+  const cobros = getCobros(); cobros[persona.toLowerCase()] = {medio,monto,ts:Date.now()}; saveCobros(cobros);
+  renderCuentas(); toast('✅ Cobro registrado a '+persona+'!');
+}
+
+// ══ CIERRE DE CUENTAS ═════════════════════════════════════
+function renderCuentas() {
+  const el = document.getElementById('cuentas-resumen'); if(!el) return;
+  const cobros = getCobros(), pp = getPP(), total = getTotal();
+  const deudores = allP().filter(p=>bal(p)<-100);
+  const acreedores = allP().filter(p=>bal(p)>100);
+  const cobrados = deudores.filter(p=>cobros[p.toLowerCase()]);
+  const pendientes = deudores.filter(p=>!cobros[p.toLowerCase()]);
+  const totalCobrado = cobrados.reduce((a,p)=>a+Math.abs(bal(p)),0);
+  const adminAcr = acreedores.indexOf(ADMIN_USER)>=0 ? ADMIN_USER : acreedores[0];
+  const otrosAcr = acreedores.filter(p=>p!==adminAcr);
+
+  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p} <span style="font-size:11px;color:var(--muted)">(pagó de más)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
+  if(otrosAcr.length>0 && adminAcr) {
+    acrHtml += `<div style="margin:8px 0;padding:10px 12px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:8px;font-size:12px"><div style="font-weight:700;margin-bottom:6px">📋 ${adminAcr} cobra todo y distribuye</div>${otrosAcr.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--muted)">${adminAcr} → ${p}</span><span style="font-weight:700;color:var(--fire)">${fmt(bal(p))}</span></div>`).join('')}<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)"><span style="font-weight:600">Neto ${adminAcr}</span><span style="font-weight:700;color:var(--green)">+${fmt(bal(adminAcr)-otrosAcr.reduce((a,p)=>a+bal(p),0))}</span></div></div>`;
+  }
+
+  const deuHtml = pendientes.map(p=>{const debe=Math.abs(bal(p)); return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">${p}</span><span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span></div><div style="display:flex;gap:7px"><button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 Efectivo</button><button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 Transferencia</button></div></div>`;}).join('')
+  + cobrados.map(p=>{const debe=Math.abs(bal(p));const cobro=cobros[p.toLowerCase()]; return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.7"><div style="display:flex;justify-content:space-between"><span style="font-weight:600;text-decoration:line-through;color:var(--muted)">${p}</span><span style="font-size:12px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'} — ${fmt(debe)}</span></div></div>`;}).join('');
+
+  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Total gastado</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Comensales</span><span style="font-weight:700">${S.event?.comensales||allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Por persona</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">Deben pagar</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ Todos saldados</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Cobrado</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Pendiente</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span></div></div>`;
+}
+
 // ══ INIT ══════════════════════════════════════════
 if (me) {
-  // Ya logueado - saltear login screen directo al app
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('uav').textContent=me[0].toUpperCase();
@@ -1338,7 +1355,7 @@ if (me) {
     document.getElementById('admin-toggle').style.display='block';
     document.getElementById('tab-ws').style.display='flex';
   }
-  fetchAll().then(()=>{if(!sbOk)renderAll();checkCumples();});
+  fetchAll().then(()=>{if(!sbOk)renderAll();});
   subscribe();
   startAutoRefresh();
 } else {
