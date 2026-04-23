@@ -834,9 +834,9 @@ function populateSel() {
 }
 
 // ══ GASTOS ════════════════════════════════════════
-const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
+const getTotal = ()=> S.expenses.filter(e=>e.medio!=='cobro_efectivo'&&e.medio!=='cobro_transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);
 const getPP    = ()=> { const n = S.event?.comensales || allP().length; return n?Math.round(getTotal()/n):0; };
-const paid     = n => S.expenses.filter(e=>e.payer===n).reduce((a,e)=>a+parseFloat(e.amount),0);
+const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()&&e.medio!=='cobro_efectivo'&&e.medio!=='cobro_transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
 
 let medioSeleccionado = 'efectivo';
@@ -877,7 +877,8 @@ function renderGastos() {
   sm.textContent=(mb>=0?'+':'-')+fmt(mb);
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
-  const faltanPagar = allP().filter(p=>bal(p)<-100);
+  const cobrosGuardados = getCobros();
+  const faltanPagar = allP().filter(p=>bal(p)<-100 && !cobrosGuardados[p.toLowerCase()]);
 
   document.getElementById('ballist').innerHTML = allP().map(p=>{
     const b=bal(p),im=p===me;
@@ -936,10 +937,10 @@ function renderGastos() {
   const el=document.getElementById('explist');
   el.innerHTML=S.expenses.length===0
     ?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
-    :[...S.expenses].reverse().map(e=>`
+    :[...S.expenses].reverse().filter(e=>e.medio!=='cobro_efectivo'&&e.medio!=='cobro_transferencia').map(e=>`
       <div class="er">
         <div class="ei">🧾</div>
-        <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer} ${e.medio==='transferencia'?'📲':'💵'}</div></div>
+        <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer}</div></div>
         <div style="display:flex;align-items:center;gap:7px">
           <div class="ea">${fmt(e.amount)}</div>
           ${isAdmin()?`<button onclick="openEditExpense(${e.id})" style="background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 7px;font-size:12px;cursor:pointer;color:var(--muted)">✏️</button>`:''}
