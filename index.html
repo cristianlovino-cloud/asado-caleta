@@ -498,8 +498,8 @@ body {
 </div>
 
 <!-- Modal Cerrar Cuentas -->
-<div class="modal" id="modal-cuentas">
-  <div class="modal-box" style="max-height:85vh;overflow-y:auto">
+<div class="modal-bg" id="modal-cuentas">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
     <div class="modal-title">💰 Cerrar Cuentas <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
     <div id="cuentas-resumen"></div>
   </div>
@@ -1347,25 +1347,39 @@ function renderCuentas() {
   const deudores = allP().filter(p=>bal(p)<-100);
   const acreedores = allP().filter(p=>bal(p)>100);
 
-  const deudoresHtml = deudores.map(p=>{
-    const debe = Math.abs(bal(p));
-    const cobro = cobros[p.toLowerCase()];
-    return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${cobro?'4':'8'}px">
-        <div>
-          <span style="font-weight:600;font-size:15px">${p}</span>
-          <span style="font-size:12px;color:var(--red);margin-left:8px">debe ${fmt(debe)}</span>
-        </div>
-        ${cobro?`<span style="font-size:11px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'}</span>`:''}
-      </div>
-      ${!cobro?`<div style="display:flex;gap:7px">
-        <button onclick="registrarCobro('${p}',${debe},'cobro_efectivo');renderCuentas()" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 Efectivo</button>
-        <button onclick="registrarCobro('${p}',${debe},'cobro_transferencia');renderCuentas()" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 Transferencia</button>
-      </div>`:''}
-    </div>`;
-  }).join('');
+  // Separar cobrados y pendientes
+  const cobrados = deudores.filter(p=>cobros[p.toLowerCase()]);
+  const pendientes2 = deudores.filter(p=>!cobros[p.toLowerCase()]);
+  const totalCobrado = cobrados.reduce((a,p)=>a+Math.abs(bal(p)),0);
 
-  const pendientes = deudores.filter(p=>!cobros[p.toLowerCase()]).length;
+  const deudoresHtml =
+    // Pendientes primero con botones
+    pendientes2.map(p=>{
+      const debe = Math.abs(bal(p));
+      return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:600;font-size:15px">${p}</span>
+          <span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span>
+        </div>
+        <div style="display:flex;gap:7px">
+          <button onclick="registrarCobro('${p}',${debe},'cobro_efectivo');renderCuentas()" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 Efectivo</button>
+          <button onclick="registrarCobro('${p}',${debe},'cobro_transferencia');renderCuentas()" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 Transferencia</button>
+        </div>
+      </div>`;
+    }).join('') +
+    // Ya cobrados al final
+    cobrados.map(p=>{
+      const debe = Math.abs(bal(p));
+      const cobro = cobros[p.toLowerCase()];
+      return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.7">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600;font-size:15px;text-decoration:line-through;color:var(--muted)">${p}</span>
+          <span style="font-size:12px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'} — ${fmt(debe)}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+
 
   el.innerHTML = `
     <div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">
@@ -1390,7 +1404,16 @@ function renderCuentas() {
     <div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">
       ${deudoresHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ Todos saldados</div>'}
     </div>
-    ${pendientes>0?`<div style="margin-top:10px;padding:9px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:8px;font-size:12px;color:var(--red)">⚠️ ${pendientes} sin registrar cobro</div>`:'<div style="margin-top:10px;padding:9px 12px;background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.2);border-radius:8px;font-size:12px;color:var(--green)">✅ Todos los cobros registrados</div>'}
+    <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;color:var(--muted)">Cobrado</span>
+        <span style="font-weight:700;color:var(--green)">\${fmt(totalCobrado)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--muted)">Pendiente</span>
+        <span style="font-weight:700;color:\${pendientes2.length>0?'var(--red)':'var(--green)'}">\${pendientes2.length>0?fmt(deudores.filter(p=>!cobros[p.toLowerCase()]).reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span>
+      </div>
+    </div>
   `;
 }
 
