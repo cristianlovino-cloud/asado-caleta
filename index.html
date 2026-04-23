@@ -310,11 +310,6 @@ body {
       <input class="fi" id="fedesc" placeholder="ej: carne, bebidas...">
       <label class="fl">Monto $</label>
       <input class="fi" id="feamt" type="number" placeholder="0" inputmode="numeric">
-      <label class="fl">Medio de pago</label>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button type="button" id="btn-ef" onclick="selectMedio('efectivo')" style="flex:1;padding:10px;border-radius:9px;border:2px solid var(--fire);background:rgba(255,69,0,.12);color:var(--fire);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s">💵 Efectivo</button>
-        <button type="button" id="btn-tr" onclick="selectMedio('transferencia')" style="flex:1;padding:10px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s">📲 Transferencia</button>
-      </div>
       <div class="frow">
         <button class="btp" onclick="addExpense()">GUARDAR</button>
         <button class="btg" onclick="tf('fexp')">✕</button>
@@ -322,6 +317,10 @@ body {
     </div>
     <div class="sh">👥 Balances</div>
     <div class="card" id="ballist"></div>
+    <div id="cobros-panel" style="display:none;margin-top:12px">
+      <div class="sh">💰 Registrar cobros</div>
+      <div class="card" id="cobros-list"></div>
+    </div>
     <div class="div"></div>
     <div class="sh">📋 Gastos registrados</div>
     <div class="card" id="explist"><div class="empty"><div class="em">🧾</div>Sin gastos aún</div></div>
@@ -861,10 +860,8 @@ async function addExpense() {
   const amt=parseFloat(document.getElementById('feamt').value);
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
   document.getElementById('fedesc').value=''; document.getElementById('feamt').value='';
-  const medioGuardado = medioSeleccionado;
-  selectMedio('efectivo'); // reset
   tf('fexp');
-  await sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt,medio:medioGuardado});
+  await sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt});
   toast('✅ Gasto cargado!');
 }
 
@@ -906,6 +903,38 @@ function renderGastos() {
   (faltanPagar.length>0?`<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">
     ⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.join(', ')}
   </div>`:'');
+
+  // Panel cobros solo para admin
+  const cobrosPanel = document.getElementById('cobros-panel');
+  if (cobrosPanel) {
+    if (isAdmin() && faltanPagar.length>0) {
+      cobrosPanel.style.display='block';
+      document.getElementById('cobros-list').innerHTML = faltanPagar.map(p=>{
+        const debe=Math.abs(bal(p));
+        const yaEf  = S.expenses.filter(e=>e.payer.toLowerCase()===p.toLowerCase()&&e.medio==='cobro_efectivo').reduce((a,e)=>a+parseFloat(e.amount),0);
+        const yaTr  = S.expenses.filter(e=>e.payer.toLowerCase()===p.toLowerCase()&&e.medio==='cobro_transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);
+        return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+            <div>
+              <span style="font-weight:600">${p}</span>
+              <span style="font-size:12px;color:var(--red);margin-left:8px">debe ${fmt(debe)}</span>
+            </div>
+            ${yaEf>0||yaTr>0?`<span style="font-size:11px;color:var(--green)">✅ registrado</span>`:''}
+          </div>
+          <div style="display:flex;gap:7px">
+            <button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--rim);background:${yaEf>0?'rgba(39,174,96,.15)':'var(--ash)'};color:${yaEf>0?'var(--green)':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer">
+              💵 Efectivo
+            </button>
+            <button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--rim);background:${yaTr>0?'rgba(46,134,222,.15)':'var(--ash)'};color:${yaTr>0?'var(--blue)':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer">
+              📲 Transferencia
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      cobrosPanel.style.display='none';
+    }
+  }
 
   const el=document.getElementById('explist');
   el.innerHTML=S.expenses.length===0
@@ -1333,6 +1362,20 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
 function startAutoRefresh() {
   setInterval(() => fetchAll(), 30000);
+}
+
+// ══ COBROS ADMIN ══════════════════════════════════
+async function registrarCobro(persona, monto, medio) {
+  // Registrar el cobro como un gasto del admin con medio especial
+  await sb.from('expenses').insert({
+    event_id: S.event.id,
+    payer: persona,
+    description: medio==='cobro_transferencia'?'💳 Transferencia recibida':'💵 Efectivo recibido',
+    amount: monto,
+    medio: medio
+  });
+  await fetchAll();
+  toast(`✅ Cobro registrado a ${persona}!`,'var(--green)');
 }
 
 // ══ CUMPLEAÑOS ════════════════════════════════════
