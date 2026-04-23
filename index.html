@@ -1328,111 +1328,24 @@ function startAutoRefresh() {
   setInterval(() => fetchAll(), 30000);
 }
 
-// ══ CIERRE DE CUENTAS ══════════════════════════════
-function renderCuentas() {
-  const el = document.getElementById('cuentas-resumen');
-  if (!el) return;
-  const cobros = getCobros();
-  const pp = getPP();
-  const total = getTotal();
-  const deudores = allP().filter(p=>bal(p)<-100);
-  const acreedores = allP().filter(p=>bal(p)>100);
-
-  // Separar cobrados y pendientes
-  const cobrados = deudores.filter(p=>cobros[p.toLowerCase()]);
-  const pendientes2 = deudores.filter(p=>!cobros[p.toLowerCase()]);
-  const totalCobrado = cobrados.reduce((a,p)=>a+Math.abs(bal(p)),0);
-
-  const deudoresHtml =
-    // Pendientes primero con botones
-    pendientes2.map(p=>{
-      const debe = Math.abs(bal(p));
-      return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-weight:600;font-size:15px">${p}</span>
-          <span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span>
-        </div>
-        <div style="display:flex;gap:7px">
-          <button onclick="registrarCobro('${p}',${debe},'cobro_efectivo');renderCuentas()" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 Efectivo</button>
-          <button onclick="registrarCobro('${p}',${debe},'cobro_transferencia');renderCuentas()" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 Transferencia</button>
-        </div>
-      </div>`;
-    }).join('') +
-    // Ya cobrados al final
-    cobrados.map(p=>{
-      const debe = Math.abs(bal(p));
-      const cobro = cobros[p.toLowerCase()];
-      return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.7">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-weight:600;font-size:15px;text-decoration:line-through;color:var(--muted)">${p}</span>
-          <span style="font-size:12px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'} — ${fmt(debe)}</span>
-        </div>
-      </div>`;
-    }).join('');
-
-
-
-  el.innerHTML = `
-    <div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-        <span style="font-size:12px;color:var(--muted)">Total gastado</span>
-        <span style="font-weight:700;color:var(--fire)">${fmt(total)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-        <span style="font-size:12px;color:var(--muted)">Comensales</span>
-        <span style="font-weight:700">${S.event?.comensales||allP().length}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between">
-        <span style="font-size:12px;color:var(--muted)">Por persona</span>
-        <span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span>
-      </div>
-    </div>
-    ${(function(){
-      if(!acreedores.length) return '';
-      var adminAcr = acreedores.indexOf(ADMIN_USER)>=0 ? ADMIN_USER : acreedores[0];
-      var otrosAcr = acreedores.filter(function(p){return p!==adminAcr;});
-      var html = '';
-      acreedores.forEach(function(p){
-        html += '<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between">'
-          +'<span style="font-weight:600">'+p+' <span style="font-size:11px;color:var(--muted)">(pagó de más)</span></span>'
-          +'<span style="color:var(--green);font-weight:700">+'+fmt(bal(p))+'</span>'
-          +'</div>';
-      });
-      if(otrosAcr.length>0){
-        html += '<div style="margin-top:8px;padding:10px 12px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:8px;font-size:12px">';
-        html += '<div style="font-weight:700;margin-bottom:6px;color:var(--ember)">📋 '+adminAcr+' cobra todo y distribuye</div>';
-        otrosAcr.forEach(function(p){
-          html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid rgba(255,255,255,.05)">'
-            +'<span style="color:var(--muted)">'+adminAcr+' le debe a '+p+'</span>'
-            +'<span style="font-weight:700;color:var(--fire)">'+fmt(bal(p))+'</span>'
-            +'</div>';
-        });
-        var netoAdmin = bal(adminAcr) - otrosAcr.reduce(function(a,p){return a+bal(p);},0);
-        html += '<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)">'
-          +'<span style="font-weight:600">Neto '+adminAcr+'</span>'
-          +'<span style="font-weight:700;color:var(--green)">+'+fmt(netoAdmin)+'</span>'
-          +'</div>';
-        html += '</div>';
-      }
-      return html;
-    })()}tml>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🔥 Asado en la Caleta</title>
-<link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="apple-touch-icon" href="icon.png">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="🔥 Asado">
-  <meta name="theme-color" content="#FF4500">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script>
-  const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
-  const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
+// ══ INIT ══════════════════════════════════════════
+const me = localStorage.getItem('asado_user');
+if (me) {
+  // Ya logueado - saltear login screen directo al app
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('uav').textContent=me[0].toUpperCase();
+  document.getElementById('udisp').textContent=me;
+  if (me===ADMIN_USER){
+    document.getElementById('admin-toggle').style.display='block';
+    document.getElementById('tab-ws').style.display='flex';
+  }
+  fetchAll().then(()=>{if(!sbOk)renderAll();checkCumples();});
+  subscribe();
+  startAutoRefresh();
+} else {
+  buildLogin();
+}
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
