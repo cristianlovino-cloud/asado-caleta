@@ -832,8 +832,14 @@ async function addExpense() {
   const amt=parseFloat(document.getElementById('feamt').value);
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
   document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
-  await sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt});
+  // Actualizar UI inmediatamente
+  const tempExp = {id:'tmp_'+Date.now(), event_id:S.event.id, payer:me, description:desc, amount:amt, medio:'efectivo'};
+  S.expenses.push(tempExp);
+  renderGastos();
   toast('✅ Gasto cargado!');
+  // Sincronizar con Supabase en background
+  sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt})
+    .then(()=>fetchAll());
 }
 
 function renderGastos() {
