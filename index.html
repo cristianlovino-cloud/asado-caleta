@@ -244,6 +244,10 @@ body {
   <div class="lcard">
     <label class="llabel">¿Cuál es tu nombre?</label>
     <input class="linput" id="cname" placeholder="Tu nombre..." maxlength="20" onkeydown="if(event.key==='Enter')doLogin()">
+    <div style="display:flex;gap:10px;margin-top:10px;align-items:center">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap">🎂 Cumpleaños</label>
+      <input class="linput" id="ccumple" placeholder="DDMM (ej: 2503)" maxlength="4" style="font-size:14px;text-align:center" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
     <button class="lbtn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
   <div class="wnote">
@@ -285,6 +289,7 @@ body {
     <div class="tab active" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab"        onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
     <div class="tab"        onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
+    <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
     <div class="tab" id="tab-ws" style="display:none" onclick="showTab('ws')"><span class="ti">📲</span>WS</div>
   </div>
 
@@ -305,6 +310,11 @@ body {
       <input class="fi" id="fedesc" placeholder="ej: carne, bebidas...">
       <label class="fl">Monto $</label>
       <input class="fi" id="feamt" type="number" placeholder="0" inputmode="numeric">
+      <label class="fl">Medio de pago</label>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button type="button" id="btn-ef" onclick="selectMedio('efectivo')" style="flex:1;padding:10px;border-radius:9px;border:2px solid var(--fire);background:rgba(255,69,0,.12);color:var(--fire);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s">💵 Efectivo</button>
+        <button type="button" id="btn-tr" onclick="selectMedio('transferencia')" style="flex:1;padding:10px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s">📲 Transferencia</button>
+      </div>
       <div class="frow">
         <button class="btp" onclick="addExpense()">GUARDAR</button>
         <button class="btg" onclick="tf('fexp')">✕</button>
@@ -359,6 +369,27 @@ body {
       <label class="fl">Emoji</label>
       <input class="fi" id="memoji" placeholder="🍽️" style="max-width:74px;text-align:center">
       <button class="btp" style="width:100%;margin-top:1px" onclick="addMenuItem()">AGREGAR AL MENÚ</button>
+    </div>
+  </div>
+
+  <!-- CALCULADORA CARNE -->
+  <div class="panel" id="panel-carne">
+    <div class="sh">🥩 Calculadora de Carne</div>
+    <div class="card" style="padding:14px 13px">
+      <label class="fl">Tipo de asado</label>
+      <select class="fsel" id="tipo-asado" onchange="calcularCarne()">
+        <option value="tapeo">🍢 Tapeo (picada + embutidos)</option>
+        <option value="completo">🔥 Asado completo</option>
+        <option value="familiar">👨‍👩‍👧 Familiar (variado)</option>
+        <option value="vegano">🌱 Mixto (con vegetarianos)</option>
+      </select>
+      <label class="fl" style="margin-top:10px">Comensales</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="cambiarComensalesCalc(-1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer;flex-shrink:0">−</button>
+        <div id="calc-comen" style="flex:1;text-align:center;font-family:'Bebas Neue',cursive;font-size:28px;color:var(--fire)">12</div>
+        <button onclick="cambiarComensalesCalc(1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer;flex-shrink:0">+</button>
+      </div>
+      <div id="resultado-carne" style="margin-top:4px"></div>
     </div>
   </div>
 
@@ -648,7 +679,12 @@ async function doLogin() {
     document.getElementById('admin-toggle').style.display='block';
     document.getElementById('tab-ws').style.display='flex';
   }
-  fetchAll().then(()=>{ if(!sbOk) renderAll(); });
+  // Guardar cumpleaños si se ingresó
+  const cumple = document.getElementById('ccumple')?.value.trim();
+  if (cumple && /^\d{4}$/.test(cumple) && sbOk) {
+    sb.from('active_sessions').upsert({name:v.toLowerCase(), last_seen:new Date().toISOString(), cumple:cumple},{onConflict:'name'}).then(()=>{}).catch(()=>{});
+  }
+  fetchAll().then(()=>{ if(!sbOk) renderAll(); checkCumples(); });
   subscribe();
   startAutoRefresh();
 }
@@ -790,6 +826,7 @@ function showTab(t) {
   document.querySelector(`[onclick="showTab('${t}')"]`).classList.add('active');
   document.getElementById(`panel-${t}`).classList.add('active');
   if (t==='ws') renderWS();
+  if (t==='carne') { calcularCarne(); }
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
 function populateSel() {
@@ -803,12 +840,31 @@ const getPP    = ()=> { const n = S.event?.comensales || allP().length; return n
 const paid     = n => S.expenses.filter(e=>e.payer===n).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
 
+let medioSeleccionado = 'efectivo';
+
+function selectMedio(medio) {
+  medioSeleccionado = medio;
+  const ef = document.getElementById('btn-ef');
+  const tr = document.getElementById('btn-tr');
+  if (!ef||!tr) return;
+  if (medio==='efectivo') {
+    ef.style.cssText='flex:1;padding:10px;border-radius:9px;border:2px solid var(--fire);background:rgba(255,69,0,.12);color:var(--fire);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
+    tr.style.cssText='flex:1;padding:10px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
+  } else {
+    tr.style.cssText='flex:1;padding:10px;border-radius:9px;border:2px solid var(--blue);background:rgba(46,134,222,.12);color:var(--blue);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
+    ef.style.cssText='flex:1;padding:10px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;transition:all .15s';
+  }
+}
+
 async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
   const amt=parseFloat(document.getElementById('feamt').value);
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
-  await sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt});
+  document.getElementById('fedesc').value=''; document.getElementById('feamt').value='';
+  const medioGuardado = medioSeleccionado;
+  selectMedio('efectivo'); // reset
+  tf('fexp');
+  await sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt,medio:medioGuardado});
   toast('✅ Gasto cargado!');
 }
 
@@ -824,20 +880,32 @@ function renderGastos() {
   sm.textContent=(mb>=0?'+':'-')+fmt(mb);
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
+  const paidEf  = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()&&e.medio!=='transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);
+  const paidTr  = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()&&e.medio==='transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);
+  const pp2 = getPP();
+  const faltanPagar = allP().filter(p=>bal(p)<-100);
+
   document.getElementById('ballist').innerHTML = allP().map(p=>{
     const b=bal(p),im=p===me;
+    const ef=paidEf(p),tr=paidTr(p);
+    const detalle = (ef>0?`💵 ${fmt(ef)}`:'') + (ef>0&&tr>0?' · ':'') + (tr>0?`📲 ${fmt(tr)}`:'');
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
-        <div><div class="pname">${p}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
-        <div class="psub">Pagó: ${fmt(paid(p))}</div></div>
+        <div>
+          <div class="pname">${p}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
+          <div class="psub">Pagó: ${fmt(paid(p))}${detalle?' — '+detalle:''}</div>
+        </div>
       </div>
       <div>
         <div class="bval ${b>=0?'cgr':'cr'}">${b>=0?'+':'-'}${fmt(b)}</div>
         <div class="blbl">${b>=0?'a cobrar':'debe pagar'}</div>
       </div>
     </div>`;
-  }).join('');
+  }).join('') +
+  (faltanPagar.length>0?`<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">
+    ⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.join(', ')}
+  </div>`:'');
 
   const el=document.getElementById('explist');
   el.innerHTML=S.expenses.length===0
@@ -845,7 +913,7 @@ function renderGastos() {
     :[...S.expenses].reverse().map(e=>`
       <div class="er">
         <div class="ei">🧾</div>
-        <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer}</div></div>
+        <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer} ${e.medio==='transferencia'?'📲':'💵'}</div></div>
         <div style="display:flex;align-items:center;gap:7px">
           <div class="ea">${fmt(e.amount)}</div>
           ${isAdmin()?`<button onclick="openEditExpense(${e.id})" style="background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 7px;font-size:12px;cursor:pointer;color:var(--muted)">✏️</button>`:''}
@@ -1002,9 +1070,40 @@ async function deleteTask2() {
 }
 
 // ══ MENÚ ══════════════════════════════════════════
+function autoEmoji(name) {
+  const n = name.toLowerCase();
+  const map = [
+    [['cordero','chivito','chivo'], '🐑'],
+    [['vacio','costilla','asado','tira','bife','lomo','cuadril','matambre'], '🥩'],
+    [['chorizo','choripan','chori'], '🌭'],
+    [['morcilla'], '⚫'],
+    [['pollo','alita'], '🍗'],
+    [['cerdo','bondiola','pechito'], '🐷'],
+    [['provoleta','queso'], '🧀'],
+    [['ensalada','verde','tomate','lechuga'], '🥗'],
+    [['papa','papas fritas'], '🥔'],
+    [['pan','marraqueta','baguette'], '🍞'],
+    [['chimichurri','salsa'], '🫙'],
+    [['vino','malbec','cabernet','torrontes'], '🍷'],
+    [['cerveza','birra'], '🍺'],
+    [['gaseosa','coca','sprite','soda','agua'], '🥤'],
+    [['postre','torta','cake','dulce','alfajor'], '🍰'],
+    [['helado'], '🍦'],
+    [['fruta','sandía','melón'], '🍉'],
+    [['cafe','cafe','infusion','te'], '☕'],
+    [['achura','chinchulin','molleja','rinon','higado'], '🫀'],
+    [['vegetariano','vegano'], '🌱'],
+  ];
+  for (const [keys, em] of map) {
+    if (keys.some(k=>n.includes(k))) return em;
+  }
+  return '🍽️';
+}
+
 async function addMenuItem() {
   const name=document.getElementById('mname').value.trim();
-  const emoji=document.getElementById('memoji').value.trim()||'🍽️';
+  const manualEmoji=document.getElementById('memoji').value.trim();
+  const emoji = manualEmoji || autoEmoji(name);
   if (!name) { toast('Escribí el nombre','var(--red)'); return; }
   document.getElementById('mname').value=''; document.getElementById('memoji').value='';
   await sb.from('menu_items').insert({event_id:S.event.id,emoji,name,detail:`Sugerido por ${me}`,status:'confirmed'});
@@ -1185,7 +1284,7 @@ Traer:
 `💰 *CUENTAS — ${ev.title||'ASADO'}*
 
 Total: *${tot}* · ${allP().length} personas · *${pp}* c/u
-${deu.length?'\n⚡ *Deben transferir:*\n'+deu.map(p=>`   • ${p}: ${fmt(Math.abs(bal(p)))}`).join('\n'):''}
+${deu.length?'\n⚡ *Deben transferir:*\n'+deu.map(p=>{const ef2=S.expenses.filter(e=>e.payer.toLowerCase()===p.toLowerCase()&&e.medio!=='transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);const tr2=S.expenses.filter(e=>e.payer.toLowerCase()===p.toLowerCase()&&e.medio==='transferencia').reduce((a,e)=>a+parseFloat(e.amount),0);const det=(ef2>0?`💵${fmt(ef2)}`:'')+(ef2>0&&tr2>0?'/':'')+(tr2>0?`📲${fmt(tr2)}`:'');return`   • ${p}: debe ${fmt(Math.abs(bal(p)))}${det?' (pagó '+det+')':''}`;}).join('\n'):''}
 ${acr.length?'\n✅ *A cobrar:*\n'+acr.map(p=>`   • ${p}: ${fmt(bal(p))}`).join('\n'):''}
 
 Pagan por CBU/CVU o efectivo 💵`,
@@ -1234,6 +1333,94 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
 function startAutoRefresh() {
   setInterval(() => fetchAll(), 30000);
+}
+
+// ══ CUMPLEAÑOS ════════════════════════════════════
+async function checkCumples() {
+  if (!sbOk) return;
+  try {
+    const hoy = new Date();
+    const ddmm = String(hoy.getDate()).padStart(2,'0') + String(hoy.getMonth()+1).padStart(2,'0');
+    const {data} = await sb.from('active_sessions').select('name,cumple').not('cumple','is',null);
+    if (!data) return;
+    const cumpleros = data.filter(r=>r.cumple===ddmm && r.name.toLowerCase()!==me.toLowerCase());
+    if (cumpleros.length>0) {
+      const nombres = cumpleros.map(r=>r.name).join(', ');
+      setTimeout(()=>{
+        toast(`🎂 ¡HOY CUMPLE ${nombres.toUpperCase()}! Saludalo 🎉`,'var(--gold)',6000);
+      }, 2000);
+    }
+  } catch(e) {}
+}
+
+// ══ CALCULADORA DE CARNE ══════════════════════════
+let calcComensales = 12;
+
+const CORTES = {
+  tapeo: [
+    {nombre:'Chorizos',emoji:'🌭',grPorPax:120,nota:'2 por persona'},
+    {nombre:'Morcillas',emoji:'⚫',grPorPax:60,nota:'1 por persona'},
+    {nombre:'Provoleta',emoji:'🧀',grPorPax:80,nota:''},
+    {nombre:'Achuras (molleja/chinchulin)',emoji:'🫀',grPorPax:100,nota:''},
+    {nombre:'Pan',emoji:'🍞',grPorPax:80,nota:''},
+  ],
+  completo: [
+    {nombre:'Costilla/Tira de asado',emoji:'🥩',grPorPax:350,nota:'corte principal'},
+    {nombre:'Vacío',emoji:'🥩',grPorPax:200,nota:''},
+    {nombre:'Chorizos',emoji:'🌭',grPorPax:100,nota:'1-2 por persona'},
+    {nombre:'Morcillas',emoji:'⚫',grPorPax:50,nota:''},
+    {nombre:'Achuras',emoji:'🫀',grPorPax:80,nota:''},
+    {nombre:'Pan',emoji:'🍞',grPorPax:80,nota:''},
+  ],
+  familiar: [
+    {nombre:'Costilla/Asado',emoji:'🥩',grPorPax:300,nota:''},
+    {nombre:'Pollo',emoji:'🍗',grPorPax:250,nota:''},
+    {nombre:'Chorizos',emoji:'🌭',grPorPax:100,nota:''},
+    {nombre:'Morcillas',emoji:'⚫',grPorPax:50,nota:''},
+    {nombre:'Pan',emoji:'🍞',grPorPax:80,nota:''},
+  ],
+  vegano: [
+    {nombre:'Costilla (carnívoros)',emoji:'🥩',grPorPax:300,nota:'para el 70%'},
+    {nombre:'Chorizos',emoji:'🌭',grPorPax:80,nota:''},
+    {nombre:'Hamburguesas vegetales',emoji:'🌱',grPorPax:150,nota:'para el 30%'},
+    {nombre:'Provoleta',emoji:'🧀',grPorPax:100,nota:''},
+    {nombre:'Verduras a la parrilla',emoji:'🥦',grPorPax:200,nota:''},
+    {nombre:'Pan',emoji:'🍞',grPorPax:80,nota:''},
+  ],
+};
+
+function cambiarComensalesCalc(delta) {
+  calcComensales = Math.max(1, calcComensales + delta);
+  document.getElementById('calc-comen').textContent = calcComensales;
+  calcularCarne();
+}
+
+function calcularCarne() {
+  const tipo = document.getElementById('tipo-asado').value;
+  const cortes = CORTES[tipo];
+  const n = calcComensales;
+  const html = cortes.map(co => {
+    const total = Math.ceil(co.grPorPax * n / 100) * 100;
+    const kg = (total/1000).toFixed(1);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
+      <div>
+        <span style="font-size:18px;margin-right:7px">${co.emoji}</span>
+        <span style="font-size:13px;font-weight:500">${co.nombre}</span>
+        ${co.nota?`<div style="font-size:10px;color:var(--muted);margin-left:27px">${co.nota}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:10px">
+        <div style="font-family:'Bebas Neue',cursive;font-size:20px;color:var(--fire)">${kg} kg</div>
+        <div style="font-size:10px;color:var(--muted)">${total}g</div>
+      </div>
+    </div>`;
+  }).join('');
+  const totalKg = cortes.reduce((a,co)=>a+co.grPorPax*n,0)/1000;
+  document.getElementById('resultado-carne').innerHTML = html +
+    `<div style="margin-top:10px;padding:10px;background:rgba(255,69,0,.08);border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:var(--muted)">Total estimado</div>
+      <div style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--fire)">${totalKg.toFixed(1)} kg</div>
+      <div style="font-size:10px;color:var(--muted)">para ${n} personas</div>
+    </div>`;
 }
 
 // ══ INIT ══════════════════════════════════════════
