@@ -501,6 +501,7 @@ body {
 <div class="modal-bg" id="modal-cuentas">
   <div class="modal" style="max-height:85vh;overflow-y:auto">
     <div class="modal-title">💰 Cerrar Cuentas <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
+    <button onclick="limpiarCobros()" style="font-size:11px;background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--muted);margin-bottom:10px">🗑 Limpiar cobros registrados</button>
     <div id="cuentas-resumen"></div>
   </div>
 </div>
@@ -1407,14 +1408,24 @@ function renderCuentas() {
     <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span style="font-size:12px;color:var(--muted)">Cobrado</span>
-        <span style="font-weight:700;color:var(--green)">\${fmt(totalCobrado)}</span>
+        <span id="pie-cobrado" style="font-weight:700;color:var(--green)"></span>
       </div>
       <div style="display:flex;justify-content:space-between">
         <span style="font-size:12px;color:var(--muted)">Pendiente</span>
-        <span style="font-weight:700;color:\${pendientes2.length>0?'var(--red)':'var(--green)'}">\${pendientes2.length>0?fmt(deudores.filter(p=>!cobros[p.toLowerCase()]).reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span>
+        <span id="pie-pendiente" style="font-weight:700"></span>
       </div>
     </div>
+    </div>
   `;
+  // Setear pie
+  const pcEl = document.getElementById('pie-cobrado');
+  const ppEl = document.getElementById('pie-pendiente');
+  if(pcEl) pcEl.textContent = fmt(totalCobrado);
+  if(ppEl) {
+    const montoPend = pendientes2.reduce(function(a,p){return a+Math.abs(bal(p));},0);
+    ppEl.textContent = pendientes2.length>0 ? fmt(montoPend) : '✅ Todo cobrado';
+    ppEl.style.color = pendientes2.length>0 ? 'var(--red)' : 'var(--green)';
+  }
 }
 
 // ══ COBROS ADMIN ══════════════════════════════════
@@ -1423,6 +1434,13 @@ function getCobros() {
 }
 function saveCobros(cobros) {
   localStorage.setItem('asado_cobros_'+(S.event?.id||0), JSON.stringify(cobros));
+}
+
+function limpiarCobros() {
+  if (!confirm('¿Limpiar todos los cobros registrados?')) return;
+  localStorage.removeItem('asado_cobros_'+(S.event?.id||0));
+  renderCuentas();
+  toast('Cobros limpiados');
 }
 
 function registrarCobro(persona, monto, medio) {
