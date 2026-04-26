@@ -246,12 +246,36 @@ body {
   <div class="lsub" id="login-sub">Cargando...</div>
   <div class="lcard">
     <label class="llabel">¿Cuál es tu nombre?</label>
-    <input class="linput" id="cname" placeholder="Tu nombre..." maxlength="20" onkeydown="if(event.key==='Enter')doLogin()">
+    <input class="linput" id="cname" placeholder="Tu nombre..." maxlength="20" 
+      oninput="autocompleteNombre(this.value)"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="sugerencias" style="display:none;background:var(--ash);border:1px solid var(--rim);border-radius:10px;margin-top:4px;overflow:hidden"></div>
     <button class="lbtn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
   <div class="wnote">
     <div class="wnote-i">🍷</div>
     <div class="wnote-t"><strong>Recordá traer:</strong>Vino de más de 1.200 mts de altura y tus propios cubiertos</div>
+  </div>
+</div>
+
+<!-- CONFIRMACIÓN ASISTENCIA -->
+<div id="confirm-screen" style="display:none;min-height:100vh;background:var(--coal);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:400px">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text)" id="cs-title">Asado en la Caleta</div>
+      <div style="font-size:14px;color:var(--fire);margin-top:4px" id="cs-date"></div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px" id="cs-loc"></div>
+    </div>
+    <div style="background:var(--smoke);border-radius:16px;padding:20px;border:1px solid var(--rim);margin-bottom:20px">
+      <div style="font-size:15px;font-weight:600;text-align:center;margin-bottom:16px">
+        Hola <span id="cs-nombre" style="color:var(--fire)"></span> 👋<br>
+        <span style="font-size:13px;color:var(--muted);font-weight:400">¿Confirmás tu asistencia?</span>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:none;background:var(--fire);color:white;font-family:'Bebas Neue',cursive;font-size:20px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
+        <button onclick="confirmarAsistencia('no')" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:20px;cursor:pointer;letter-spacing:1px">❌ NO PUEDO</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -281,6 +305,7 @@ body {
     <button class="abtn" onclick="openModal('modal-participants')">👥 Participantes</button>
     <button class="abtn" onclick="openModal('modal-history')">📚 Historial</button>
     <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
+    <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
     <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
   </div>
@@ -495,6 +520,14 @@ body {
   </div>
 </div>
 
+<!-- Modal Asistencia -->
+<div class="modal-bg" id="modal-asistencia">
+  <div class="modal">
+    <div class="modal-title">👥 Asistencia <button class="modal-close" onclick="closeModal('modal-asistencia')">✕</button></div>
+    <div id="asistencia-list"></div>
+  </div>
+</div>
+
 <!-- Modal Cerrar Cuentas -->
 <div class="modal-bg" id="modal-cuentas">
   <div class="modal">
@@ -665,7 +698,27 @@ async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
   me=v; localStorage.setItem('asado_user',v);
+  // Si ya confirmó asistencia antes, ir directo a la app
+  const yaConfirmo = localStorage.getItem('rsvp_'+( S.event?.id||'') +'_'+v.toLowerCase());
+  if (yaConfirmo) {
+    entrarApp(v);
+    return;
+  }
+  // Mostrar pantalla de confirmación
   document.getElementById('login-screen').style.display='none';
+  const cs = document.getElementById('confirm-screen');
+  cs.style.display='flex';
+  document.getElementById('cs-nombre').textContent = v;
+  if (S.event) {
+    document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
+    document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
+    document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
+  }
+}
+
+function entrarApp(v) {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('confirm-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('uav').textContent=v[0].toUpperCase();
   document.getElementById('udisp').textContent=v;
@@ -709,6 +762,7 @@ function openModal(id) {
   if (id==='modal-participants') renderParticipantsModal();
   if (id==='modal-history') renderHistory();
   if (id==='modal-cuentas') renderCuentas();
+  if (id==='modal-asistencia') renderAsistencia();
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -923,37 +977,58 @@ async function deleteTask(id) {
 function renderTasks() {
   const el=document.getElementById('tasklist');
   if (!S.tasks.length) { el.innerHTML='<div class="empty"><div class="em">📋</div>Sin tareas</div>'; return; }
-  const cats={};
-  // Separar hechas y pendientes
-  const pending = S.tasks.filter(t=>!t.done);
-  const done    = S.tasks.filter(t=>t.done);
-  [...pending,...done].forEach(t=>{ (cats[t.category]=cats[t.category]||[]).push(t); });
-  el.innerHTML=Object.entries(cats).map(([cat,tasks])=>`
-    <div class="ach">${cat}</div>
-    <div class="tkgroup">
-    ${tasks.map(t=>{
-      const isMe = t.assignee&&t.assignee.toLowerCase()===me.toLowerCase();
-      const sinAsig = !t.assignee;
-      return `<div class="tkr${t.done?' dn':''}">
-        <div class="tkc${t.done?' ck':''}" onclick="toggleTask(${t.id},${t.done})"></div>
-        <div class="tkbody">
-          <div class="tknm">${t.done?`<s style="opacity:.5">${t.name}</s>`:t.name}${t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:12px;color:var(--ember)">×${t.qty}</span>`:''}</div>
+
+  // Agrupar por persona (pending primero, done al fondo)
+  const byPerson = {};
+  const meKey = '__yo__';
+
+  S.tasks.forEach(t=>{
+    const key = t.assignee ? t.assignee.toLowerCase() : '__sin__';
+    if (!byPerson[key]) byPerson[key] = {nombre: t.assignee||null, tasks:[]};
+    byPerson[key].tasks.push(t);
+  });
+
+  // Orden: yo primero, luego otros asignados, sin asignar al final
+  const ordered = [];
+  if (byPerson[me.toLowerCase()]) ordered.push(byPerson[me.toLowerCase()]);
+  Object.entries(byPerson).forEach(([k,v])=>{
+    if (k!==me.toLowerCase() && k!=='__sin__') ordered.push(v);
+  });
+  if (byPerson['__sin__']) ordered.push(byPerson['__sin__']);
+
+  el.innerHTML = ordered.map(group=>{
+    const isMe = group.nombre&&group.nombre.toLowerCase()===me.toLowerCase();
+    const header = group.nombre
+      ? `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${isMe?'var(--fire)':'var(--muted)'};border-bottom:1px solid var(--rim)">👤 ${group.nombre}${isMe?' (vos)':''}</div>`
+      : `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)">🙋 Sin asignar</div>`;
+
+    const items = group.tasks.map(t=>{
+      const done = t.done;
+      return `<div class="tkr${done?' dn':''}" style="${isMe&&!done?'background:rgba(255,69,0,.04)':''}">
+        <div class="tkc${done?' ck':''}" onclick="toggleTask(${t.id},${t.done})" style="margin-top:2px;flex-shrink:0"></div>
+        <div class="tkbody" style="flex:1">
+          <div class="tknm" style="${done?'opacity:.4;text-decoration:line-through':''}">
+            ${t.name}${t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:12px;color:var(--ember)">×${t.qty}</span>`:''}
+          </div>
           <div class="tkfoot">
-            ${t.done
-              ?`<span style="font-size:11px;color:var(--green)">✅ ${t.assignee||'listo'}</span>`
-              :isMe
-                ?`<span style="font-size:11px;color:var(--fire)">🙋 vos</span>`
-                :t.assignee
-                  ?`<span style="font-size:11px;color:var(--muted)">👤 ${t.assignee}</span><span class="pill pill-assign" onclick="assignToMe(${t.id})" style="font-size:10px;padding:2px 7px">Cambiar</span>`
-                  :`<span class="pill pill-assign" onclick="assignToMe(${t.id})">✋ Yo me encargo</span>`
+            ${done
+              ?`<span style="font-size:11px;color:var(--green)">✅ listo</span>`
+              :!group.nombre
+                ?`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(255,69,0,.08);color:var(--fire);cursor:pointer">✋ Yo me encargo</button>`
+                :isMe
+                  ?`<span style="font-size:11px;color:var(--fire)">tuya 🔥</span>`
+                  :`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);cursor:pointer">Tomar tarea</button>`
             }
-            ${isAdmin()&&!t.done?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px">✏️</span>`:''}
+            ${isAdmin()&&!done?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:14px;cursor:pointer;padding:0 6px;margin-left:auto">✏️</span>`:''}
           </div>
         </div>
       </div>`;
-    }).join('')}
-    </div>`).join('');
+    }).join('');
+
+    return `<div style="background:var(--smoke);border-radius:12px;overflow:hidden;border:1px solid var(--rim);margin-bottom:10px">${header}${items}</div>`;
+  }).join('');
 }
+
 
 // ══ CATEGORÍAS ════════════════════════════════════
 const DEFAULT_CATS = ['🥩 Carnes','🥗 Verduras','🧀 Fiambres','🍺 Bebidas','🔥 Insumos','🍰 Postres','🛒 Otros'];
@@ -1302,6 +1377,83 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
 function startAutoRefresh() {
   setInterval(() => fetchAll(), 30000);
+}
+
+// ══ AUTOCOMPLETE NOMBRE ═══════════════════════════
+function autocompleteNombre(val) {
+  const sug = document.getElementById('sugerencias');
+  if (!val || val.length < 1) { sug.style.display='none'; return; }
+  const matches = S.participants.filter(p=>p.active&&p.name.toLowerCase().startsWith(val.toLowerCase()));
+  if (!matches.length) { sug.style.display='none'; return; }
+  sug.style.display='block';
+  sug.innerHTML = matches.map(p=>`<div onclick="elegirNombre('${p.name}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">${p.name}</div>`).join('');
+}
+
+function elegirNombre(nombre) {
+  document.getElementById('cname').value = nombre;
+  document.getElementById('sugerencias').style.display='none';
+  doLogin();
+}
+
+// ══ CONFIRMACIÓN ASISTENCIA ════════════════════════
+async function confirmarAsistencia(resp) {
+  const key = 'rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase();
+  localStorage.setItem(key, resp);
+  // Guardar en Supabase si existe columna rsvp
+  if (sbOk) {
+    try {
+      await sb.from('participants').update({rsvp: resp}).ilike('name', me);
+    } catch(e) {}
+  }
+  toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
+  // Entrar a la app directo en tab tareas
+  entrarApp(me);
+  setTimeout(()=>showTab('tareas'), 300);
+}
+
+// ══ ASISTENCIA ADMIN ═══════════════════════════════
+function renderAsistencia() {
+  const el = document.getElementById('asistencia-list');
+  if (!el) return;
+  const todos = S.participants.filter(p=>p.active);
+  const confirmados = todos.filter(p=>p.rsvp==='si');
+  const noVan = todos.filter(p=>p.rsvp==='no');
+  const sinResp = todos.filter(p=>!p.rsvp);
+  
+  el.innerHTML = 
+    `<div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px">
+      <div style="flex:1;padding:8px;background:rgba(39,174,96,.1);border-radius:8px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--green)">${confirmados.length}</div>
+        <div style="color:var(--muted)">Confirmados</div>
+      </div>
+      <div style="flex:1;padding:8px;background:rgba(231,76,60,.1);border-radius:8px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--red)">${noVan.length}</div>
+        <div style="color:var(--muted)">No van</div>
+      </div>
+      <div style="flex:1;padding:8px;background:var(--ash);border-radius:8px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--muted)">${sinResp.length}</div>
+        <div style="color:var(--muted)">Sin responder</div>
+      </div>
+    </div>`+
+    todos.map(p=>{
+      const r = p.rsvp;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
+        <span style="font-weight:500">${p.name}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer">✅ Va</button>
+          <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer">❌ No</button>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+async function setRsvpAdmin(nombre, resp) {
+  if (!sbOk) return;
+  try {
+    await sb.from('participants').update({rsvp: resp}).ilike('name', nombre);
+    await fetchAll();
+    renderAsistencia();
+  } catch(e) {}
 }
 
 // ══ CALCULADORA DE CARNE ══════════════════════════
