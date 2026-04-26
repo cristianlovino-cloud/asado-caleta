@@ -537,6 +537,21 @@ body {
   </div>
 </div>
 
+<!-- Modal Fusionar Participantes -->
+<div class="modal-bg" id="modal-fusionar">
+  <div class="modal">
+    <div class="modal-title">⇄ Fusionar participante <button class="modal-close" onclick="closeModal('modal-fusionar')">✕</button></div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      Elegí con qué nombre fusionar. El nombre principal queda, el otro se desactiva.
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">NOMBRE PRINCIPAL</div>
+    <div id="fusionar-principal" style="font-weight:700;font-size:16px;padding:10px 12px;background:var(--ash);border-radius:8px;margin-bottom:12px;color:var(--fire)"></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">FUSIONAR CON</div>
+    <select id="fusionar-select" class="fsel" style="margin-bottom:16px"></select>
+    <button onclick="ejecutarFusion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--fire);color:white;font-family:'Bebas Neue',cursive;font-size:18px;cursor:pointer;letter-spacing:1px">⇄ FUSIONAR</button>
+  </div>
+</div>
+
 <!-- Modal Cerrar Cuentas -->
 <div class="modal-bg" id="modal-cuentas">
   <div class="modal">
@@ -1413,14 +1428,15 @@ function elegirNombre(nombre) {
 async function confirmarAsistencia(resp) {
   const key = 'rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase();
   localStorage.setItem(key, resp);
-  // Guardar en Supabase si existe columna rsvp
   if (sbOk) {
     try {
-      await sb.from('participants').update({rsvp: resp}).ilike('name', me);
+      await sb.from('participants').update({
+        rsvp: resp,
+        rsvp_at: new Date().toISOString()
+      }).ilike('name', me);
     } catch(e) {}
   }
   toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
-  // Entrar a la app directo en tab tareas
   entrarApp(me);
   setTimeout(()=>showTab('tareas'), 300);
 }
@@ -1434,6 +1450,12 @@ function renderAsistencia() {
   const noVan = todos.filter(p=>p.rsvp==='no');
   const sinResp = todos.filter(p=>!p.rsvp);
   
+  const fmtRsvpAt = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+  };
+
   el.innerHTML = 
     `<div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px">
       <div style="flex:1;padding:8px;background:rgba(39,174,96,.1);border-radius:8px;text-align:center">
@@ -1451,12 +1473,17 @@ function renderAsistencia() {
     </div>`+
     todos.map(p=>{
       const r = p.rsvp;
+      const cuando = p.rsvp_at ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(p.rsvp_at)}</div>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
-        <span style="font-weight:500">${p.name}</span>
+        <div>
+          <span style="font-weight:500">${p.name}</span>
+          ${cuando}
+        </div>
         <div style="display:flex;gap:6px;align-items:center">
           ${isAdmin()
             ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer">✅ Va</button>
-             <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer">❌ No</button>`
+             <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer">❌ No</button>
+             <button onclick="abrirFusionar('${p.name}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer" title="Fusionar con otro">⇄</button>`
             :`<span style="font-size:13px">${r==='si'?'✅':r==='no'?'❌':'⏳'}</span>`
           }
         </div>
@@ -1464,10 +1491,45 @@ function renderAsistencia() {
     }).join('');
 }
 
+function abrirFusionar(nombre) {
+  const el = document.getElementById('fusionar-principal');
+  if(el) el.textContent = nombre;
+  const sel = document.getElementById('fusionar-select');
+  if(sel) {
+    const otros = S.participants.filter(p=>p.active && p.name.toLowerCase()!==nombre.toLowerCase());
+    sel.innerHTML = otros.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+  }
+  closeModal('modal-asistencia');
+  openModal('modal-fusionar');
+}
+
+async function ejecutarFusion() {
+  const principal = document.getElementById('fusionar-principal').textContent;
+  const otro = document.getElementById('fusionar-select').value;
+  if (!principal || !otro) return;
+  if (!confirm(`¿Fusionar "${otro}" → "${principal}"? El nombre "${otro}" se desactivará.`)) return;
+  if (!sbOk) return;
+  try {
+    // Reasignar tareas del otro al principal
+    await sb.from('tasks').update({assignee: principal}).ilike('assignee', otro);
+    // Reasignar gastos del otro al principal
+    await sb.from('expenses').update({payer: principal}).ilike('payer', otro);
+    // Desactivar el duplicado
+    await sb.from('participants').update({active: false}).ilike('name', otro);
+    await fetchAll();
+    closeModal('modal-fusionar');
+    toast(`✅ "${otro}" fusionado con "${principal}"`);
+    renderAsistencia();
+  } catch(e) { toast('Error al fusionar','var(--red)'); }
+}
+
 async function setRsvpAdmin(nombre, resp) {
   if (!sbOk) return;
   try {
-    await sb.from('participants').update({rsvp: resp}).ilike('name', nombre);
+    await sb.from('participants').update({
+      rsvp: resp,
+      rsvp_at: new Date().toISOString()
+    }).ilike('name', nombre);
     await fetchAll();
     renderAsistencia();
   } catch(e) {}
