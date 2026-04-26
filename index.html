@@ -152,7 +152,10 @@ body {
 .bta:active{transform:scale(.98)}
 
 /* TASK */
-.tkr{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid var(--rim)}
+.tkr{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-bottom:1px solid var(--rim);transition:opacity .2s}
+.tkfoot{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+.tkgroup{border-radius:10px;overflow:hidden;border:1px solid var(--rim);margin-bottom:8px}
+.tkgroup .tkr:last-child{border-bottom:none}
 .tkr:last-child{border-bottom:none}
 .tkr.dn{opacity:.5}
 .tkc{width:21px;height:21px;border-radius:50%;border:2px solid var(--rim);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:1px;transition:all .2s}
@@ -921,23 +924,35 @@ function renderTasks() {
   const el=document.getElementById('tasklist');
   if (!S.tasks.length) { el.innerHTML='<div class="empty"><div class="em">📋</div>Sin tareas</div>'; return; }
   const cats={};
-  S.tasks.forEach(t=>{ (cats[t.category]=cats[t.category]||[]).push(t); });
+  // Separar hechas y pendientes
+  const pending = S.tasks.filter(t=>!t.done);
+  const done    = S.tasks.filter(t=>t.done);
+  [...pending,...done].forEach(t=>{ (cats[t.category]=cats[t.category]||[]).push(t); });
   el.innerHTML=Object.entries(cats).map(([cat,tasks])=>`
     <div class="ach">${cat}</div>
-    ${tasks.map(t=>`
-      <div class="tkr${t.done?' dn':''}">
+    <div class="tkgroup">
+    ${tasks.map(t=>{
+      const isMe = t.assignee&&t.assignee.toLowerCase()===me.toLowerCase();
+      const sinAsig = !t.assignee;
+      return `<div class="tkr${t.done?' dn':''}">
         <div class="tkc${t.done?' ck':''}" onclick="toggleTask(${t.id},${t.done})"></div>
         <div class="tkbody">
-          <div class="tknm">${t.name}${t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:13px;color:var(--ember);margin-left:4px">×${t.qty}</span>`:''}</div>
-          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
-            ${t.assignee
-              ?`<span class="ac${t.assignee===me?' mine':''}">👤 ${t.assignee}</span>`
-              :`<span style="color:var(--muted);font-size:10px">Sin asignar</span>`}
-            ${!t.assignee||t.assignee!==me?`<span class="pill pill-assign" onclick="assignToMe(${t.id})">✋ Yo me encargo</span>`:''}
-            ${isAdmin()?`<span class="pill" style="background:rgba(255,140,0,.1);border:1px solid rgba(255,140,0,.2);color:var(--ember)" onclick="openEditTask(${t.id})">✏️</span>`:''}
+          <div class="tknm">${t.done?`<s style="opacity:.5">${t.name}</s>`:t.name}${t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:12px;color:var(--ember)">×${t.qty}</span>`:''}</div>
+          <div class="tkfoot">
+            ${t.done
+              ?`<span style="font-size:11px;color:var(--green)">✅ ${t.assignee||'listo'}</span>`
+              :isMe
+                ?`<span style="font-size:11px;color:var(--fire)">🙋 vos</span>`
+                :t.assignee
+                  ?`<span style="font-size:11px;color:var(--muted)">👤 ${t.assignee}</span><span class="pill pill-assign" onclick="assignToMe(${t.id})" style="font-size:10px;padding:2px 7px">Cambiar</span>`
+                  :`<span class="pill pill-assign" onclick="assignToMe(${t.id})">✋ Yo me encargo</span>`
+            }
+            ${isAdmin()&&!t.done?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px">✏️</span>`:''}
           </div>
         </div>
-      </div>`).join('')}`).join('');
+      </div>`;
+    }).join('')}
+    </div>`).join('');
 }
 
 // ══ CATEGORÍAS ════════════════════════════════════
