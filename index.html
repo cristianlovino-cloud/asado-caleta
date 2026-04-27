@@ -664,7 +664,7 @@ let me = localStorage.getItem('asado_user') || '';
 let tmpl = 'convocatoria';
 
 const isAdmin = () => me === ADMIN_USER;
-const allP    = () => S.participants.filter(p=>p.active).map(p=>p.name);
+const allP    = () => S.participants.filter(p=>p.active && p.rsvp==='si').map(p=>p.name);
 const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
 // ══ FETCH ═════════════════════════════════════════
