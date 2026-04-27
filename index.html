@@ -984,13 +984,23 @@ async function addTask() {
   toast('✅ Tarea agregada!');
 }
 
-async function toggleTask(id,current) {
-  await sb.from('tasks').update({done:!current}).eq('id',id);
+function toggleTask(id,current) {
+  // Actualizar local inmediatamente, sin esperar nada
+  const t = S.tasks.find(t=>String(t.id)===String(id));
+  if (!t) return;
+  t.done = !current;
+  renderTasks();
+  // Guardar en background sin refetch
+  if (sbOk) sb.from('tasks').update({done:!current}).eq('id',id);
 }
 
-async function assignToMe(id) {
-  await sb.from('tasks').update({assignee:me}).eq('id',id);
+function assignToMe(id) {
+  const t = S.tasks.find(t=>String(t.id)===String(id));
+  if (!t) return;
+  t.assignee = me;
+  renderTasks();
   toast('✅ Tarea asignada a vos!');
+  if (sbOk) sb.from('tasks').update({assignee:me}).eq('id',id);
 }
 
 async function deleteTask(id) {
