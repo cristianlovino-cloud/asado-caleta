@@ -1350,10 +1350,10 @@ ${mn}
   pt.forEach(t=>{
     const k=t.assignee?t.assignee.toUpperCase():'SIN ASIGNAR';
     if(!byP[k]) byP[k]=[];
-    const lines=t.name.split('\\n');
-    lines.forEach((l,i)=>{byP[k].push(i===0?'⬜ '+l.trim():'   + '+l.replace(/^[+• -]\\s*/,'').trim());});
+    const lines=t.name.split('\n');
+    lines.forEach((l,i)=>{byP[k].push(i===0?'⬜ '+l.trim():'   + '+l.replace(/^[+• -]\s*/,'').trim());});
   });
-  return Object.keys(byP).sort().map(p=>'👤 *'+p+'*\\n'+byP[p].join('\\n')).join('\\n\\n');
+  return Object.keys(byP).sort().map(p=>'👤 *'+p+'*\n'+byP[p].join('\n')).join('\n\n');
 })()}\n\nQuien pueda agarrar algo, avisa 👆`,
 
     recordatorio:
