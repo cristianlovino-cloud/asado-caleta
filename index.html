@@ -940,7 +940,7 @@ function renderGastos() {
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
-        <div><div class="pname">${p}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
+        <div><div class="pname">${p.toUpperCase()}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
         <div class="psub">Pagó: ${fmt(paid(p))}</div></div>
       </div>
       <div>
@@ -1334,11 +1334,17 @@ ${mn}
 ¡Confirmen asistencia! 🙌`,
 
     compras:
-`🛒 *LISTA DE COMPRAS*
-
-${pt.length===0?'✅ ¡Todo comprado!':pt.map(t=>`⬜ ${t.name}${t.assignee?' → '+t.assignee:''}`).join('\n')}
-
-Quien pueda agarrar algo, avisa 👆`,
+`🛒 *LISTA DE COMPRAS*\n\n${(()=>{
+  if(pt.length===0) return '✅ ¡Todo comprado!';
+  const byP={};
+  pt.forEach(t=>{
+    const k=t.assignee?t.assignee.toUpperCase():'SIN ASIGNAR';
+    if(!byP[k]) byP[k]=[];
+    const lines=t.name.split('\\n');
+    lines.forEach((l,i)=>{byP[k].push(i===0?'⬜ '+l.trim():'   + '+l.replace(/^[+• -]\\s*/,'').trim());});
+  });
+  return Object.keys(byP).sort().map(p=>'👤 *'+p+'*\\n'+byP[p].join('\\n')).join('\\n\\n');
+})()}\n\nQuien pueda agarrar algo, avisa 👆`,
 
     recordatorio:
 `⏰ *RECORDA — ${ev.title||'ASADO'} MAÑANA*
