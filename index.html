@@ -1227,18 +1227,31 @@ async function addMenuItem() {
   const emoji = manualEmoji || autoEmoji(name);
   if (!name) { toast('Escribí el nombre','var(--red)'); return; }
   document.getElementById('mname').value=''; document.getElementById('memoji').value='';
-  await sb.from('menu_items').insert({event_id:S.event.id,emoji,name,detail:`Sugerido por ${me}`,status:'confirmed'});
+  // Optimistic: mostrar inmediatamente
+  const tempItem = {id:'tmp_'+Date.now(), event_id:S.event.id, emoji, name, detail:`Sugerido por ${me}`, status:'confirmed'};
+  S.menu.push(tempItem);
+  renderMenu();
   toast('✅ Ítem agregado!');
+  // Sincronizar en background
+  sb.from('menu_items').insert({event_id:S.event.id,emoji,name,detail:`Sugerido por ${me}`,status:'confirmed'})
+    .then(()=>fetchAll());
 }
 
 async function toggleMenuStatus(id,current) {
   const next = current==='confirmed'?'pending':'confirmed';
-  await sb.from('menu_items').update({status:next}).eq('id',id);
+  // Optimistic: cambiar estado inmediatamente
+  const item = S.menu.find(m=>String(m.id)===String(id));
+  if (item) { item.status = next; renderMenu(); }
+  sb.from('menu_items').update({status:next}).eq('id',id).then(()=>fetchAll());
 }
 
 async function deleteMenuItem(id) {
   if (!isAdmin()) { toast('Solo el admin puede eliminar','var(--red)'); return; }
-  await sb.from('menu_items').delete().eq('id',id);
+  // Optimistic: eliminar inmediatamente
+  S.menu = S.menu.filter(m=>String(m.id)!==String(id));
+  renderMenu();
+  toast('🗑 Eliminado');
+  sb.from('menu_items').delete().eq('id',id).then(()=>fetchAll());
 }
 
 function renderMenu() {
@@ -1514,29 +1527,29 @@ function renderAsistencia() {
     `<div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px">
       <div style="flex:1;padding:8px;background:rgba(39,174,96,.1);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--green)">${confirmados.length}</div>
-        <div style="color:var(--muted)">Confirmados</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">Confirmados</div>
       </div>
       <div style="flex:1;padding:8px;background:rgba(231,76,60,.1);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--red)">${noVan.length}</div>
-        <div style="color:var(--muted)">No van</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">No van</div>
       </div>
       <div style="flex:1;padding:8px;background:var(--ash);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--muted)">${sinResp.length}</div>
-        <div style="color:var(--muted)">Sin responder</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">Sin responder</div>
       </div>
     </div>`+
-    todos.map(p=>{
+    [...todos].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
       const r = p.rsvp;
       const cuando = p.rsvp_at ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(p.rsvp_at)}</div>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
         <div>
-          <span style="font-weight:500">${p.name}</span>
+          <span style="font-weight:500;text-transform:uppercase">${p.name}</span>
           ${cuando}
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           ${isAdmin()
-            ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer">✅ Va</button>
-             <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer">❌ No</button>
+            ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600">✅ VA</button>
+             <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600">❌ NO</button>
              ${r?'<button onclick="clearRsvpAdmin(\''+ p.name +'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer" title="Borrar respuesta">✕</button>':''}
              <button onclick="abrirFusionar('${p.name}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer" title="Fusionar con otro">⇄</button>`
             :`<span style="font-size:13px">${r==='si'?'✅':r==='no'?'❌':'⏳'}</span>`
