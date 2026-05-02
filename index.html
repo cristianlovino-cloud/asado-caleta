@@ -334,11 +334,13 @@ body {
 
   <!-- GASTOS -->
   <!-- Banner cumpleaños del mes -->
-  <div id="banner-cumples" style="display:none;margin:8px 12px 0;padding:12px 14px;background:linear-gradient(135deg,rgba(255,140,0,.12),rgba(255,69,0,.08));border:1px solid rgba(255,140,0,.3);border-radius:12px;align-items:flex-start;gap:10px">
-    <div style="font-size:22px;flex-shrink:0">🎂</div>
-    <div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ember);margin-bottom:3px">Cumpleaños del mes</div>
-      <div id="cumples-list" style="font-size:13px;color:var(--text);font-weight:500"></div>
+  <div id="banner-cumples" style="display:none;margin:8px 12px 0;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
+    <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:20px">🎂</span>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
+      </div>
+      <div id="cumples-list"></div>
     </div>
   </div>
 
@@ -1515,25 +1517,50 @@ function renderCumples() {
   const banner = document.getElementById('banner-cumples');
   const lista = document.getElementById('cumples-list');
   if (!banner || !lista) return;
-  const mesActual = new Date().getMonth() + 1; // 1-12
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const diaActual = hoy.getDate();
   const cumples = S.participants
     .filter(p => p.active && p.birthday)
     .map(p => {
       const parts = p.birthday.split('/');
       const dia = parseInt(parts[0]);
       const mes = parseInt(parts[1]);
-      return { nombre: p.name, dia, mes };
+      return { id: p.id, nombre: p.name, dia, mes };
     })
     .filter(c => !isNaN(c.mes) && c.mes === mesActual)
     .sort((a,b) => a.dia - b.dia);
-  if (!cumples.length) {
-    banner.style.display = 'none';
-    return;
-  }
-  banner.style.display = 'flex';
-  lista.innerHTML = cumples.map(c =>
-    `🎉 <strong>${c.nombre.toUpperCase()}</strong> — ${c.dia}/${String(c.mes).padStart(2,'0')}`
-  ).join('<br>');
+  if (!cumples.length) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  lista.innerHTML = cumples.map(c => {
+    const esHoy = c.dia === diaActual;
+    const diasFaltan = c.dia - diaActual;
+    const subtitulo = esHoy
+      ? '<span style="color:#27ae60;font-weight:700;font-size:11px">🎉 ¡HOY ES SU CUMPLE!</span>'
+      : diasFaltan > 0
+        ? `<span style="color:var(--muted);font-size:11px">en ${diasFaltan} día${diasFaltan>1?'s':''} — ${c.dia} de ${meses[mesActual]}</span>`
+        : `<span style="color:var(--muted);font-size:11px">${c.dia} de ${meses[mesActual]}</span>`;
+    const btnCumple = isAdmin()
+      ? `<button onclick="enviarFelizCumple('${c.nombre}')" style="margin-top:8px;width:100%;padding:8px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1px;cursor:pointer">🎂 ENVIAR FELIZ CUMPLE</button>`
+      : '';
+    return `<div style="background:${esHoy?'rgba(39,174,96,.08)':'rgba(255,255,255,.04)'};border:1px solid ${esHoy?'rgba(39,174,96,.3)':'rgba(255,140,0,.15)'};border-radius:10px;padding:10px 12px;margin-bottom:6px${cumples.indexOf(c)===cumples.length-1?';margin-bottom:0':''}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;flex-shrink:0">${c.nombre[0].toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${c.nombre}${esHoy?' 🎂':''}</div>
+          <div style="margin-top:2px">${subtitulo}</div>
+        </div>
+      </div>
+      ${btnCumple}
+    </div>`;
+  }).join('');
+}
+
+function enviarFelizCumple(nombre) {
+  const msg = `🎂 *¡FELIZ CUMPLE MANDI ${nombre.toUpperCase()}!* 🎉\n\nDesde el grupo te deseamos un día increíble, que la pases bomba y que el próximo asado sea tuyo! 🔥🥩`;
+  const encoded = encodeURIComponent(msg);
+  window.open(`https://wa.me/?text=${encoded}`, '_blank');
 }
 
 function renderAll() {
