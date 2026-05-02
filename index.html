@@ -103,7 +103,7 @@ body {
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
 .admin-bar{background:rgba(255,69,0,.08);border-bottom:1px solid rgba(255,69,0,.2);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .admin-bar span{font-size:10px;color:var(--fire);text-transform:uppercase;letter-spacing:1px;font-weight:600}
-.abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s}
+.abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s;text-transform:uppercase}
 .abtn:hover{border-color:var(--fire);color:var(--fire)}
 .abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
 
@@ -220,7 +220,7 @@ body {
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;display:none}
 .modal-bg.open{display:flex}
 .modal{background:var(--smoke);border-radius:20px 20px 0 0;border:1px solid var(--rim);padding:24px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
-.modal-title{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase}
 .modal-close{background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--muted);font-size:14px}
 
 /* UTILS */
@@ -812,7 +812,7 @@ async function saveEvent() {
 
 // ══ ADMIN: PARTICIPANTES ═══════════════════════════
 function renderParticipantsModal() {
-  document.getElementById('part-list').innerHTML = S.participants.map(p=>`
+  document.getElementById('part-list').innerHTML = [...S.participants].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
       <div style="display:flex;align-items:center;gap:8px">
         <div class="av${p.active?'':' n'}" style="width:28px;height:28px;font-size:11px">${p.name[0].toUpperCase()}</div>
@@ -931,7 +931,7 @@ function tf(id) { document.getElementById(id).classList.toggle('open'); }
 const allPActive = () => S.participants.filter(p=>p.active).map(p=>p.name);
 
 function populateSel() {
-  const o='<option value="">Sin asignar</option>'+allPActive().map(p=>`<option value="${p}">${p}</option>`).join('');
+  const o='<option value="">Sin asignar</option>'+allPActive().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}">${p}</option>`).join('');
   document.getElementById('ftassign').innerHTML=o;
 }
 
@@ -1170,10 +1170,11 @@ function openEditTask(id) {
   document.getElementById('edit-task-template').checked = t.is_template || false;
   // assignee select
   const sel = document.getElementById('edit-task-assignee');
-  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().map(p=>`<option value="${p}"${p===t.assignee?' selected':''}>>${p}</option>`).join('');
-  // category select
-  const cats = document.getElementById('edit-task-cat');
-  Array.from(cats.options).forEach(o=>{ o.selected = o.value===t.category; });
+  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===t.assignee?' selected':''}>${p}</option>`).join('');
+  // category select - rellenar con getCats() para que esté actualizado
+  const catsEl = document.getElementById('edit-task-cat');
+  const catsData = getCats();
+  catsEl.innerHTML = catsData.map(c=>`<option value="${c}"${c===t.category?' selected':''}>${c}</option>`).join('');
   openModal('modal-edit-task');
 }
 
@@ -1279,7 +1280,7 @@ function openEditExpense(id) {
   document.getElementById('edit-exp-amt').value  = e.amount;
   // populate payer select
   const sel = document.getElementById('edit-exp-payer');
-  sel.innerHTML = allP().map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p}</option>`).join('');
+  sel.innerHTML = allP().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p}</option>`).join('');
   openModal('modal-edit-expense');
 }
 
