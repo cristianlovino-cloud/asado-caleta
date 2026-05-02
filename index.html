@@ -13,6 +13,28 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
+  // Registrar Service Worker para control de caché
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/asado-caleta/sw.js')
+      .then(reg => {
+        // Forzar actualización si hay nueva versión
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Hay nueva versión disponible - recargar automático
+              newWorker.postMessage({action: 'skipWaiting'});
+            }
+          });
+        });
+      });
+    // Recargar cuando el SW activo cambia
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+  }
+</script>
+<script>
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
   const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
@@ -1350,10 +1372,10 @@ ${mn}
   pt.forEach(t=>{
     const k=t.assignee?t.assignee.toUpperCase():'SIN ASIGNAR';
     if(!byP[k]) byP[k]=[];
-    const lines=t.name.split('\n');
-    lines.forEach((l,i)=>{byP[k].push(i===0?'⬜ '+l.trim():'   + '+l.replace(/^[+• -]\s*/,'').trim());});
+    const lines=t.name.split('\\n');
+    lines.forEach((l,i)=>{byP[k].push(i===0?'⬜ '+l.trim():'   + '+l.replace(/^[+• -]\\s*/,'').trim());});
   });
-  return Object.keys(byP).sort().map(p=>'👤 *'+p+'*\n'+byP[p].join('\n')).join('\n\n');
+  return Object.keys(byP).sort().map(p=>'👤 *'+p+'*\\n'+byP[p].join('\\n')).join('\\n\\n');
 })()}\n\nQuien pueda agarrar algo, avisa 👆`,
 
     recordatorio:
