@@ -250,10 +250,11 @@ body {
   <div class="lsub" id="login-sub">Cargando...</div>
   <div class="lcard">
     <label class="llabel">¿Cuál es tu nombre?</label>
-    <input class="linput" id="cname" placeholder="Tu nombre..." maxlength="20" 
+    <input class="linput" id="cname" placeholder="TU NOMBRE..." maxlength="20" 
       oninput="autocompleteNombre(this.value)"
-      onkeydown="if(event.key==='Enter')doLogin()">
-    <div id="sugerencias" style="display:none;background:var(--ash);border:1px solid var(--rim);border-radius:10px;margin-top:4px;overflow:hidden"></div>
+      onkeydown="if(event.key==='Enter')doLogin()"
+      style="text-transform:uppercase;letter-spacing:1px;font-weight:600">
+    <div id="sugerencias" style="display:none;background:var(--smoke);border:1px solid var(--rim);border-radius:14px;margin-top:6px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div>
     <button class="lbtn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
   <div class="wnote">
@@ -1482,7 +1483,22 @@ function autocompleteNombre(val) {
   const matches = S.participants.filter(p=>p.active&&p.name.toLowerCase().startsWith(val.toLowerCase()));
   if (!matches.length) { sug.style.display='none'; return; }
   sug.style.display='block';
-  sug.innerHTML = matches.map(p=>`<div onclick="elegirNombre('${p.name}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">${p.name}</div>`).join('');
+  sug.innerHTML = matches.map(p => {
+    const letra = p.name[0].toUpperCase();
+    const nombre = p.name.toUpperCase();
+    const isAdmin = p.name === ADMIN_USER;
+    const rsvpBadge = p.rsvp==='si' ? '<span style="font-size:10px;background:rgba(39,174,96,.15);color:#27ae60;border-radius:20px;padding:2px 8px;font-weight:700">✅ VA</span>'
+                    : p.rsvp==='no' ? '<span style="font-size:10px;background:rgba(231,76,60,.12);color:#e74c3c;border-radius:20px;padding:2px 8px;font-weight:700">❌ NO VA</span>'
+                    : '<span style="font-size:10px;background:rgba(0,0,0,.06);color:#999;border-radius:20px;padding:2px 8px">SIN RESPONDER</span>';
+    return `<div onclick="elegirNombre('${p.name}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);transition:background .15s;active:background:rgba(255,69,0,.05)">
+      <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:white;flex-shrink:0">${letra}</div>
+      <div style="flex:1">
+        <div style="font-size:16px;font-weight:700;letter-spacing:.5px;color:var(--text)">${nombre}${isAdmin?' <span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle">ADMIN</span>':''}</div>
+        <div style="margin-top:3px">${rsvpBadge}</div>
+      </div>
+      <div style="color:var(--fire);font-size:20px;opacity:.6">→</div>
+    </div>`;
+  }).join('');
 }
 
 function elegirNombre(nombre) {
