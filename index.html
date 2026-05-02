@@ -268,14 +268,14 @@ body {
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
       <img src="icon.png?v=2" style="width:72px;height:72px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(255,69,0,.4))">
-      <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--text);letter-spacing:1px" id="cs-title">Asado en la Caleta</div>
-      <div style="font-size:14px;color:var(--fire);margin-top:4px;font-weight:600" id="cs-date"></div>
-      <div style="font-size:13px;color:var(--muted);margin-top:2px" id="cs-loc"></div>
+      <div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text);letter-spacing:2px;text-transform:uppercase" id="cs-title">Asado en la Caleta</div>
+      <div style="font-size:15px;color:var(--fire);margin-top:6px;font-weight:700;letter-spacing:.5px;text-transform:uppercase" id="cs-date"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.3px" id="cs-loc"></div>
     </div>
     <div style="background:var(--smoke);border-radius:16px;padding:20px;border:1px solid var(--rim)">
       <div style="font-size:16px;font-weight:600;text-align:center;margin-bottom:16px">
-        Hola <span id="cs-nombre" style="color:var(--fire)"></span> 👋<br>
-        <span style="font-size:13px;color:var(--muted);font-weight:400">¿Vas al asado?</span>
+        <span style="font-size:13px;color:var(--muted);letter-spacing:.5px">HOLA</span> <span id="cs-nombre" style="color:var(--fire);font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px"></span> 👋<br>
+        <span style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase">¿VAS AL ASADO?</span>
       </div>
       <div style="display:flex;gap:10px">
         <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:2px solid var(--fire);background:var(--fire);color:white;font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
@@ -333,6 +333,15 @@ body {
   </div>
 
   <!-- GASTOS -->
+  <!-- Banner cumpleaños del mes -->
+  <div id="banner-cumples" style="display:none;margin:8px 12px 0;padding:12px 14px;background:linear-gradient(135deg,rgba(255,140,0,.12),rgba(255,69,0,.08));border:1px solid rgba(255,140,0,.3);border-radius:12px;align-items:flex-start;gap:10px">
+    <div style="font-size:22px;flex-shrink:0">🎂</div>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ember);margin-bottom:3px">Cumpleaños del mes</div>
+      <div id="cumples-list" style="font-size:13px;color:var(--text);font-weight:500"></div>
+    </div>
+  </div>
+
   <div class="panel active" id="panel-gastos">
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
@@ -565,6 +574,21 @@ body {
 </div>
 
 <!-- Participantes -->
+<div class="modal-bg" id="modal-edit-participant">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar Participante <button class="modal-close" onclick="closeModal('modal-edit-participant')">✕</button></div>
+    <input type="hidden" id="ep-id">
+    <label class="fl">Nombre</label>
+    <input class="fi" id="ep-name" placeholder="Nombre...">
+    <label class="fl">Cumpleaños <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(DD/MM — ej: 23/07)</span></label>
+    <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:120px">
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-edit-participant')">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-participants">
   <div class="modal">
     <div class="modal-title">👥 Participantes <button class="modal-close" onclick="closeModal('modal-participants')">✕</button></div>
@@ -813,11 +837,14 @@ function renderParticipantsModal() {
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
       <div style="display:flex;align-items:center;gap:8px">
         <div class="av${p.active?'':' n'}" style="width:28px;height:28px;font-size:11px">${p.name[0].toUpperCase()}</div>
-        <span style="font-size:13px;font-weight:500;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}</span>
+        <div>
+          <span style="font-size:13px;font-weight:500;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}</span>
+          ${p.birthday?`<span style="font-size:10px;color:var(--muted);margin-left:5px">🎂 ${p.birthday}</span>`:''}
+        </div>
         ${p.name===ADMIN_USER?'<span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px">admin</span>':''}
       </div>
       <div style="display:flex;gap:5px">
-        ${p.name!==ADMIN_USER?`<button class="abtn" onclick="openRenameParticipant(${p.id},'${p.name.replace(/'/g,"\'")}')" title="Renombrar">✏️</button>`:''}
+        ${p.name!==ADMIN_USER?`<button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}'')" title="Editar">✏️</button>`:''}
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'Quitar':'Activar'}</button>`:''}
       </div>
     </div>`).join('');
@@ -827,6 +854,36 @@ function openRenameParticipant(id, currentName) {
   const nuevo = prompt('NUEVO NOMBRE:', currentName);
   if (!nuevo || nuevo.trim()===currentName.trim()) return;
   renameParticipant(id, nuevo.trim());
+}
+
+function openEditParticipant(id, currentName, currentBirthday) {
+  document.getElementById('ep-id').value = id;
+  document.getElementById('ep-name').value = currentName;
+  document.getElementById('ep-birthday').value = currentBirthday || '';
+  openModal('modal-edit-participant');
+}
+
+async function saveEditParticipant() {
+  const id = parseInt(document.getElementById('ep-id').value);
+  const newName = document.getElementById('ep-name').value.trim();
+  const birthday = document.getElementById('ep-birthday').value.trim();
+  if (!newName) { toast('Escribí el nombre','var(--red)'); return; }
+  // Validar formato DD/MM
+  if (birthday && !/^\d{1,2}\/\d{2}$/.test(birthday)) {
+    toast('Formato DD/MM (ej: 23/07)','var(--red)'); return;
+  }
+  try {
+    const oldP = S.participants.find(p=>p.id===id);
+    await sb.from('participants').update({name: newName, birthday: birthday||null}).eq('id', id);
+    if (oldP && oldP.name !== newName) {
+      await sb.from('tasks').update({assignee: newName}).ilike('assignee', oldP.name);
+      await sb.from('expenses').update({payer: newName}).ilike('payer', oldP.name);
+    }
+    closeModal('modal-edit-participant');
+    await fetchAll();
+    renderParticipantsModal();
+    toast('✅ Participante actualizado!');
+  } catch(e) { toast('Error al guardar','var(--red)'); }
 }
 
 async function renameParticipant(id, newName) {
@@ -1450,7 +1507,33 @@ function copyMsg() {
 }
 
 // ══ RENDER ALL ════════════════════════════════════
+function renderCumples() {
+  const banner = document.getElementById('banner-cumples');
+  const lista = document.getElementById('cumples-list');
+  if (!banner || !lista) return;
+  const mesActual = new Date().getMonth() + 1; // 1-12
+  const cumples = S.participants
+    .filter(p => p.active && p.birthday)
+    .map(p => {
+      const parts = p.birthday.split('/');
+      const dia = parseInt(parts[0]);
+      const mes = parseInt(parts[1]);
+      return { nombre: p.name, dia, mes };
+    })
+    .filter(c => !isNaN(c.mes) && c.mes === mesActual)
+    .sort((a,b) => a.dia - b.dia);
+  if (!cumples.length) {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.style.display = 'flex';
+  lista.innerHTML = cumples.map(c =>
+    `🎉 <strong>${c.nombre.toUpperCase()}</strong> — ${c.dia}/${String(c.mes).padStart(2,'0')}`
+  ).join('<br>');
+}
+
 function renderAll() {
+  renderCumples();
   renderHeader();
   renderGastos();
   renderTasks();
@@ -1480,7 +1563,7 @@ function startAutoRefresh() {
 function autocompleteNombre(val) {
   const sug = document.getElementById('sugerencias');
   if (!val || val.length < 1) { sug.style.display='none'; return; }
-  const matches = S.participants.filter(p=>p.active&&p.name.toLowerCase().startsWith(val.toLowerCase()));
+  const matches = S.participants.filter(p=>p.active && p.name!==ADMIN_USER && p.name.toLowerCase().startsWith(val.toLowerCase()));
   if (!matches.length) { sug.style.display='none'; return; }
   sug.style.display='block';
   sug.innerHTML = matches.map(p => {
