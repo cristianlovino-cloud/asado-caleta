@@ -576,7 +576,7 @@ body {
 <!-- Participantes -->
 <div class="modal-bg" id="modal-edit-participant">
   <div class="modal">
-    <div class="modal-title">✏️ Editar Participante <button class="modal-close" onclick="closeModal('modal-edit-participant')">✕</button></div>
+    <div class="modal-title">✏️ Editar Participante <button class="modal-close" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">✕</button></div>
     <input type="hidden" id="ep-id">
     <label class="fl">Nombre</label>
     <input class="fi" id="ep-name" placeholder="Nombre..." style="text-transform:uppercase;font-weight:600">
@@ -587,7 +587,7 @@ body {
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
-      <button class="btg" onclick="closeModal('modal-edit-participant')">CANCELAR</button>
+      <button class="btg" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">CANCELAR</button>
     </div>
   </div>
 </div>
@@ -846,7 +846,7 @@ function renderParticipantsModal() {
         </div>
       </div>
       <div style="display:flex;gap:5px">
-        ${p.name!==ADMIN_USER?`<button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>`:''}
+        <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
@@ -862,6 +862,7 @@ function openEditParticipant(id, currentName, currentBirthday) {
   document.getElementById('ep-id').value = id;
   document.getElementById('ep-name').value = currentName;
   document.getElementById('ep-birthday').value = currentBirthday || '';
+  closeModal('modal-participants');
   openModal('modal-edit-participant');
 }
 
@@ -884,6 +885,7 @@ async function saveEditParticipant() {
     closeModal('modal-edit-participant');
     await fetchAll();
     renderParticipantsModal();
+    openModal('modal-participants');
     toast('✅ Participante actualizado!');
   } catch(e) { toast('Error al guardar','var(--red)'); }
 }
