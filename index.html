@@ -579,9 +579,12 @@ body {
     <div class="modal-title">✏️ Editar Participante <button class="modal-close" onclick="closeModal('modal-edit-participant')">✕</button></div>
     <input type="hidden" id="ep-id">
     <label class="fl">Nombre</label>
-    <input class="fi" id="ep-name" placeholder="Nombre...">
-    <label class="fl">Cumpleaños <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(DD/MM — ej: 23/07)</span></label>
-    <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:120px">
+    <input class="fi" id="ep-name" placeholder="Nombre..." style="text-transform:uppercase;font-weight:600">
+    <label class="fl">🎂 Cumpleaños <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(DD/MM — ej: 23/07)</span></label>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:110px;margin-bottom:0;font-size:16px;text-align:center;font-weight:700;letter-spacing:2px">
+      <span style="font-size:12px;color:var(--muted)">día/mes solamente</span>
+    </div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-edit-participant')">CANCELAR</button>
@@ -834,18 +837,17 @@ async function saveEvent() {
 // ══ ADMIN: PARTICIPANTES ═══════════════════════════
 function renderParticipantsModal() {
   document.getElementById('part-list').innerHTML = [...S.participants].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="av${p.active?'':' n'}" style="width:28px;height:28px;font-size:11px">${p.name[0].toUpperCase()}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rim)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="av${p.active?'':' n'}" style="width:32px;height:32px;font-size:13px">${p.name[0].toUpperCase()}</div>
         <div>
-          <span style="font-size:13px;font-weight:500;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}</span>
-          ${p.birthday?`<span style="font-size:10px;color:var(--muted);margin-left:5px">🎂 ${p.birthday}</span>`:''}
+          <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}${p.name===ADMIN_USER?' <span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle;text-transform:uppercase">ADMIN</span>':''}</div>
+          ${p.birthday?`<div style="font-size:11px;color:var(--fire);margin-top:1px;font-weight:600">🎂 ${p.birthday}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:1px">Sin cumpleaños</div>'}
         </div>
-        ${p.name===ADMIN_USER?'<span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px">admin</span>':''}
       </div>
       <div style="display:flex;gap:5px">
-        ${p.name!==ADMIN_USER?`<button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}'')" title="Editar">✏️</button>`:''}
-        ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'Quitar':'Activar'}</button>`:''}
+        ${p.name!==ADMIN_USER?`<button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>`:''}
+        ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
 }
