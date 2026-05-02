@@ -325,26 +325,15 @@ body {
   </div>
 
   <div class="tabs" id="tabs">
-    <div class="tab active" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
-    <div class="tab"        onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
+    <div class="tab active" onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
     <div class="tab"        onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
+    <div class="tab"        onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
     <div class="tab" id="tab-ws" style="display:none" onclick="showTab('ws')"><span class="ti">📲</span>WS</div>
   </div>
 
   <!-- GASTOS -->
-  <!-- Banner cumpleaños del mes -->
-  <div id="banner-cumples" style="display:none;margin:8px 12px 0;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
-    <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:20px">🎂</span>
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
-      </div>
-      <div id="cumples-list"></div>
-    </div>
-  </div>
-
-  <div class="panel active" id="panel-gastos">
+  <div class="panel" id="panel-gastos">
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
       <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
@@ -373,7 +362,18 @@ body {
   </div>
 
   <!-- TAREAS -->
-  <div class="panel" id="panel-tareas">
+  <!-- Banner cumpleaños del mes -->
+  <div id="banner-cumples" style="display:none;margin:8px 12px 0;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
+    <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:20px">🎂</span>
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
+      </div>
+      <div id="cumples-list"></div>
+    </div>
+  </div>
+
+  <div class="panel active" id="panel-tareas">
     <button class="bta" onclick="tf('ftask')">+ NUEVA TAREA</button>
     <div class="fw" id="ftask">
       <label class="fl">Ítem a comprar</label>
