@@ -362,18 +362,17 @@ body {
   </div>
 
   <!-- TAREAS -->
-  <!-- Banner cumpleaños del mes -->
-  <div id="banner-cumples" style="display:none;margin:8px 12px 0;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
-    <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:20px">🎂</span>
-        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
-      </div>
-      <div id="cumples-list"></div>
-    </div>
-  </div>
-
   <div class="panel active" id="panel-tareas">
+    <!-- Banner cumpleaños del mes -->
+    <div id="banner-cumples" style="display:none;margin:0 0 10px;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
+      <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:20px">🎂</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
+        </div>
+        <div id="cumples-list"></div>
+      </div>
+    </div>
     <button class="bta" onclick="tf('ftask')">+ NUEVA TAREA</button>
     <div class="fw" id="ftask">
       <label class="fl">Ítem a comprar</label>
@@ -402,6 +401,15 @@ body {
 
   <!-- MENÚ -->
   <div class="panel" id="panel-menu">
+    <div id="banner-cumples-menu" style="display:none;margin:0 0 10px;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
+      <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:20px">🎂</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
+        </div>
+        <div id="cumples-list-menu"></div>
+      </div>
+    </div>
     <div class="sh">🍽️ Menú del día</div>
     <div class="card" id="menulist"></div>
     <div class="div"></div>
@@ -1530,10 +1538,19 @@ function renderCumples() {
     })
     .filter(c => !isNaN(c.mes) && c.mes === mesActual)
     .sort((a,b) => a.dia - b.dia);
-  if (!cumples.length) { banner.style.display = 'none'; return; }
+  if (!cumples.length) {
+    banner.style.display = 'none';
+    const bm = document.getElementById('banner-cumples-menu');
+    if (bm) bm.style.display = 'none';
+    return;
+  }
   banner.style.display = 'block';
+  // También mostrar en menú
+  const bannerMenu = document.getElementById('banner-cumples-menu');
+  const listaMenu = document.getElementById('cumples-list-menu');
+  if (bannerMenu) bannerMenu.style.display = 'block';
   const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  lista.innerHTML = cumples.map(c => {
+  const tarjetas = cumples.map(c => {
     const esHoy = c.dia === diaActual;
     const diasFaltan = c.dia - diaActual;
     const subtitulo = esHoy
@@ -1555,6 +1572,8 @@ function renderCumples() {
       ${btnCumple}
     </div>`;
   }).join('');
+  lista.innerHTML = tarjetas;
+  if (listaMenu) listaMenu.innerHTML = tarjetas;
 }
 
 function enviarFelizCumple(nombre) {
