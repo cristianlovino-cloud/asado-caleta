@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>🔥 Asado en la Caleta</title>
 <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon.png?v=2">
@@ -13,6 +16,17 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
+  const APP_VERSION = '1.5.0';
+
+  // Auto-reload si hay nueva versión
+  const savedVersion = localStorage.getItem('asado_app_version');
+  if (savedVersion && savedVersion !== APP_VERSION) {
+    localStorage.setItem('asado_app_version', APP_VERSION);
+    window.location.reload(true); // force reload desde server
+  } else if (!savedVersion) {
+    localStorage.setItem('asado_app_version', APP_VERSION);
+  }
+
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
   const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
@@ -1870,5 +1884,14 @@ if (me) {
   buildLogin();
 }
 </script>
+  <script>
+    // Service Worker para cache-busting automático
+    if ('serviceWorker' in navigator) {
+      // Desregistrar cualquier SW viejo para evitar que sirva cache stale
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(reg => reg.unregister());
+      });
+    }
+  </script>
 </body>
 </html>
