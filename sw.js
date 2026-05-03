@@ -1,74 +1,65 @@
-// sw.js — Service Worker para Asado en la Caleta
-// Versión: cambiá este número para forzar actualización en todos los dispositivos
-const VERSION = 'v1.0.5';
-const CACHE_NAME = 'asado-caleta-' + VERSION;
+// CL Finanzas — Service Worker v3.0
+// Estrategia: NETWORK FIRST para todo — siempre descarga lo nuevo
+// Cache solo como fallback offline
 
-// Archivos a cachear
-const STATIC_ASSETS = [
-  '/asado-caleta/',
-  '/asado-caleta/index.html',
-  '/asado-caleta/icon.png',
-  '/asado-caleta/manifest.json',
-];
+const CACHE = 'cl-finanzas-v20';
 
-// INSTALL: cachear assets estáticos
-self.addEventListener('install', event => {
-  console.log('[SW] Install', VERSION);
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
-  );
-  // Activar inmediatamente sin esperar
-  self.skipWaiting();
+// Al instalar: activar inmediatamente sin esperar
+self.addEventListener('install', e => {
+  e.waitUntil(self.skipWaiting());
 });
 
-// ACTIVATE: limpiar cachés viejos
-self.addEventListener('activate', event => {
-  console.log('[SW] Activate', VERSION);
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => {
-          console.log('[SW] Borrando caché viejo:', k);
-          return caches.delete(k);
-        })
-      )
-    )
+// Al activar: eliminar TODOS los cachés anteriores y tomar control
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Notificar a todos los clientes que hay nueva versión
+        self.clients.matchAll().then(clients => {
+          clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
+        });
+      })
   );
-  self.clients.claim();
 });
 
-// FETCH: Network First — siempre intenta la red, usa caché solo si falla
-self.addEventListener('fetch', event => {
-  // Solo interceptar requests del mismo origen (no Supabase, no CDNs)
-  const url = new URL(event.request.url);
-  const isLocal = url.origin === self.location.origin;
-  const isAsset = isLocal && (
-    url.pathname.includes('/asado-caleta/') ||
-    url.pathname === '/asado-caleta'
-  );
+// Fetch: Network first, cache solo como fallback offline
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
 
-  if (!isAsset) return; // Dejar pasar Supabase y CDNs sin interceptar
+  // Solo GET
+  if (e.request.method !== 'GET') return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // Actualizar caché con la versión fresca
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+  // Bypass total para APIs externas, Firebase y fuentes
+  if (
+    url.hostname.includes('firestore.googleapis.com') ||
+    url.hostname.includes('identitytoolkit.googleapis.com') ||
+    url.hostname.includes('securetoken.googleapis.com') ||
+    url.hostname.includes('gstatic.com') ||
+    url.hostname.includes('yahoo') ||
+    url.hostname.includes('coingecko') ||
+    url.hostname.includes('dolarapi') ||
+    url.hostname.includes('argentinadatos') ||
+    url.hostname.includes('allorigins') ||
+    url.hostname.includes('corsproxy') ||
+    url.hostname.includes('fonts.googleapis.com') ||
+    url.hostname.includes('fonts.gstatic.com')
+  ) return;
+
+  e.respondWith(
+    fetch(e.request)
+      .then(res => {
+        // Guardar copia fresca en caché para uso offline
+        if (res.ok && res.type !== 'opaque') {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
         }
-        return response;
+        return res;
       })
       .catch(() => {
-        // Si no hay red, usar caché
-        return caches.match(event.request);
+        // Sin red: usar caché si existe
+        return caches.match(e.request);
       })
   );
-});
-
-// Mensaje para skipWaiting desde la app
-self.addEventListener('message', event => {
-  if (event.data?.action === 'skipWaiting') {
-    self.skipWaiting();
-  }
 });
