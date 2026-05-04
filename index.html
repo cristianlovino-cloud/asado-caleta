@@ -3,40 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>🔥 Asado en la Caleta</title>
-<link rel="manifest" href="/asado-caleta/manifest.json">
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="apple-touch-icon" href="/asado-caleta/icon.png">
+<link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon.png?v=2">
+  <link rel="apple-touch-icon" href="icon.png?v=2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="🔥 Asado">
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js"></script>
 <script>
-  // Registrar Service Worker para control de caché
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/asado-caleta/sw.js')
-      .then(reg => {
-        // Forzar actualización si hay nueva versión
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Hay nueva versión disponible - recargar automático
-              newWorker.postMessage({action: 'skipWaiting'});
-            }
-          });
-        });
-      });
-    // Recargar cuando el SW activo cambia
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
-    });
+  const APP_VERSION = '1.5.0';
+
+  // Auto-reload si hay nueva versión
+  const savedVersion = localStorage.getItem('asado_app_version');
+  if (savedVersion && savedVersion !== APP_VERSION) {
+    localStorage.setItem('asado_app_version', APP_VERSION);
+    window.location.reload(true); // force reload desde server
+  } else if (!savedVersion) {
+    localStorage.setItem('asado_app_version', APP_VERSION);
   }
-</script>
-<script>
-  const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
+
+  const SUPABASE_URL = window.__SB_URL__;
+  const SUPABASE_KEY = window.__SB_KEY__;
   const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -124,7 +117,11 @@ body {
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
 .admin-bar{background:rgba(255,69,0,.08);border-bottom:1px solid rgba(255,69,0,.2);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .admin-bar span{font-size:10px;color:var(--fire);text-transform:uppercase;letter-spacing:1px;font-weight:600}
-.abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s}
+/* Elementos UI en mayúsculas */
+.sh,.sl,.fl,.pname,.tknm,.sv,.lsub,.hdr-sub,.ltitle,.ach,.ac,.tok,.tpn,.blbl,.psub,.en,.ew,.ea,.mnm,.mdt,.ec-title,.ec-meta { text-transform:uppercase }
+.modal-title { text-transform:uppercase }
+.sb .sl { text-transform:uppercase }
+.abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s;text-transform:uppercase}
 .abtn:hover{border-color:var(--fire);color:var(--fire)}
 .abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
 
@@ -164,7 +161,7 @@ body {
 .fw{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:12px;margin-bottom:10px;display:none}
 .fw.open{display:block}
 .fl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:5px;display:block}
-.fi,.fsel{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;margin-bottom:8px;transition:border-color .2s}
+.fi,.fsel{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;margin-bottom:8px;transition:border-color .2s;direction:ltr;unicode-bidi:embed}
 .fi:focus,.fsel:focus{border-color:var(--fire)}
 .fsel option{background:var(--ash)}
 .frow{display:flex;gap:7px}
@@ -179,7 +176,7 @@ body {
 .tkgroup{border-radius:10px;overflow:hidden;border:1px solid var(--rim);margin-bottom:8px}
 .tkgroup .tkr:last-child{border-bottom:none}
 .tkr:last-child{border-bottom:none}
-.tkr.dn{opacity:.5}
+.tkr.dn{opacity:.75}
 .tkc{width:21px;height:21px;border-radius:50%;border:2px solid var(--rim);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:1px;transition:all .2s}
 .tkc.ck{background:var(--green);border-color:var(--green)}
 .tkc.ck::after{content:'✓';color:white;font-size:11px;font-weight:700}
@@ -241,7 +238,7 @@ body {
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;display:none}
 .modal-bg.open{display:flex}
 .modal{background:var(--smoke);border-radius:20px 20px 0 0;border:1px solid var(--rim);padding:24px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
-.modal-title{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase}
 .modal-close{background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--muted);font-size:14px}
 
 /* UTILS */
@@ -268,10 +265,11 @@ body {
   <div class="lsub" id="login-sub">Cargando...</div>
   <div class="lcard">
     <label class="llabel">¿Cuál es tu nombre?</label>
-    <input class="linput" id="cname" placeholder="Tu nombre..." maxlength="20" 
+    <input class="linput" id="cname" placeholder="TU NOMBRE..." maxlength="20" 
       oninput="autocompleteNombre(this.value)"
-      onkeydown="if(event.key==='Enter')doLogin()">
-    <div id="sugerencias" style="display:none;background:var(--ash);border:1px solid var(--rim);border-radius:10px;margin-top:4px;overflow:hidden"></div>
+      onkeydown="if(event.key==='Enter')doLogin()"
+      style="text-transform:uppercase;letter-spacing:1px;font-weight:600">
+    <div id="sugerencias" style="display:none;background:var(--smoke);border:1px solid var(--rim);border-radius:14px;margin-top:6px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div>
     <button class="lbtn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
   <div class="wnote">
@@ -284,15 +282,15 @@ body {
 <div id="confirm-screen" style="display:none;min-height:100vh;background:var(--coal);flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
-      <img src="icon.png" style="width:72px;height:72px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(255,69,0,.4))">
-      <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--text);letter-spacing:1px" id="cs-title">Asado en la Caleta</div>
-      <div style="font-size:14px;color:var(--fire);margin-top:4px;font-weight:600" id="cs-date"></div>
-      <div style="font-size:13px;color:var(--muted);margin-top:2px" id="cs-loc"></div>
+      <img src="icon.png?v=2" style="width:72px;height:72px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(255,69,0,.4))">
+      <div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text);letter-spacing:2px;text-transform:uppercase" id="cs-title">Asado en la Caleta</div>
+      <div style="font-size:15px;color:var(--fire);margin-top:6px;font-weight:700;letter-spacing:.5px;text-transform:uppercase" id="cs-date"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.3px" id="cs-loc"></div>
     </div>
     <div style="background:var(--smoke);border-radius:16px;padding:20px;border:1px solid var(--rim)">
       <div style="font-size:16px;font-weight:600;text-align:center;margin-bottom:16px">
-        Hola <span id="cs-nombre" style="color:var(--fire)"></span> 👋<br>
-        <span style="font-size:13px;color:var(--muted);font-weight:400">¿Vas al asado?</span>
+        <span style="font-size:13px;color:var(--muted);letter-spacing:.5px">HOLA</span> <span id="cs-nombre" style="color:var(--fire);font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px"></span> 👋<br>
+        <span style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase">¿VAS AL ASADO?</span>
       </div>
       <div style="display:flex;gap:10px">
         <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:2px solid var(--fire);background:var(--fire);color:white;font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
@@ -342,15 +340,15 @@ body {
   </div>
 
   <div class="tabs" id="tabs">
-    <div class="tab active" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
-    <div class="tab"        onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
+    <div class="tab active" onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
     <div class="tab"        onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
+    <div class="tab"        onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
     <div class="tab" id="tab-ws" style="display:none" onclick="showTab('ws')"><span class="ti">📲</span>WS</div>
   </div>
 
   <!-- GASTOS -->
-  <div class="panel active" id="panel-gastos">
+  <div class="panel" id="panel-gastos">
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
       <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
@@ -379,20 +377,28 @@ body {
   </div>
 
   <!-- TAREAS -->
-  <div class="panel" id="panel-tareas">
+  <div class="panel active" id="panel-tareas">
+    <!-- Banner cumpleaños del mes -->
+    <div id="banner-cumples" style="display:none;margin:0 0 10px;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
+      <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:20px">🎂</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
+        </div>
+        <div id="cumples-list"></div>
+      </div>
+    </div>
     <button class="bta" onclick="tf('ftask')">+ NUEVA TAREA</button>
     <div class="fw" id="ftask">
       <label class="fl">Ítem a comprar</label>
       <input class="fi" id="ftname" placeholder="ej: carne, pan, carbón...">
       <label class="fl">Asignar a</label>
-      <select class="fsel" id="ftassign"></select>
+      <div style="position:relative">
+        <select class="fsel" id="ftassign" style="appearance:none;-webkit-appearance:none"></select>
+        <div style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);font-size:12px">▼</div>
+      </div>
       <label class="fl">Categoría</label>
-      <select class="fsel" id="ftcat">
-        <option>🥩 Carnes</option><option>🥗 Verduras</option>
-        <option>🧀 Fiambres</option><option>🍺 Bebidas</option>
-        <option>🔥 Insumos</option><option>🍰 Postres</option>
-        <option>🛒 Otros</option>
-      </select>
+      <select class="fsel" id="ftcat"></select>
       <label class="fl">Cantidad <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(opcional, ej: 2 bolsas)</span></label>
       <div class="frow" style="align-items:center;gap:8px;margin-bottom:8px">
         <button type="button" onclick="stepQty(-1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:18px;cursor:pointer;flex-shrink:0">−</button>
@@ -410,6 +416,15 @@ body {
 
   <!-- MENÚ -->
   <div class="panel" id="panel-menu">
+    <div id="banner-cumples-menu" style="display:none;margin:0 0 10px;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
+      <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:20px">🎂</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--ember)">Cumpleaños del mes</span>
+        </div>
+        <div id="cumples-list-menu"></div>
+      </div>
+    </div>
     <div class="sh">🍽️ Menú del día</div>
     <div class="card" id="menulist"></div>
     <div class="div"></div>
@@ -584,6 +599,24 @@ body {
 </div>
 
 <!-- Participantes -->
+<div class="modal-bg" id="modal-edit-participant">
+  <div class="modal">
+    <div class="modal-title">✏️ Editar Participante <button class="modal-close" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">✕</button></div>
+    <input type="hidden" id="ep-id">
+    <label class="fl">Nombre</label>
+    <input class="fi" id="ep-name" placeholder="Nombre..." style="text-transform:uppercase;font-weight:600">
+    <label class="fl">🎂 Cumpleaños <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(DD/MM — ej: 23/07)</span></label>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:110px;margin-bottom:0;font-size:16px;text-align:center;font-weight:700;letter-spacing:2px">
+      <span style="font-size:12px;color:var(--muted)">día/mes solamente</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-participants">
   <div class="modal">
     <div class="modal-title">👥 Participantes <button class="modal-close" onclick="closeModal('modal-participants')">✕</button></div>
@@ -630,12 +663,7 @@ body {
     <label class="fl">Asignar a</label>
     <select class="fsel" id="edit-task-assignee"></select>
     <label class="fl">Categoría</label>
-    <select class="fsel" id="edit-task-cat">
-      <option>🥩 Carnes</option><option>🥗 Verduras</option>
-      <option>🧀 Fiambres</option><option>🍺 Bebidas</option>
-      <option>🔥 Insumos</option><option>🍰 Postres</option>
-      <option>🛒 Otros</option>
-    </select>
+    <select class="fsel" id="edit-task-cat"></select>
     <div style="background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:8px;padding:10px 12px;margin-bottom:10px">
       <label style="font-size:12px;color:var(--ember);font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer">
         <input type="checkbox" id="edit-task-template" style="width:16px;height:16px;accent-color:var(--fire)">
@@ -733,6 +761,9 @@ async function buildLogin() {
       document.getElementById('login-title').textContent = data[0].title;
       document.getElementById('login-sub').textContent   = data[0].event_date+' · '+data[0].time_range;
     }
+    // Cargar participantes activos para el autocomplete del login
+    const {data:parts} = await sb.from('participants').select('*').eq('active',true).order('name');
+    if (parts) S.participants = parts;
   }
   // Focus en el input
   setTimeout(()=>document.getElementById('cname')?.focus(), 300);
@@ -830,15 +861,75 @@ async function saveEvent() {
 
 // ══ ADMIN: PARTICIPANTES ═══════════════════════════
 function renderParticipantsModal() {
-  document.getElementById('part-list').innerHTML = S.participants.map(p=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="av${p.active?'':' n'}" style="width:28px;height:28px;font-size:11px">${p.name[0].toUpperCase()}</div>
-        <span style="font-size:13px;font-weight:500;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}</span>
-        ${p.name===ADMIN_USER?'<span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px">admin</span>':''}
+  document.getElementById('part-list').innerHTML = [...S.participants].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rim)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="av${p.active?'':' n'}" style="width:32px;height:32px;font-size:13px">${p.name[0].toUpperCase()}</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}${p.name===ADMIN_USER?' <span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle;text-transform:uppercase">ADMIN</span>':''}</div>
+          ${p.birthday?`<div style="font-size:11px;color:var(--fire);margin-top:1px;font-weight:600">🎂 ${p.birthday}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:1px">Sin cumpleaños</div>'}
+        </div>
       </div>
-      ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'Quitar':'Activar'}</button>`:''}
+      <div style="display:flex;gap:5px">
+        <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>
+        ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
+      </div>
     </div>`).join('');
+}
+
+function openRenameParticipant(id, currentName) {
+  const nuevo = prompt('NUEVO NOMBRE:', currentName);
+  if (!nuevo || nuevo.trim()===currentName.trim()) return;
+  renameParticipant(id, nuevo.trim());
+}
+
+function openEditParticipant(id, currentName, currentBirthday) {
+  document.getElementById('ep-id').value = id;
+  document.getElementById('ep-name').value = currentName;
+  document.getElementById('ep-birthday').value = currentBirthday || '';
+  closeModal('modal-participants');
+  openModal('modal-edit-participant');
+}
+
+async function saveEditParticipant() {
+  const id = parseInt(document.getElementById('ep-id').value);
+  const newName = document.getElementById('ep-name').value.trim();
+  const birthday = document.getElementById('ep-birthday').value.trim();
+  if (!newName) { toast('Escribí el nombre','var(--red)'); return; }
+  // Validar formato DD/MM
+  if (birthday && !/^\d{1,2}\/\d{2}$/.test(birthday)) {
+    toast('Formato DD/MM (ej: 23/07)','var(--red)'); return;
+  }
+  try {
+    const oldP = S.participants.find(p=>p.id===id);
+    await sb.from('participants').update({name: newName, birthday: birthday||null}).eq('id', id);
+    if (oldP && oldP.name !== newName) {
+      await sb.from('tasks').update({assignee: newName}).ilike('assignee', oldP.name);
+      await sb.from('expenses').update({payer: newName}).ilike('payer', oldP.name);
+    }
+    closeModal('modal-edit-participant');
+    await fetchAll();
+    renderParticipantsModal();
+    openModal('modal-participants');
+    toast('✅ Participante actualizado!');
+  } catch(e) { toast('Error al guardar','var(--red)'); }
+}
+
+async function renameParticipant(id, newName) {
+  if (!sbOk) return;
+  try {
+    // Renombrar en participants
+    await sb.from('participants').update({name: newName}).eq('id', id);
+    // Renombrar en tasks y expenses
+    const oldP = S.participants.find(p=>p.id===id);
+    if (oldP) {
+      await sb.from('tasks').update({assignee: newName}).ilike('assignee', oldP.name);
+      await sb.from('expenses').update({payer: newName}).ilike('payer', oldP.name);
+    }
+    await fetchAll();
+    renderParticipantsModal();
+    toast('✅ Nombre actualizado!');
+  } catch(e) { toast('Error al renombrar','var(--red)'); }
 }
 
 async function toggleParticipant(id, active) {
@@ -919,9 +1010,13 @@ function showTab(t) {
   if (t==='carne') calcularCarne();
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
+// Todos los participantes activos (no solo confirmados) para asignar tareas
+const allPActive = () => S.participants.filter(p=>p.active).map(p=>p.name);
+
 function populateSel() {
-  const o='<option value="">Sin asignar</option>'+allP().map(p=>`<option value="${p}">${p}</option>`).join('');
+  const o='<option value="">Sin asignar</option>'+allPActive().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}">${p}</option>`).join('');
   document.getElementById('ftassign').innerHTML=o;
+  renderCatSelects();
 }
 
 // ══ GASTOS ════════════════════════════════════════
@@ -1063,12 +1158,14 @@ function renderTasks() {
       return `<div class="tkr${done?' dn':''}" style="${isMe&&!done?'background:rgba(255,69,0,.04)':''}">
         <div class="tkc${done?' ck':''}" onclick="toggleTask(${t.id},${t.done})" style="margin-top:2px;flex-shrink:0"></div>
         <div class="tkbody" style="flex:1">
-          <div class="tknm" style="${done?'opacity:.4;':''}">
+          <div class="tknm" style="${done?'color:var(--muted);':''}">
             ${(()=>{
               const lines = t.name.split('\n');
-              const main = done ? '<s style="opacity:.5">'+lines[0]+'</s>' : lines[0];
+              const catEmoji = t.category ? t.category.split(' ')[0] : '';
+              const main = done ? '<s style="color:var(--muted)">'+lines[0]+'</s>' : lines[0];
+              const prefix = catEmoji ? `<span style="margin-right:5px;font-style:normal">${catEmoji}</span>` : '';
               const subs = lines.slice(1).filter(l=>l.trim()).map(l=>`<div style="font-size:12px;color:var(--muted);margin-top:2px;padding-left:4px">• ${l.replace(/^[+•\-]\s*/,'')}</div>`).join('');
-              return main + (t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:12px;color:var(--ember)">×${t.qty}</span>`:'') + subs;
+              return prefix + main + (t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:12px;color:var(--ember)">×${t.qty}</span>`:'') + subs;
             })()}
           </div>
           <div class="tkfoot">
@@ -1092,11 +1189,16 @@ function renderTasks() {
 
 
 // ══ CATEGORÍAS ════════════════════════════════════
-const DEFAULT_CATS = ['🥩 Carnes','🥗 Verduras','🧀 Fiambres','🍺 Bebidas','🔥 Insumos','🍰 Postres','🛒 Otros'];
+const DEFAULT_CATS = ['🥩 CARNES','🥗 VERDURAS','🧀 FIAMBRES','🍺 BEBIDAS','🔥 INSUMOS','🍰 POSTRES','🛒 OTROS'];
 
 function getCats() {
-  try { return JSON.parse(localStorage.getItem('asado_cats') || 'null') || DEFAULT_CATS; } 
-  catch { return DEFAULT_CATS; }
+  try {
+    const saved = JSON.parse(localStorage.getItem('asado_cats') || 'null');
+    if (!saved) return DEFAULT_CATS;
+    // Migrar categorías viejas a mayúsculas
+    const migrated = saved.map(c => c.replace(/([A-Za-záéíóúüñÁÉÍÓÚÜÑ ]+)$/, m => m.toUpperCase()));
+    return migrated;
+  } catch { return DEFAULT_CATS; }
 }
 function saveCats(cats) { localStorage.setItem('asado_cats', JSON.stringify(cats)); }
 
@@ -1159,10 +1261,11 @@ function openEditTask(id) {
   document.getElementById('edit-task-template').checked = t.is_template || false;
   // assignee select
   const sel = document.getElementById('edit-task-assignee');
-  sel.innerHTML = '<option value="">Sin asignar</option>' + allP().map(p=>`<option value="${p}"${p===t.assignee?' selected':''}>${p}</option>`).join('');
-  // category select
-  const cats = document.getElementById('edit-task-cat');
-  Array.from(cats.options).forEach(o=>{ o.selected = o.value===t.category; });
+  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===t.assignee?' selected':''}>${p}</option>`).join('');
+  // category select - rellenar con getCats() para que esté actualizado
+  const catsEl = document.getElementById('edit-task-cat');
+  const catsData = getCats();
+  catsEl.innerHTML = catsData.map(c=>`<option value="${c}"${c===t.category?' selected':''}>${c}</option>`).join('');
   openModal('modal-edit-task');
 }
 
@@ -1211,18 +1314,31 @@ async function addMenuItem() {
   const emoji = manualEmoji || autoEmoji(name);
   if (!name) { toast('Escribí el nombre','var(--red)'); return; }
   document.getElementById('mname').value=''; document.getElementById('memoji').value='';
-  await sb.from('menu_items').insert({event_id:S.event.id,emoji,name,detail:`Sugerido por ${me}`,status:'confirmed'});
+  // Optimistic: mostrar inmediatamente
+  const tempItem = {id:'tmp_'+Date.now(), event_id:S.event.id, emoji, name, detail:`Sugerido por ${me}`, status:'confirmed'};
+  S.menu.push(tempItem);
+  renderMenu();
   toast('✅ Ítem agregado!');
+  // Sincronizar en background
+  sb.from('menu_items').insert({event_id:S.event.id,emoji,name,detail:`Sugerido por ${me}`,status:'confirmed'})
+    .then(()=>fetchAll());
 }
 
 async function toggleMenuStatus(id,current) {
   const next = current==='confirmed'?'pending':'confirmed';
-  await sb.from('menu_items').update({status:next}).eq('id',id);
+  // Optimistic: cambiar estado inmediatamente
+  const item = S.menu.find(m=>String(m.id)===String(id));
+  if (item) { item.status = next; renderMenu(); }
+  sb.from('menu_items').update({status:next}).eq('id',id).then(()=>fetchAll());
 }
 
 async function deleteMenuItem(id) {
   if (!isAdmin()) { toast('Solo el admin puede eliminar','var(--red)'); return; }
-  await sb.from('menu_items').delete().eq('id',id);
+  // Optimistic: eliminar inmediatamente
+  S.menu = S.menu.filter(m=>String(m.id)!==String(id));
+  renderMenu();
+  toast('🗑 Eliminado');
+  sb.from('menu_items').delete().eq('id',id).then(()=>fetchAll());
 }
 
 function renderMenu() {
@@ -1268,7 +1384,7 @@ function openEditExpense(id) {
   document.getElementById('edit-exp-amt').value  = e.amount;
   // populate payer select
   const sel = document.getElementById('edit-exp-payer');
-  sel.innerHTML = allP().map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p}</option>`).join('');
+  sel.innerHTML = allP().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p}</option>`).join('');
   openModal('modal-edit-expense');
 }
 
@@ -1372,10 +1488,10 @@ ${mn}
   pt.forEach(t=>{
     const k=t.assignee?t.assignee.toUpperCase():'SIN ASIGNAR';
     if(!byP[k]) byP[k]=[];
-    const lines=t.name.split('\\n');
-    lines.forEach((l,i)=>{byP[k].push(i===0?'⬜ '+l.trim():'   + '+l.replace(/^[+• -]\\s*/,'').trim());});
+    const lines=t.name.split('\n');
+    lines.forEach((l,i)=>{byP[k].push(i===0?'⬜ '+l.trim():'   + '+l.replace(/^[+• -]\s*/,'').trim());});
   });
-  return Object.keys(byP).sort().map(p=>'👤 *'+p+'*\\n'+byP[p].join('\\n')).join('\\n\\n');
+  return Object.keys(byP).sort().map(p=>'👤 *'+p+'*\n'+byP[p].join('\n')).join('\n\n');
 })()}\n\nQuien pueda agarrar algo, avisa 👆`,
 
     recordatorio:
@@ -1420,7 +1536,69 @@ function copyMsg() {
 }
 
 // ══ RENDER ALL ════════════════════════════════════
+function renderCumples() {
+  const banner = document.getElementById('banner-cumples');
+  const lista = document.getElementById('cumples-list');
+  if (!banner || !lista) return;
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const diaActual = hoy.getDate();
+  const cumples = S.participants
+    .filter(p => p.active && p.birthday)
+    .map(p => {
+      const parts = p.birthday.split('/');
+      const dia = parseInt(parts[0]);
+      const mes = parseInt(parts[1]);
+      return { id: p.id, nombre: p.name, dia, mes };
+    })
+    .filter(c => !isNaN(c.mes) && c.mes === mesActual)
+    .sort((a,b) => a.dia - b.dia);
+  if (!cumples.length) {
+    banner.style.display = 'none';
+    const bm = document.getElementById('banner-cumples-menu');
+    if (bm) bm.style.display = 'none';
+    return;
+  }
+  banner.style.display = 'block';
+  // También mostrar en menú
+  const bannerMenu = document.getElementById('banner-cumples-menu');
+  const listaMenu = document.getElementById('cumples-list-menu');
+  if (bannerMenu) bannerMenu.style.display = 'block';
+  const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const tarjetas = cumples.map(c => {
+    const esHoy = c.dia === diaActual;
+    const diasFaltan = c.dia - diaActual;
+    const subtitulo = esHoy
+      ? '<span style="color:#27ae60;font-weight:700;font-size:11px">🎉 ¡HOY ES SU CUMPLE!</span>'
+      : diasFaltan > 0
+        ? `<span style="color:var(--muted);font-size:11px">en ${diasFaltan} día${diasFaltan>1?'s':''} — ${c.dia} de ${meses[mesActual]}</span>`
+        : `<span style="color:var(--muted);font-size:11px">${c.dia} de ${meses[mesActual]}</span>`;
+    const btnCumple = isAdmin()
+      ? `<button onclick="enviarFelizCumple('${c.nombre}')" style="margin-top:8px;width:100%;padding:8px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1px;cursor:pointer">🎂 ENVIAR FELIZ CUMPLE</button>`
+      : '';
+    return `<div style="background:${esHoy?'rgba(39,174,96,.08)':'rgba(255,255,255,.04)'};border:1px solid ${esHoy?'rgba(39,174,96,.3)':'rgba(255,140,0,.15)'};border-radius:10px;padding:10px 12px;margin-bottom:6px${cumples.indexOf(c)===cumples.length-1?';margin-bottom:0':''}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;flex-shrink:0">${c.nombre[0].toUpperCase()}</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${c.nombre}${esHoy?' 🎂':''}</div>
+          <div style="margin-top:2px">${subtitulo}</div>
+        </div>
+      </div>
+      ${btnCumple}
+    </div>`;
+  }).join('');
+  lista.innerHTML = tarjetas;
+  if (listaMenu) listaMenu.innerHTML = tarjetas;
+}
+
+function enviarFelizCumple(nombre) {
+  const msg = `🎂 *¡FELIZ CUMPLE MANDI ${nombre.toUpperCase()}!* 🎉\n\nDesde el grupo te deseamos un día increíble, que la pases bomba y que el próximo asado sea tuyo! 🔥🥩`;
+  const encoded = encodeURIComponent(msg);
+  window.open(`https://wa.me/?text=${encoded}`, '_blank');
+}
+
 function renderAll() {
+  renderCumples();
   renderHeader();
   renderGastos();
   renderTasks();
@@ -1450,10 +1628,25 @@ function startAutoRefresh() {
 function autocompleteNombre(val) {
   const sug = document.getElementById('sugerencias');
   if (!val || val.length < 1) { sug.style.display='none'; return; }
-  const matches = S.participants.filter(p=>p.active&&p.name.toLowerCase().startsWith(val.toLowerCase()));
+  const matches = S.participants.filter(p=>p.active && p.name!==ADMIN_USER && p.name.toLowerCase().startsWith(val.toLowerCase()));
   if (!matches.length) { sug.style.display='none'; return; }
   sug.style.display='block';
-  sug.innerHTML = matches.map(p=>`<div onclick="elegirNombre('${p.name}')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">${p.name}</div>`).join('');
+  sug.innerHTML = matches.map(p => {
+    const letra = p.name[0].toUpperCase();
+    const nombre = p.name.toUpperCase();
+    const isAdmin = p.name === ADMIN_USER;
+    const rsvpBadge = p.rsvp==='si' ? '<span style="font-size:10px;background:rgba(39,174,96,.15);color:#27ae60;border-radius:20px;padding:2px 8px;font-weight:700">✅ VA</span>'
+                    : p.rsvp==='no' ? '<span style="font-size:10px;background:rgba(231,76,60,.12);color:#e74c3c;border-radius:20px;padding:2px 8px;font-weight:700">❌ NO VA</span>'
+                    : '<span style="font-size:10px;background:rgba(0,0,0,.06);color:#999;border-radius:20px;padding:2px 8px">SIN RESPONDER</span>';
+    return `<div onclick="elegirNombre('${p.name}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);transition:background .15s;active:background:rgba(255,69,0,.05)">
+      <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:white;flex-shrink:0">${letra}</div>
+      <div style="flex:1">
+        <div style="font-size:16px;font-weight:700;letter-spacing:.5px;color:var(--text)">${nombre}${isAdmin?' <span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle">ADMIN</span>':''}</div>
+        <div style="margin-top:3px">${rsvpBadge}</div>
+      </div>
+      <div style="color:var(--fire);font-size:20px;opacity:.6">→</div>
+    </div>`;
+  }).join('');
 }
 
 function elegirNombre(nombre) {
@@ -1498,29 +1691,30 @@ function renderAsistencia() {
     `<div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px">
       <div style="flex:1;padding:8px;background:rgba(39,174,96,.1);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--green)">${confirmados.length}</div>
-        <div style="color:var(--muted)">Confirmados</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">Confirmados</div>
       </div>
       <div style="flex:1;padding:8px;background:rgba(231,76,60,.1);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--red)">${noVan.length}</div>
-        <div style="color:var(--muted)">No van</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">No van</div>
       </div>
       <div style="flex:1;padding:8px;background:var(--ash);border-radius:8px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--muted)">${sinResp.length}</div>
-        <div style="color:var(--muted)">Sin responder</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">Sin responder</div>
       </div>
     </div>`+
-    todos.map(p=>{
+    [...todos].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
       const r = p.rsvp;
       const cuando = p.rsvp_at ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(p.rsvp_at)}</div>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
         <div>
-          <span style="font-weight:500">${p.name}</span>
+          <span style="font-weight:500;text-transform:uppercase">${p.name}</span>
           ${cuando}
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           ${isAdmin()
-            ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer">✅ Va</button>
-             <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer">❌ No</button>
+            ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600">✅ VA</button>
+             <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600">❌ NO</button>
+             ${r?'<button onclick="clearRsvpAdmin(\''+ p.name +'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer" title="Borrar respuesta">✕</button>':''}
              <button onclick="abrirFusionar('${p.name}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer" title="Fusionar con otro">⇄</button>`
             :`<span style="font-size:13px">${r==='si'?'✅':r==='no'?'❌':'⏳'}</span>`
           }
@@ -1559,6 +1753,16 @@ async function ejecutarFusion() {
     toast(`✅ "${otro}" fusionado con "${principal}"`);
     renderAsistencia();
   } catch(e) { toast('Error al fusionar','var(--red)'); }
+}
+
+async function clearRsvpAdmin(nombre) {
+  if (!sbOk) return;
+  try {
+    await sb.from('participants').update({ rsvp: null, rsvp_at: null }).ilike('name', nombre);
+    await fetchAll();
+    renderAsistencia();
+    toast('✅ Respuesta de '+nombre+' borrada');
+  } catch(e) { toast('Error','var(--red)'); }
 }
 
 async function setRsvpAdmin(nombre, resp) {
@@ -1681,5 +1885,14 @@ if (me) {
   buildLogin();
 }
 </script>
+  <script>
+    // Service Worker para cache-busting automático
+    if ('serviceWorker' in navigator) {
+      // Desregistrar cualquier SW viejo para evitar que sirva cache stale
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(reg => reg.unregister());
+      });
+    }
+  </script>
 </body>
 </html>
