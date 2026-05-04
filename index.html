@@ -15,7 +15,6 @@
   <meta name="apple-mobile-web-app-title" content="🔥 Asado">
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js"></script>
 <script>
   const APP_VERSION = '1.5.0';
 
@@ -28,8 +27,8 @@
     localStorage.setItem('asado_app_version', APP_VERSION);
   }
 
-  const SUPABASE_URL = window.__SB_URL__;
-  const SUPABASE_KEY = window.__SB_KEY__;
+  const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
   const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
