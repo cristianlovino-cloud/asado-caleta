@@ -16,13 +16,14 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.9.0';
+  const APP_VERSION = '2.0.0';
 
-  // Auto-reload si hay nueva versión
+  // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
   if (savedVersion && savedVersion !== APP_VERSION) {
     localStorage.setItem('asado_app_version', APP_VERSION);
-    window.location.reload(true); // force reload desde server
+    // Reload suave — no interrumpe sesión
+    setTimeout(() => window.location.reload(true), 100);
   } else if (!savedVersion) {
     localStorage.setItem('asado_app_version', APP_VERSION);
   }
@@ -938,7 +939,12 @@ function entrarApp(v) {
     // Badge invitado en header
     document.getElementById('udisp').insertAdjacentHTML('afterend','<span style="font-size:9px;background:rgba(255,140,0,.2);color:var(--ember);border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:700">INVITADO</span>');
   }
-  fetchAll().then(()=>{ if(!sbOk) renderAll(); });
+  fetchAll().then(()=>{
+    if(!sbOk) renderAll();
+  }).catch(e => {
+    console.error('fetchAll error:', e);
+    toast('Error al cargar datos, recargá la página','var(--red)');
+  });
   subscribe();
   startAutoRefresh();
 }
@@ -1738,6 +1744,7 @@ function enviarFelizCumple(nombre) {
 }
 
 function renderAll() {
+  if (!S.event) return; // Guard: no renderizar si no hay evento cargado
   renderCumples();
   renderHeader();
   renderGastos();
