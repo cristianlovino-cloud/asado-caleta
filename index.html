@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.6.0';
+  const APP_VERSION = '1.8.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -120,6 +120,10 @@ body {
 .sh,.sl,.fl,.pname,.tknm,.sv,.lsub,.hdr-sub,.ltitle,.ach,.ac,.tok,.tpn,.blbl,.psub,.en,.ew,.ea,.mnm,.mdt,.ec-title,.ec-meta { text-transform:uppercase }
 .modal-title { text-transform:uppercase }
 .sb .sl { text-transform:uppercase }
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--fire);background:transparent;transition:background .15s}
+.pin-dot.filled{background:var(--fire)}
+.pin-btn{padding:16px;border-radius:14px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:22px;font-weight:600;cursor:pointer;transition:all .1s;font-family:'DM Sans',sans-serif}
+.pin-btn:active{background:var(--fire);color:white;transform:scale(.95)}
 .abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s;text-transform:uppercase}
 .abtn:hover{border-color:var(--fire);color:var(--fire)}
 .abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
@@ -278,6 +282,40 @@ body {
 </div>
 
 <!-- CONFIRMACIÓN ASISTENCIA -->
+<!-- PIN Screen -->
+<div id="pin-screen" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--coal)">
+  <img src="icon.png?v=2" style="width:80px;height:80px;object-fit:contain;margin-bottom:12px;filter:drop-shadow(0 4px 12px rgba(255,69,0,.4))">
+  <div id="pin-title" style="font-family:'Bebas Neue',cursive;font-size:28px;color:var(--text);letter-spacing:2px;margin-bottom:4px;text-align:center"></div>
+  <div id="pin-mode-label" style="font-size:13px;color:var(--muted);margin-bottom:24px;text-align:center"></div>
+
+  <!-- Dots display -->
+  <div style="display:flex;gap:12px;margin-bottom:24px">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+
+  <!-- Teclado numérico -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:240px">
+    <button class="pin-btn" onclick="pinKey('1')">1</button>
+    <button class="pin-btn" onclick="pinKey('2')">2</button>
+    <button class="pin-btn" onclick="pinKey('3')">3</button>
+    <button class="pin-btn" onclick="pinKey('4')">4</button>
+    <button class="pin-btn" onclick="pinKey('5')">5</button>
+    <button class="pin-btn" onclick="pinKey('6')">6</button>
+    <button class="pin-btn" onclick="pinKey('7')">7</button>
+    <button class="pin-btn" onclick="pinKey('8')">8</button>
+    <button class="pin-btn" onclick="pinKey('9')">9</button>
+    <button class="pin-btn" onclick="pinClear()" style="background:var(--ash);color:var(--muted);font-size:13px">BORRAR</button>
+    <button class="pin-btn" onclick="pinKey('0')">0</button>
+    <button class="pin-btn" onclick="pinDelete()" style="background:var(--ash);font-size:18px">⌫</button>
+  </div>
+
+  <div id="pin-error" style="margin-top:16px;font-size:13px;color:var(--red);font-weight:600;min-height:20px;text-align:center"></div>
+  <button onclick="volverLogin()" style="margin-top:16px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline">← Cambiar nombre</button>
+</div>
+
 <div id="confirm-screen" style="display:none;min-height:100vh;background:var(--coal);flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
@@ -482,9 +520,12 @@ body {
 <div class="modal-bg" id="modal-comensales">
   <div class="modal">
     <div class="modal-title">👥 Comensales <button class="modal-close" onclick="closeModal('modal-comensales')">✕</button></div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Cantidad de personas que dividen el costo. Puede ser distinto a los participantes registrados.</p>
-    <label class="fl">Cantidad de comensales</label>
-    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="11" min="1" max="100">
+    <div style="margin-bottom:12px;padding:8px 12px;background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.3);border-radius:8px;font-size:13px;color:#27ae60;font-weight:600">
+      ✅ Confirmados: <span id="comen-confirmados">0</span> mandis
+    </div>
+    <button onclick="usarConfirmados()" style="width:100%;margin-bottom:10px;padding:9px;border-radius:8px;border:1px solid rgba(39,174,96,.4);background:rgba(39,174,96,.1);color:#27ae60;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">↺ Usar cantidad de confirmados</button>
+    <label class="fl">O ingresá manualmente</label>
+    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="ej: 13" min="1" max="100">
     <div class="frow">
       <button class="btp" onclick="saveComensales()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-comensales')">CANCELAR</button>
@@ -513,19 +554,6 @@ body {
 <!-- ══ MODALES ════════════════════════════════════════ -->
 
 <!-- Modal comensales -->
-<div class="modal-bg" id="modal-comensales">
-  <div class="modal">
-    <div class="modal-title">👥 Comensales <button class="modal-close" onclick="closeModal('modal-comensales')">✕</button></div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Cantidad de personas que dividen el costo. Puede ser diferente a los participantes registrados.</p>
-    <label class="fl">Cantidad de comensales</label>
-    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="11" min="1" max="100">
-    <div class="frow">
-      <button class="btp" onclick="saveComensales()">GUARDAR</button>
-      <button class="btg" onclick="closeModal('modal-comensales')">CANCELAR</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal editar gasto -->
 <div class="modal-bg" id="modal-edit-expense">
   <div class="modal">
@@ -609,6 +637,12 @@ body {
       <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:110px;margin-bottom:0;font-size:16px;text-align:center;font-weight:700;letter-spacing:2px">
       <span style="font-size:12px;color:var(--muted)">día/mes solamente</span>
     </div>
+    <label class="fl">👤 Perfil</label>
+    <select class="fsel" id="ep-role" style="margin-bottom:12px">
+      <option value="mandi">🔥 Mandi (ve todo)</option>
+      <option value="invitado">👤 Invitado (solo Menú y Gastos)</option>
+    </select>
+    <button onclick="resetPinParticipant()" style="width:100%;margin-bottom:10px;padding:9px;border-radius:8px;border:1px solid rgba(255,140,0,.4);background:rgba(255,140,0,.08);color:var(--ember);font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">🔑 Resetear PIN</button>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">CANCELAR</button>
@@ -773,18 +807,100 @@ async function buildLogin() {
 async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  me=v; localStorage.setItem('asado_user',v);
-  // Si ya confirmó asistencia antes, ir directo a la app
-  const yaConfirmo = localStorage.getItem('rsvp_'+( S.event?.id||'') +'_'+v.toLowerCase());
-  if (yaConfirmo) {
-    entrarApp(v);
+  // Buscar participante en Supabase
+  const part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase() && p.active);
+  if (!part) { toast('Nombre no encontrado 👆','var(--red)'); return; }
+  me = part.name; // Usar el nombre exacto de la BD
+  localStorage.setItem('asado_user', part.name);
+  // Verificar PIN
+  mostrarPinScreen(part);
+}
+
+let _pinPart = null;
+let _pinBuffer = '';
+let _pinMode = ''; // 'verify' | 'create' | 'confirm'
+let _pinTmp = '';
+
+function mostrarPinScreen(part) {
+  _pinPart = part;
+  _pinBuffer = '';
+  _pinTmp = '';
+  if (part.pin) {
+    _pinMode = 'verify';
+    document.getElementById('pin-mode-label').textContent = 'Ingresá tu PIN de 4 dígitos';
+  } else {
+    _pinMode = 'create';
+    document.getElementById('pin-mode-label').textContent = 'Creá tu PIN de 4 dígitos';
+  }
+  document.getElementById('pin-title').textContent = part.name.toUpperCase();
+  document.getElementById('pin-error').textContent = '';
+  actualizarDots();
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('pin-screen').style.display='flex';
+}
+
+function pinKey(n) {
+  if (_pinBuffer.length >= 4) return;
+  _pinBuffer += n;
+  actualizarDots();
+  if (_pinBuffer.length === 4) setTimeout(procesarPin, 200);
+}
+function pinDelete() { _pinBuffer = _pinBuffer.slice(0,-1); actualizarDots(); }
+function pinClear()  { _pinBuffer = ''; actualizarDots(); }
+
+function actualizarDots() {
+  for (let i=0;i<4;i++) {
+    const d = document.getElementById('pd'+i);
+    d.classList.toggle('filled', i < _pinBuffer.length);
+  }
+}
+
+async function procesarPin() {
+  const err = document.getElementById('pin-error');
+  if (_pinMode === 'verify') {
+    if (_pinBuffer === _pinPart.pin) {
+      err.textContent = '';
+      continuarTrasPin();
+    } else {
+      err.textContent = '❌ PIN incorrecto, intentá de nuevo';
+      _pinBuffer = ''; actualizarDots();
+    }
+  } else if (_pinMode === 'create') {
+    _pinTmp = _pinBuffer;
+    _pinBuffer = '';
+    _pinMode = 'confirm';
+    document.getElementById('pin-mode-label').textContent = 'Confirmá tu PIN';
+    err.textContent = '';
+    actualizarDots();
+  } else if (_pinMode === 'confirm') {
+    if (_pinBuffer === _pinTmp) {
+      // Guardar PIN en Supabase
+      await sb.from('participants').update({pin: _pinBuffer}).eq('id', _pinPart.id);
+      _pinPart.pin = _pinBuffer;
+      err.textContent = '';
+      continuarTrasPin();
+    } else {
+      err.textContent = '❌ Los PINs no coinciden, empezá de nuevo';
+      _pinBuffer = ''; _pinTmp = ''; _pinMode = 'create';
+      document.getElementById('pin-mode-label').textContent = 'Creá tu PIN de 4 dígitos';
+      actualizarDots();
+    }
+  }
+}
+
+function continuarTrasPin() {
+  document.getElementById('pin-screen').style.display='none';
+  const role = _pinPart.role || 'mandi';
+  const yaConfirmo = localStorage.getItem('rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase());
+  if (role === 'invitado') {
+    entrarApp(me); // invitados entran directo, vista restringida se maneja en entrarApp
     return;
   }
-  // Mostrar pantalla de confirmación
-  document.getElementById('login-screen').style.display='none';
+  if (yaConfirmo) { entrarApp(me); return; }
+  // Mostrar confirm-screen
   const cs = document.getElementById('confirm-screen');
   cs.style.display='flex';
-  document.getElementById('cs-nombre').textContent = v;
+  document.getElementById('cs-nombre').textContent = me;
   if (S.event) {
     document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
     document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
@@ -792,15 +908,35 @@ async function doLogin() {
   }
 }
 
+function volverLogin() {
+  document.getElementById('pin-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  _pinBuffer=''; _pinPart=null;
+}
+
 function entrarApp(v) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('confirm-screen').style.display='none';
+  document.getElementById('pin-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('uav').textContent=v[0].toUpperCase();
   document.getElementById('udisp').textContent=v;
+  const role = _pinPart?.role || 'mandi';
   if (isAdmin()) {
     document.getElementById('admin-toggle').style.display='block';
     document.getElementById('tab-ws').style.display='flex';
+  }
+  // Vista restringida para invitados
+  if (role === 'invitado') {
+    // Solo Menú y Gastos (solo su parte)
+    document.querySelectorAll('.tab').forEach(t => t.style.display='none');
+    ['menú','gastos'].forEach(tab => {
+      const t = [...document.querySelectorAll('.tab')].find(el=>el.textContent.toLowerCase().includes(tab));
+      if (t) t.style.display='flex';
+    });
+    showTab('menu');
+    // Badge invitado en header
+    document.getElementById('udisp').insertAdjacentHTML('afterend','<span style="font-size:9px;background:rgba(255,140,0,.2);color:var(--ember);border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:700">INVITADO</span>');
   }
   fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
@@ -824,9 +960,7 @@ function toggleAdminBar() {
 function openModal(id) {
   if (id==='modal-comensales' && S.event) {
     document.getElementById('comen-input').value = S.event.comensales || allP().length;
-  }
-  if (id==='modal-comensales' && S.event) {
-    document.getElementById('comen-input').value = S.event.comensales || allP().length;
+    document.getElementById('comen-confirmados').textContent = allP().length;
   }
   if (id==='modal-event' && S.event) {
     document.getElementById('me-title').value = S.event.title;
@@ -865,12 +999,16 @@ function renderParticipantsModal() {
       <div style="display:flex;align-items:center;gap:10px">
         <div class="av${p.active?'':' n'}" style="width:32px;height:32px;font-size:13px">${p.name[0].toUpperCase()}</div>
         <div>
-          <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}${p.name===ADMIN_USER?' <span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle;text-transform:uppercase">ADMIN</span>':''}</div>
+          <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;${!p.active?'color:var(--muted);text-decoration:line-through':''}">
+            ${p.name}
+            ${p.name===ADMIN_USER?'<span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle">ADMIN</span>':''}
+            ${p.role==='invitado'?'<span style="font-size:9px;background:rgba(255,140,0,.2);color:var(--ember);border-radius:4px;padding:1px 5px;vertical-align:middle">INVITADO</span>':''}
+          </div>
           ${p.birthday?`<div style="font-size:11px;color:var(--fire);margin-top:1px;font-weight:600">🎂 ${p.birthday}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:1px">Sin cumpleaños</div>'}
         </div>
       </div>
       <div style="display:flex;gap:5px">
-        <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>
+        <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}','${p.role||'mandi'}')">✏️</button>
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
@@ -882,12 +1020,21 @@ function openRenameParticipant(id, currentName) {
   renameParticipant(id, nuevo.trim());
 }
 
-function openEditParticipant(id, currentName, currentBirthday) {
+function openEditParticipant(id, currentName, currentBirthday, currentRole) {
   document.getElementById('ep-id').value = id;
   document.getElementById('ep-name').value = currentName;
   document.getElementById('ep-birthday').value = currentBirthday || '';
+  document.getElementById('ep-role').value = currentRole || 'mandi';
   closeModal('modal-participants');
   openModal('modal-edit-participant');
+}
+
+async function resetPinParticipant() {
+  const id = parseInt(document.getElementById('ep-id').value);
+  const nombre = document.getElementById('ep-name').value;
+  if (!confirm('¿Resetear el PIN de '+nombre+'? Deberá crear uno nuevo al entrar.')) return;
+  await sb.from('participants').update({pin: null}).eq('id', id);
+  toast('✅ PIN de '+nombre+' reseteado');
 }
 
 async function saveEditParticipant() {
@@ -901,7 +1048,8 @@ async function saveEditParticipant() {
   }
   try {
     const oldP = S.participants.find(p=>p.id===id);
-    await sb.from('participants').update({name: newName, birthday: birthday||null}).eq('id', id);
+    const role = document.getElementById('ep-role').value;
+    await sb.from('participants').update({name: newName, birthday: birthday||null, role}).eq('id', id);
     if (oldP && oldP.name !== newName) {
       await sb.from('tasks').update({assignee: newName}).ilike('assignee', oldP.name);
       await sb.from('expenses').update({payer: newName}).ilike('payer', oldP.name);
@@ -1051,7 +1199,7 @@ function renderGastos() {
   sm.textContent=(mb>=0?'+':'-')+fmt(mb);
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
-  document.getElementById('ballist').innerHTML = allP().map(p=>{
+  document.getElementById('ballist').innerHTML = allP().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>{
     const b=bal(p),im=p===me;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
@@ -1364,6 +1512,10 @@ function renderHeader() {
 }
 
 // ══ COMENSALES ═══════════════════════════════════
+function usarConfirmados() {
+  document.getElementById('comen-input').value = allP().length;
+}
+
 function saveComensales() {
   const n = parseInt(document.getElementById('comen-input').value);
   if (!n || n < 1) { toast('Ingresá un número válido','var(--red)'); return; }
@@ -1406,17 +1558,6 @@ async function deleteExpense() {
   closeModal('modal-edit-expense');
   await fetchAll();
   toast('🗑 Gasto eliminado');
-}
-
-// ══ COMENSALES ═══════════════════════════════════
-function saveComensales() {
-  const n = parseInt(document.getElementById('comen-input').value);
-  if (!n || n < 1) { toast('Ingresá un número válido','var(--red)'); return; }
-  sb.from('events').update({comensales: n}).eq('id', S.event.id).then(()=>{
-    closeModal('modal-comensales');
-    fetchAll();
-    toast('✅ Comensales actualizados!');
-  });
 }
 
 function openEditExpense(id) {
