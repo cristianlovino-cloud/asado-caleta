@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.0.0';
+  const APP_VERSION = '2.1.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -808,13 +808,28 @@ async function buildLogin() {
 async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  // Buscar participante en Supabase
-  const part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase() && p.active);
+  // Buscar participante — recargar desde Supabase por las dudas
+  let part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase() && p.active);
+  if (!part && sbOk) {
+    const {data} = await sb.from('participants').select('*').ilike('name', v).eq('active', true).limit(1);
+    if (data?.[0]) { part = data[0]; }
+  }
   if (!part) { toast('Nombre no encontrado 👆','var(--red)'); return; }
-  me = part.name; // Usar el nombre exacto de la BD
+  me = part.name;
   localStorage.setItem('asado_user', part.name);
-  // Verificar PIN
-  mostrarPinScreen(part);
+  _pinPart = part; // necesario para entrarApp
+  const yaConfirmo = localStorage.getItem('rsvp_'+(S.event?.id||'')+'_'+part.name.toLowerCase());
+  if (yaConfirmo) { entrarApp(part.name); return; }
+  // Mostrar confirm-screen
+  document.getElementById('login-screen').style.display='none';
+  const cs = document.getElementById('confirm-screen');
+  cs.style.display='flex';
+  document.getElementById('cs-nombre').textContent = part.name;
+  if (S.event) {
+    document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
+    document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
+    document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
+  }
 }
 
 let _pinPart = null;
