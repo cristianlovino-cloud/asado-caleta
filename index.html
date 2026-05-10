@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.6.0';
+  const APP_VERSION = '2.1.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -248,6 +248,8 @@ body {
 .div{height:1px;background:var(--rim);margin:12px 0}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
 .pill-assign{background:rgba(46,134,222,.12);border:1px solid rgba(46,134,222,.25);color:var(--blue)}
+.en,.sl,.fl,.sh,.ec-title,.ec-meta,.blbl,.psub,.pname,.tknm,.modal-title,.tab { text-transform:uppercase }
+.ballist .en, #ballist .en { text-transform:uppercase }
 </style>
 </head>
 <body>
@@ -351,8 +353,8 @@ body {
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
       <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
-      <div class="sb sbb" style="cursor:pointer" onclick="isAdmin()&&openModal('modal-comensales')">
-        <div class="sl">Comensales <span id="comen-edit" style="display:none;font-size:9px;color:var(--blue)">✏️</span></div>
+      <div class="sb sbb">
+        <div class="sl">Confirmados</div>
         <div class="sv cb" id="sc">0</div>
       </div>
       <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
@@ -713,7 +715,7 @@ let me = localStorage.getItem('asado_user') || '';
 let tmpl = 'convocatoria';
 
 const isAdmin = () => me === ADMIN_USER;
-const allP    = () => S.participants.filter(p=>p.active && p.rsvp==='si').map(p=>p.name);
+const allP    = () => [...new Set(S.participants.filter(p=>p.active && p.rsvp==='si').map(p=>p.name))];
 const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
 // ══ FETCH ═════════════════════════════════════════
@@ -1020,7 +1022,7 @@ function populateSel() {
 
 // ══ GASTOS ════════════════════════════════════════
 const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
-const getPP    = ()=> { const n = S.event?.comensales || allP().length; return n?Math.round(getTotal()/n):0; };
+const getPP    = ()=> { const n = allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
 
@@ -1044,7 +1046,7 @@ function renderGastos() {
   const pp=getPP(),total=getTotal(),mb=bal(me);
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
-  const comen = S.event?.comensales || allP().length;
+  const comen = allP().length;
   document.getElementById('sc').textContent  = comen;
   if(isAdmin()) document.getElementById('comen-edit').style.display='inline';
   const sm=document.getElementById('sm');
