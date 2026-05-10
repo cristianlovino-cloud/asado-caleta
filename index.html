@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.1.0';
+  const APP_VERSION = '2.2.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -754,24 +754,30 @@ const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 // ══ FETCH ═════════════════════════════════════════
 async function fetchAll() {
   if (!sbOk) return;
-  // Evento activo (no archivado)
-  const {data:evts} = await sb.from('events').select('*').order('created_at',{ascending:false});
-  if (!evts?.length) return;
-  S.allEvents = evts;
-  S.event = evts.find(e=>!e.archived) || evts[0];
-  const eid = S.event.id;
+  try {
+    const {data:evts, error:evtErr} = await sb.from('events').select('*').order('created_at',{ascending:false});
+    if (evtErr) throw new Error('events: '+evtErr.message);
+    if (!evts?.length) { console.warn('No events found'); return; }
+    S.allEvents = evts;
+    S.event = evts.find(e=>!e.archived) || evts[0];
+    const eid = S.event.id;
 
-  const [pa,ex,tk,mn] = await Promise.all([
-    sb.from('participants').select('*').order('created_at'),
-    sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
-    sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
-    sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
-  ]);
-  if (pa.data) S.participants = pa.data;
-  if (ex.data) S.expenses     = ex.data;
-  if (tk.data) S.tasks        = tk.data;
-  if (mn.data) S.menu         = mn.data;
-  renderAll();
+    const [pa,ex,tk,mn] = await Promise.all([
+      sb.from('participants').select('*').order('created_at'),
+      sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
+      sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
+      sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
+    ]);
+    if (pa.error) throw new Error('participants: '+pa.error.message);
+    if (pa.data) S.participants = pa.data;
+    if (ex.data) S.expenses     = ex.data;
+    if (tk.data) S.tasks        = tk.data;
+    if (mn.data) S.menu         = mn.data;
+    renderAll();
+  } catch(e) {
+    console.error('fetchAll interno:', e);
+    throw e;
+  }
 }
 
 function subscribe() {
@@ -958,7 +964,7 @@ function entrarApp(v) {
     if(!sbOk) renderAll();
   }).catch(e => {
     console.error('fetchAll error:', e);
-    toast('Error al cargar datos, recargá la página','var(--red)');
+    toast('Error: '+( e?.message || JSON.stringify(e) ),'var(--red)');
   });
   subscribe();
   startAutoRefresh();
