@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.9.0';
+  const APP_VERSION = '2.0.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -839,7 +839,7 @@ async function procesarPin() {
   if (_pinMode === 'verify') {
     if (_pinBuf === _pinPart.pin) {
       document.getElementById('pin-screen').style.display = 'none';
-      continuarLogin();
+      await continuarLogin();
     } else {
       err.textContent = '❌ PIN incorrecto';
       _pinBuf = ''; actualizarDots();
@@ -854,7 +854,7 @@ async function procesarPin() {
       await sb.from('participants').update({pin: _pinBuf}).eq('id', _pinPart.id);
       _pinPart.pin = _pinBuf;
       document.getElementById('pin-screen').style.display = 'none';
-      continuarLogin();
+      await continuarLogin();
     } else {
       err.textContent = '❌ No coinciden, empezá de nuevo';
       _pinBuf = ''; _pinTmp = ''; _pinMode = 'create';
@@ -864,10 +864,10 @@ async function procesarPin() {
   }
 }
 
-function continuarLogin() {
+async function continuarLogin() {
   // Usar el mismo flujo original: confirmar asistencia o entrar directo
   const yaConfirmo = localStorage.getItem('rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase());
-  if (yaConfirmo) { entrarApp(me); return; }
+  if (yaConfirmo) { await entrarApp(me); return; }
   document.getElementById('confirm-screen').style.display = 'flex';
   document.getElementById('cs-nombre').textContent = me;
   if (S.event) {
@@ -889,7 +889,7 @@ async function doLogin() {
   mostrarPin(part);
 }
 
-function entrarApp(v) {
+async function entrarApp(v) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('confirm-screen').style.display='none';
   document.getElementById('pin-screen').style.display='none';
@@ -900,7 +900,7 @@ function entrarApp(v) {
     document.getElementById('admin-toggle').style.display='block';
     document.getElementById('tab-ws').style.display='flex';
   }
-  fetchAll().then(()=>{ if(!sbOk) renderAll(); });
+  await fetchAll();
   subscribe();
   startAutoRefresh();
 }
@@ -1772,8 +1772,8 @@ async function confirmarAsistencia(resp) {
     } catch(e) {}
   }
   toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
-  entrarApp(me);
-  setTimeout(()=>showTab('tareas'), 300);
+  await entrarApp(me);
+  showTab('tareas');
 }
 
 // ══ ASISTENCIA ADMIN ═══════════════════════════════
