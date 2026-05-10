@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '3.2.0';
+  const APP_VERSION = '3.3.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -760,6 +760,7 @@ async function fetchAll() {
     if (!evts?.length) { console.warn('No events found'); return; }
     S.allEvents = evts;
     S.event = evts.find(e=>!e.archived) || evts[0];
+    console.log('Evento activo id:', S.event?.id, 'title:', S.event?.title);
     const eid = S.event.id;
 
     // Queries separadas para aislar errores
@@ -1192,7 +1193,10 @@ function populateSel() {
 }
 
 // ══ GASTOS ════════════════════════════════════════
-const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
+const getTotal = ()=> {
+  console.log('getTotal - expenses count:', S.expenses.length, S.expenses.map(e=>e.amount));
+  return S.expenses.reduce((a,e)=>a+parseFloat(e.amount||0),0);
+};
 const getPP    = ()=> { const n = allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
