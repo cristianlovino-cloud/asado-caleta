@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.7.2';
+  const APP_VERSION = '1.8.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -249,6 +249,26 @@ body {
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
 .pill-assign{background:rgba(46,134,222,.12);border:1px solid rgba(46,134,222,.25);color:var(--blue)}
 .en,.sl,.fl,.sh,.tab,.modal-title,.pname,.tknm,.blbl { text-transform:uppercase }
+
+/* ── OVERVIEW ─────────────────────────── */
+.ov-hero{background:linear-gradient(135deg,var(--fire),var(--ember));border-radius:18px;padding:20px;margin-bottom:14px;color:white;position:relative;overflow:hidden}
+.ov-hero::before{content:'🔥';position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.15}
+.ov-hero-title{font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;margin-bottom:4px}
+.ov-hero-date{font-size:13px;opacity:.85;margin-bottom:16px}
+.ov-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:0}
+.ov-stat{background:rgba(255,255,255,.15);border-radius:10px;padding:10px 8px;text-align:center}
+.ov-stat-n{font-family:'Bebas Neue',cursive;font-size:26px;line-height:1}
+.ov-stat-l{font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.ov-card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--rim)}
+.ov-card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--fire);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.ov-task-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--rim);font-size:13px}
+.ov-task-row:last-child{border-bottom:none}
+.ov-assignee{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase}
+.ov-cumple{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--rim)}
+.ov-cumple:last-child{border-bottom:none}
+.ov-cumple-av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0}
+.ov-btn{width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px}
+.ov-btn-sec{width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -336,15 +356,21 @@ body {
     <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
     <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
     <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
+    <button class="abtn" onclick="showTab('ws');toggleAdminBar()">📲 WS</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
   </div>
 
   <div class="tabs" id="tabs">
-    <div class="tab active" onclick="showTab('tareas')"><span class="ti">📋</span>Tareas</div>
-    <div class="tab"        onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
-    <div class="tab"        onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
-    <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
-    <div class="tab" id="tab-ws" style="display:none" onclick="showTab('ws')"><span class="ti">📲</span>WS</div>
+    <div class="tab active" onclick="showTab('overview')"><span class="ti">🏠</span>Inicio</div>
+    <div class="tab"        onclick="showTab('tareas')" ><span class="ti">📋</span>Tareas</div>
+    <div class="tab"        onclick="showTab('menu')"   ><span class="ti">🍖</span>Menú</div>
+    <div class="tab"        onclick="showTab('gastos')" ><span class="ti">💰</span>Gastos</div>
+    <div class="tab"        onclick="showTab('carne')"  ><span class="ti">🥩</span>Carne</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="panel active" id="panel-overview">
+    <div id="ov-content"></div>
   </div>
 
   <!-- GASTOS -->
@@ -377,7 +403,7 @@ body {
   </div>
 
   <!-- TAREAS -->
-  <div class="panel active" id="panel-tareas">
+  <div class="panel" id="panel-tareas">
     <!-- Banner cumpleaños del mes -->
     <div id="banner-cumples" style="display:none;margin:0 0 10px;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(255,140,0,.2)">
       <div style="background:linear-gradient(135deg,rgba(255,140,0,.18),rgba(255,69,0,.12));border:1px solid rgba(255,140,0,.35);border-radius:16px;padding:14px 16px">
@@ -1597,6 +1623,134 @@ function enviarFelizCumple(nombre) {
   window.open(`https://wa.me/?text=${encoded}`, '_blank');
 }
 
+function renderOverview() {
+  const el = document.getElementById('ov-content');
+  if (!el || !S.event) return;
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const diaActual = hoy.getDate();
+
+  // ── Fecha del asado
+  const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const partsDate = (S.event.event_date||'').split('/');
+  const diaEv = partsDate[0], mesEv = partsDate[1], anioEv = partsDate[2];
+  const mesNombre = meses[parseInt(mesEv)] || '';
+  const fechaStr = diaEv && mesEv ? `${diaEv} de ${mesNombre}` : S.event.event_date;
+
+  // ── Stats
+  const confirmados = allP().length;
+  const pendientes = S.tasks.filter(t=>!t.done).length;
+  const total = getTotal();
+  const pp = getPP();
+
+  // ── Countdown
+  let countdownHtml = '';
+  if (diaEv && mesEv && anioEv) {
+    const evDate = new Date(`${anioEv}-${mesEv}-${diaEv}`);
+    const diff = Math.ceil((evDate - hoy) / (1000*60*60*24));
+    if (diff > 0) countdownHtml = `<div style="font-size:11px;opacity:.75;margin-top:2px">⏳ Faltan ${diff} día${diff>1?'s':''}</div>`;
+    else if (diff === 0) countdownHtml = `<div style="font-size:12px;font-weight:700;margin-top:2px">🔥 ¡ES HOY!</div>`;
+  }
+
+  // ── Cumpleaños del mes
+  const cumples = S.participants.filter(p=>p.active && p.birthday).map(p=>{
+    const [d,m] = (p.birthday||'').split('/').map(Number);
+    return {nombre:p.name, dia:d, mes:m};
+  }).filter(c=>!isNaN(c.mes) && c.mes===mesActual).sort((a,b)=>a.dia-b.dia);
+
+  const cumpleHtml = cumples.length ? `
+    <div class="ov-card">
+      <div class="ov-card-title">🎂 Cumpleaños de ${meses[mesActual]}</div>
+      ${cumples.map(c=>{
+        const esHoy = c.dia===diaActual;
+        return `<div class="ov-cumple">
+          <div class="ov-cumple-av">${c.nombre[0].toUpperCase()}</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:13px;text-transform:uppercase">${c.nombre}${esHoy?' 🎂':''}</div>
+            <div style="font-size:11px;color:${esHoy?'var(--green)':'var(--muted)'}">${esHoy?'¡HOY ES SU CUMPLE! 🎉':`${c.dia} de ${meses[c.mes]}`}</div>
+          </div>
+          ${esHoy && isAdmin()?`<button onclick="enviarFelizCumple('${c.nombre}')" style="border:none;background:var(--fire);color:white;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">🎂 FELIZ CUMPLE</button>`:''}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  // ── Tareas pendientes sin asignar
+  const sinAsignar = S.tasks.filter(t=>!t.done && !t.assignee).length;
+
+  // ── Gastos top
+  const topPagadores = [...new Set(S.expenses.map(e=>e.payer))].map(p=>({
+    nombre:p, total: S.expenses.filter(e=>e.payer===p).reduce((a,e)=>a+parseFloat(e.amount||0),0)
+  })).sort((a,b)=>b.total-a.total).slice(0,3);
+
+  // ── Mi RSVP
+  const miPart = S.participants.find(p=>p.name.toLowerCase()===me.toLowerCase());
+  const miRsvp = miPart?.rsvp;
+  const rsvpBadge = miRsvp==='si'
+    ? `<span style="color:var(--green);font-weight:700">✅ VAS AL ASADO</span>`
+    : miRsvp==='no'
+    ? `<span style="color:var(--red);font-weight:700">❌ NO VAS</span>`
+    : `<span style="color:var(--muted)">Sin confirmar</span>`;
+
+  el.innerHTML = `
+    <!-- Hero -->
+    <div class="ov-hero">
+      <div class="ov-hero-title">${(S.event.title||'ASADO').toUpperCase()}</div>
+      <div class="ov-hero-date">📍 ${S.event.location||''} · ${fechaStr} · ${S.event.time_range||''}</div>
+      ${countdownHtml}
+      <div class="ov-stats">
+        <div class="ov-stat">
+          <div class="ov-stat-n">${confirmados}</div>
+          <div class="ov-stat-l">Mandis</div>
+        </div>
+        <div class="ov-stat">
+          <div class="ov-stat-n">${pendientes}</div>
+          <div class="ov-stat-l">Tareas</div>
+        </div>
+        <div class="ov-stat">
+          <div class="ov-stat-n">${total>0?fmt(pp):'$0'}</div>
+          <div class="ov-stat-l">c/u</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mi estado -->
+    <div class="ov-card">
+      <div class="ov-card-title">👤 Mi estado</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px">
+        <span style="text-transform:uppercase;font-weight:600">${me}</span>
+        ${rsvpBadge}
+      </div>
+      ${miRsvp!=='si'?`<button class="ov-btn" style="margin-top:10px;margin-bottom:0" onclick="showTab('tareas');openModal('modal-asistencia')">CONFIRMAR ASISTENCIA</button>`:''}
+    </div>
+
+    ${cumpleHtml}
+
+    <!-- Tareas pendientes -->
+    ${pendientes>0?`<div class="ov-card">
+      <div class="ov-card-title">📋 Tareas pendientes (${pendientes})</div>
+      ${S.tasks.filter(t=>!t.done).slice(0,5).map(t=>`
+        <div class="ov-task-row">
+          <span style="font-size:13px">${t.name.split('\n')[0]}</span>
+          <span class="ov-assignee">${t.assignee||'Sin asignar'}</span>
+        </div>`).join('')}
+      ${pendientes>5?`<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:8px">+${pendientes-5} más → ver Tareas</div>`:''}
+    </div>`:'<div class="ov-card"><div style="text-align:center;padding:8px"><span style="font-size:20px">✅</span><div style="font-size:13px;color:var(--green);font-weight:700;margin-top:4px">TODAS LAS TAREAS LISTAS</div></div></div>'}
+
+    <!-- Accesos rápidos -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <button class="ov-btn" onclick="showTab('tareas')">📋 TAREAS</button>
+      <button class="ov-btn" onclick="showTab('menu')">🍖 MENÚ</button>
+      <button class="ov-btn-sec" onclick="showTab('gastos')">💰 GASTOS</button>
+      <button class="ov-btn-sec" onclick="showTab('carne')">🥩 CARNE</button>
+    </div>
+  `;
+}
+
+function enviarFelizCumple(nombre) {
+  const msg = `🎂 *¡FELIZ CUMPLE MANDI ${nombre.toUpperCase()}!* 🎉\n\nDesde el grupo te deseamos un día increíble, que la pases bomba y que el próximo asado sea tuyo! 🔥🥩`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+
 function renderAll() {
   renderCumples();
   renderHeader();
@@ -1669,7 +1823,7 @@ async function confirmarAsistencia(resp) {
   }
   toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
   entrarApp(me);
-  setTimeout(()=>showTab('tareas'), 300);
+  setTimeout(()=>showTab('overview'), 300);
 }
 
 // ══ ASISTENCIA ADMIN ═══════════════════════════════
