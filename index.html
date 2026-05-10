@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.7.0';
+  const APP_VERSION = '2.8.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -900,15 +900,15 @@ async function procesarPin() {
   }
 }
 
-function continuarTrasPin() {
+async function continuarTrasPin() {
   document.getElementById('pin-screen').style.display='none';
   const role = _pinPart.role || 'mandi';
   const yaConfirmo = localStorage.getItem('rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase());
   if (role === 'invitado') {
-    entrarApp(me); // invitados entran directo, vista restringida se maneja en entrarApp
+    await entrarApp(me);
     return;
   }
-  if (yaConfirmo) { entrarApp(me); return; }
+  if (yaConfirmo) { await entrarApp(me); return; }
   // Mostrar confirm-screen
   const cs = document.getElementById('confirm-screen');
   cs.style.display='flex';
@@ -926,14 +926,15 @@ function volverLogin() {
   _pinBuffer=''; _pinPart=null;
 }
 
-function entrarApp(v) {
+async function entrarApp(v) {
   // Ocultar todas las pantallas de auth
   ['login-screen','confirm-screen','pin-screen'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display='none';
   });
-  // Mostrar app
-  document.getElementById('app').style.display='block';
+  // Mostrar app con loading
+  const appEl = document.getElementById('app');
+  appEl.style.display='block';
   document.getElementById('uav').textContent = v[0].toUpperCase();
   document.getElementById('udisp').textContent = v;
   // Admin
@@ -953,8 +954,13 @@ function entrarApp(v) {
     });
     showTab('menu');
   }
-  // Cargar datos
-  fetchAll().catch(e => { console.error('fetchAll:', e); toast('Error: '+(e?.message||String(e)),'var(--red)'); });
+  // Cargar datos con await — esperar que todo esté listo antes de renderizar
+  try {
+    await fetchAll();
+  } catch(e) {
+    console.error('fetchAll error:', e);
+    toast('Error al cargar: '+(e?.message||String(e)),'var(--red)');
+  }
   subscribe();
   startAutoRefresh();
 }
@@ -1827,8 +1833,8 @@ async function confirmarAsistencia(resp) {
     } catch(e) {}
   }
   toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
-  entrarApp(me);
-  setTimeout(()=>showTab('tareas'), 300);
+  await entrarApp(me);
+  showTab('tareas');
 }
 
 // ══ ASISTENCIA ADMIN ═══════════════════════════════
