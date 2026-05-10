@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.1.0';
+  const APP_VERSION = '1.7.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -248,8 +248,7 @@ body {
 .div{height:1px;background:var(--rim);margin:12px 0}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
 .pill-assign{background:rgba(46,134,222,.12);border:1px solid rgba(46,134,222,.25);color:var(--blue)}
-.en,.sl,.fl,.sh,.ec-title,.ec-meta,.blbl,.psub,.pname,.tknm,.modal-title,.tab { text-transform:uppercase }
-.ballist .en, #ballist .en { text-transform:uppercase }
+.en,.sl,.fl,.sh,.tab,.modal-title,.pname,.tknm,.blbl { text-transform:uppercase }
 </style>
 </head>
 <body>
@@ -353,8 +352,8 @@ body {
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
       <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
-      <div class="sb sbb">
-        <div class="sl">Confirmados</div>
+      <div class="sb sbb" style="cursor:pointer" onclick="isAdmin()&&openModal('modal-comensales')">
+        <div class="sl">Comensales <span id="comen-edit" style="display:none;font-size:9px;color:var(--blue)">✏️</span></div>
         <div class="sv cb" id="sc">0</div>
       </div>
       <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
