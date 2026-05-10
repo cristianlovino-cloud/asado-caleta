@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.9.0';
+  const APP_VERSION = '3.0.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -620,7 +620,7 @@ body {
 <!-- Modal Cerrar Cuentas -->
 <div class="modal-bg" id="modal-cuentas">
   <div class="modal">
-    <div class="modal-title">💰 Cerrar Cuentas <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
+    <div class="modal-title" style="text-transform:uppercase">💰 CERRAR CUENTAS <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
     <button onclick="limpiarCobros()" style="font-size:11px;background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--muted);margin-bottom:10px">🗑 Limpiar cobros registrados</button>
     <div id="cuentas-resumen"></div>
   </div>
@@ -748,7 +748,7 @@ let me = localStorage.getItem('asado_user') || '';
 let tmpl = 'convocatoria';
 
 const isAdmin = () => me === ADMIN_USER;
-const allP    = () => S.participants.filter(p=>p.active && p.rsvp==='si').map(p=>p.name);
+const allP    = () => [...new Set(S.participants.filter(p=>p.active && p.rsvp==='si').map(p=>p.name))];
 const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
 // ══ FETCH ═════════════════════════════════════════
@@ -1202,19 +1202,18 @@ async function addExpense() {
   document.getElementById('fedesc').value='';
   document.getElementById('feamt').value='';
   tf('fexp');
-  // Insertar en Supabase primero — sin optimistic para evitar duplicados
+  // Insertar en Supabase
   const {data, error} = await sb.from('expenses')
     .insert({event_id: S.event.id, payer: me, description: desc, amount: amt})
     .select();
   if (error) {
-    toast('Error al guardar: '+error.message,'var(--red)');
-    console.error('insert expense error:', error);
+    toast('Error: '+error.message,'var(--red)');
+    console.error('insert expense:', error);
     return;
   }
-  // Agregar a la lista local con el id real de Supabase
-  if (data?.[0]) S.expenses.push(data[0]);
-  renderGastos();
   toast('✅ Gasto cargado!');
+  // Recargar TODO desde Supabase para asegurar consistencia
+  await fetchAll();
 }
 
 function renderGastos() {
@@ -2030,7 +2029,7 @@ function renderCuentas() {
   const adminAcr = acreedores.indexOf(ADMIN_USER)>=0 ? ADMIN_USER : acreedores[0];
   const otrosAcr = acreedores.filter(p=>p!==adminAcr);
 
-  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p} <span style="font-size:11px;color:var(--muted)">(pagó de más)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
+  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p.toUpperCase()} <span style="font-size:11px;color:var(--muted)">(pagó de más)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
   if(otrosAcr.length>0 && adminAcr) {
     acrHtml += `<div style="margin:8px 0;padding:10px 12px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:8px;font-size:12px"><div style="font-weight:700;margin-bottom:6px">📋 ${adminAcr} cobra todo y distribuye</div>${otrosAcr.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--muted)">${adminAcr} → ${p}</span><span style="font-weight:700;color:var(--fire)">${fmt(bal(p))}</span></div>`).join('')}<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)"><span style="font-weight:600">Neto ${adminAcr}</span><span style="font-weight:700;color:var(--green)">+${fmt(bal(adminAcr)-otrosAcr.reduce((a,p)=>a+bal(p),0))}</span></div></div>`;
   }
@@ -2038,7 +2037,7 @@ function renderCuentas() {
   const deuHtml = pendientes.map(p=>{const debe=Math.abs(bal(p)); return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">${p}</span><span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span></div><div style="display:flex;gap:7px"><button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 Efectivo</button><button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 Transferencia</button></div></div>`;}).join('')
   + cobrados.map(p=>{const debe=Math.abs(bal(p));const cobro=cobros[p.toLowerCase()]; return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.7"><div style="display:flex;justify-content:space-between"><span style="font-weight:600;text-decoration:line-through;color:var(--muted)">${p}</span><span style="font-size:12px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'} — ${fmt(debe)}</span></div></div>`;}).join('');
 
-  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Total gastado</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Comensales</span><span style="font-weight:700">${S.event?.comensales||allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Por persona</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">Deben pagar</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ Todos saldados</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Cobrado</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Pendiente</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span></div></div>`;
+  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Total gastado</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Comensales</span><span style="font-weight:700">${allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Por persona</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">Deben pagar</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ Todos saldados</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Cobrado</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Pendiente</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span></div></div>`;
 }
 
 // ══ INIT ══════════════════════════════════════════
