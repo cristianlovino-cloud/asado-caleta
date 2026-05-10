@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.8.0';
+  const APP_VERSION = '1.8.1';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -821,8 +821,8 @@ function entrarApp(v) {
   document.getElementById('uav').textContent=v[0].toUpperCase();
   document.getElementById('udisp').textContent=v;
   if (isAdmin()) {
-    document.getElementById('admin-toggle').style.display='block';
-    document.getElementById('tab-ws').style.display='flex';
+    const at = document.getElementById('admin-toggle');
+    if (at) at.style.display='block';
   }
   fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
@@ -1027,7 +1027,7 @@ function showTab(t) {
   document.querySelectorAll('.panel').forEach(e=>e.classList.remove('active'));
   document.querySelector(`[onclick="showTab('${t}')"]`).classList.add('active');
   document.getElementById(`panel-${t}`).classList.add('active');
-  if (t==='ws') renderWS();
+  if (t==='ws') { setTimeout(()=>renderWS(), 50); }
   if (t==='carne') calcularCarne();
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
@@ -1547,7 +1547,11 @@ Gracias por la buena onda y los vinos de altura 🍷
   })[type];
 }
 
-function renderWS(){ if(S.event) document.getElementById('wsprev').textContent=buildMsg(tmpl); }
+function renderWS(){
+  const el = document.getElementById('wsprev');
+  if (!el || !S.event) return;
+  try { el.textContent = buildMsg(tmpl); } catch(e) { el.textContent = ''; }
+}
 function openWA()  { window.open(`https://wa.me/?text=${encodeURIComponent(buildMsg(tmpl))}`,'_blank'); }
 function copyMsg() {
   const m=buildMsg(tmpl);
@@ -2008,8 +2012,8 @@ if (me) {
   document.getElementById('uav').textContent=me[0].toUpperCase();
   document.getElementById('udisp').textContent=me;
   if (me===ADMIN_USER){
-    document.getElementById('admin-toggle').style.display='block';
-    document.getElementById('tab-ws').style.display='flex';
+    const at = document.getElementById('admin-toggle');
+    if (at) at.style.display='block';
   }
   fetchAll().then(()=>{if(!sbOk)renderAll();});
   subscribe();
