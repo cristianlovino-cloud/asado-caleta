@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.7.0';
+  const APP_VERSION = '1.9.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -120,6 +120,10 @@ body {
 .sh,.sl,.fl,.pname,.tknm,.sv,.lsub,.hdr-sub,.ltitle,.ach,.ac,.tok,.tpn,.blbl,.psub,.en,.ew,.ea,.mnm,.mdt,.ec-title,.ec-meta { text-transform:uppercase }
 .modal-title { text-transform:uppercase }
 .sb .sl { text-transform:uppercase }
+.pdot{width:16px;height:16px;border-radius:50%;border:2px solid var(--fire);background:transparent;transition:background .15s}
+.pdot.on{background:var(--fire)}
+.pbtn{padding:16px;border-radius:14px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:22px;font-weight:600;cursor:pointer;transition:background .1s;font-family:'DM Sans',sans-serif}
+.pbtn:active{background:var(--fire);color:white}
 .abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s;text-transform:uppercase}
 .abtn:hover{border-color:var(--fire);color:var(--fire)}
 .abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
@@ -278,6 +282,35 @@ body {
 </div>
 
 <!-- CONFIRMACIÓN ASISTENCIA -->
+<!-- PIN Screen -->
+<div id="pin-screen" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--coal)">
+  <img src="icon.png?v=2" style="width:80px;height:80px;object-fit:contain;margin-bottom:12px;filter:drop-shadow(0 4px 12px rgba(255,69,0,.4))">
+  <div id="pin-title" style="font-family:'Bebas Neue',cursive;font-size:28px;color:var(--text);letter-spacing:2px;margin-bottom:4px;text-align:center"></div>
+  <div id="pin-subtitle" style="font-size:13px;color:var(--muted);margin-bottom:24px;text-align:center"></div>
+  <div style="display:flex;gap:14px;margin-bottom:28px">
+    <div class="pdot" id="pd0"></div>
+    <div class="pdot" id="pd1"></div>
+    <div class="pdot" id="pd2"></div>
+    <div class="pdot" id="pd3"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:252px">
+    <button class="pbtn" onclick="pinKey('1')">1</button>
+    <button class="pbtn" onclick="pinKey('2')">2</button>
+    <button class="pbtn" onclick="pinKey('3')">3</button>
+    <button class="pbtn" onclick="pinKey('4')">4</button>
+    <button class="pbtn" onclick="pinKey('5')">5</button>
+    <button class="pbtn" onclick="pinKey('6')">6</button>
+    <button class="pbtn" onclick="pinKey('7')">7</button>
+    <button class="pbtn" onclick="pinKey('8')">8</button>
+    <button class="pbtn" onclick="pinKey('9')">9</button>
+    <button class="pbtn" onclick="pinClear()" style="font-size:12px;color:var(--muted)">BORRAR</button>
+    <button class="pbtn" onclick="pinKey('0')">0</button>
+    <button class="pbtn" onclick="pinDelete()" style="font-size:18px">⌫</button>
+  </div>
+  <div id="pin-error" style="margin-top:16px;font-size:13px;color:var(--red);font-weight:600;min-height:20px;text-align:center"></div>
+  <button onclick="volverLogin()" style="margin-top:16px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline">← Cambiar nombre</button>
+</div>
+
 <div id="confirm-screen" style="display:none;min-height:100vh;background:var(--coal);flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
@@ -351,8 +384,8 @@ body {
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
       <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
-      <div class="sb sbb" style="cursor:pointer" onclick="isAdmin()&&openModal('modal-comensales')">
-        <div class="sl">Comensales <span id="comen-edit" style="display:none;font-size:9px;color:var(--blue)">✏️</span></div>
+      <div class="sb sbb">
+        <div class="sl">Confirmados</div>
         <div class="sv cb" id="sc">0</div>
       </div>
       <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
@@ -770,31 +803,96 @@ async function buildLogin() {
 
 // selectN removed - free text login
 
-async function doLogin() {
-  const v=document.getElementById('cname').value.trim();
-  if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  me=v; localStorage.setItem('asado_user',v);
-  // Si ya confirmó asistencia antes, ir directo a la app
-  const yaConfirmo = localStorage.getItem('rsvp_'+( S.event?.id||'') +'_'+v.toLowerCase());
-  if (yaConfirmo) {
-    entrarApp(v);
-    return;
+// ══ PIN ═══════════════════════════════════════════
+let _pinPart = null, _pinBuf = '', _pinMode = '', _pinTmp = '';
+
+function mostrarPin(part) {
+  _pinPart = part; _pinBuf = ''; _pinTmp = '';
+  _pinMode = part.pin ? 'verify' : 'create';
+  document.getElementById('pin-title').textContent = part.name.toUpperCase();
+  document.getElementById('pin-subtitle').textContent = part.pin ? 'Ingresá tu PIN' : 'Creá tu PIN de 4 dígitos';
+  document.getElementById('pin-error').textContent = '';
+  actualizarDots();
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('pin-screen').style.display = 'flex';
+}
+
+function pinKey(n) {
+  if (_pinBuf.length >= 4) return;
+  _pinBuf += n;
+  actualizarDots();
+  if (_pinBuf.length === 4) setTimeout(procesarPin, 150);
+}
+function pinDelete() { _pinBuf = _pinBuf.slice(0,-1); actualizarDots(); }
+function pinClear()  { _pinBuf = ''; actualizarDots(); }
+function volverLogin() {
+  _pinBuf = ''; _pinPart = null;
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+function actualizarDots() {
+  for (let i=0;i<4;i++) document.getElementById('pd'+i).classList.toggle('on', i < _pinBuf.length);
+}
+
+async function procesarPin() {
+  const err = document.getElementById('pin-error');
+  if (_pinMode === 'verify') {
+    if (_pinBuf === _pinPart.pin) {
+      document.getElementById('pin-screen').style.display = 'none';
+      continuarLogin();
+    } else {
+      err.textContent = '❌ PIN incorrecto';
+      _pinBuf = ''; actualizarDots();
+    }
+  } else if (_pinMode === 'create') {
+    _pinTmp = _pinBuf; _pinBuf = '';
+    _pinMode = 'confirm';
+    document.getElementById('pin-subtitle').textContent = 'Confirmá tu PIN';
+    err.textContent = ''; actualizarDots();
+  } else if (_pinMode === 'confirm') {
+    if (_pinBuf === _pinTmp) {
+      await sb.from('participants').update({pin: _pinBuf}).eq('id', _pinPart.id);
+      _pinPart.pin = _pinBuf;
+      document.getElementById('pin-screen').style.display = 'none';
+      continuarLogin();
+    } else {
+      err.textContent = '❌ No coinciden, empezá de nuevo';
+      _pinBuf = ''; _pinTmp = ''; _pinMode = 'create';
+      document.getElementById('pin-subtitle').textContent = 'Creá tu PIN de 4 dígitos';
+      actualizarDots();
+    }
   }
-  // Mostrar pantalla de confirmación
-  document.getElementById('login-screen').style.display='none';
-  const cs = document.getElementById('confirm-screen');
-  cs.style.display='flex';
-  document.getElementById('cs-nombre').textContent = v;
+}
+
+function continuarLogin() {
+  // Usar el mismo flujo original: confirmar asistencia o entrar directo
+  const yaConfirmo = localStorage.getItem('rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase());
+  if (yaConfirmo) { entrarApp(me); return; }
+  document.getElementById('confirm-screen').style.display = 'flex';
+  document.getElementById('cs-nombre').textContent = me;
   if (S.event) {
-    document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
-    document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
-    document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
+    document.getElementById('cs-title').textContent = S.event.title || 'Asado';
+    document.getElementById('cs-date').textContent  = S.event.event_date + ' · ' + (S.event.time_range||'');
+    document.getElementById('cs-loc').textContent   = '📍 ' + (S.event.location||'');
   }
+}
+
+async function doLogin() {
+  const v = document.getElementById('cname').value.trim();
+  if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
+  // Buscar participante en Supabase
+  const part = S.participants.find(p => p.active && p.name.toLowerCase() === v.toLowerCase());
+  if (!part) { toast('Nombre no encontrado 👆','var(--red)'); return; }
+  me = part.name;
+  localStorage.setItem('asado_user', part.name);
+  // Mostrar PIN
+  mostrarPin(part);
 }
 
 function entrarApp(v) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('confirm-screen').style.display='none';
+  document.getElementById('pin-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('uav').textContent=v[0].toUpperCase();
   document.getElementById('udisp').textContent=v;
@@ -931,6 +1029,13 @@ async function renameParticipant(id, newName) {
   } catch(e) { toast('Error al renombrar','var(--red)'); }
 }
 
+async function resetPin(id, nombre) {
+  if (!confirm('¿Resetear PIN de '+nombre+'?')) return;
+  await sb.from('participants').update({pin: null}).eq('id', id);
+  toast('✅ PIN de '+nombre+' reseteado');
+  await fetchAll();
+}
+
 async function toggleParticipant(id, active) {
   await sb.from('participants').update({active:!active}).eq('id',id);
   await fetchAll();
@@ -1020,7 +1125,7 @@ function populateSel() {
 
 // ══ GASTOS ════════════════════════════════════════
 const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
-const getPP    = ()=> { const n = S.event?.comensales || allP().length; return n?Math.round(getTotal()/n):0; };
+const getPP    = ()=> { const n = allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
 
@@ -1044,7 +1149,7 @@ function renderGastos() {
   const pp=getPP(),total=getTotal(),mb=bal(me);
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
-  const comen = S.event?.comensales || allP().length;
+  const comen = allP().length;
   document.getElementById('sc').textContent  = comen;
   if(isAdmin()) document.getElementById('comen-edit').style.display='inline';
   const sm=document.getElementById('sm');
