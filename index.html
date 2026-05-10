@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.5.0';
+  const APP_VERSION = '2.6.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -1202,7 +1202,7 @@ async function addExpense() {
   toast('✅ Gasto cargado!');
   // Sincronizar con Supabase en background
   sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt})
-    .then(()=>fetchAll());
+    .then(()=>fetchAll().then(()=>renderGastos()));
 }
 
 function renderGastos() {
@@ -1217,7 +1217,9 @@ function renderGastos() {
   sm.textContent=(mb>=0?'+':'-')+fmt(mb);
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
-  document.getElementById('ballist').innerHTML = allP().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>{
+  // Combinar confirmados + quienes pagaron algo (por si pagó alguien no confirmado)
+  const pagadores = [...new Set([...allP(), ...S.expenses.map(e=>e.payer)])].sort((a,b)=>a.localeCompare(b,'es'));
+  document.getElementById('ballist').innerHTML = pagadores.map(p=>{
     const b=bal(p),im=p===me;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
@@ -1232,7 +1234,7 @@ function renderGastos() {
     </div>`;
   }).join('');
 
-  const faltanPagar = allP().filter(p=>bal(p)<-100);
+  const faltanPagar = pagadores.filter(p=>bal(p)<-100);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
