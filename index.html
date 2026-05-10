@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.8.0';
+  const APP_VERSION = '1.8.1';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -1643,6 +1643,9 @@ function renderOverview() {
   const total = getTotal();
   const pp = getPP();
 
+  // ── Stats de asistencia histórica (basado en eventos anteriores)
+  const totalEventos = S.allEvents ? S.allEvents.filter(e=>e.archived).length : 0;
+
   // ── Countdown
   let countdownHtml = '';
   if (diaEv && mesEv && anioEv) {
@@ -1736,6 +1739,37 @@ function renderOverview() {
       ${pendientes>5?`<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:8px">+${pendientes-5} más → ver Tareas</div>`:''}
     </div>`:'<div class="ov-card"><div style="text-align:center;padding:8px"><span style="font-size:20px">✅</span><div style="font-size:13px;color:var(--green);font-weight:700;margin-top:4px">TODAS LAS TAREAS LISTAS</div></div></div>'}
 
+    <!-- Podio de asistencia -->
+    ${confirmados>0?`<div class="ov-card">
+      <div class="ov-card-title">📊 Asistencia confirmada</div>
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span style="text-transform:uppercase;font-weight:600">Confirmados</span>
+          <span style="color:var(--green);font-weight:700">${confirmados} mandis ✅</span>
+        </div>
+        <div style="background:var(--rim);border-radius:4px;height:6px;overflow:hidden">
+          <div style="background:linear-gradient(90deg,var(--green),var(--fire));height:100%;width:${Math.min(100,Math.round(confirmados/(confirmados+(S.participants.filter(p=>p.active&&p.rsvp==='no').length)+(S.participants.filter(p=>p.active&&!p.rsvp).length))*100))}%;border-radius:4px;transition:width .5s"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;font-size:11px">
+        <div style="padding:6px;background:rgba(39,174,96,.1);border-radius:8px;border:1px solid rgba(39,174,96,.2)">
+          <div style="font-size:18px;font-weight:700;color:var(--green)">${confirmados}</div>
+          <div style="color:var(--muted);text-transform:uppercase">Van ✅</div>
+        </div>
+        <div style="padding:6px;background:rgba(231,76,60,.1);border-radius:8px;border:1px solid rgba(231,76,60,.2)">
+          <div style="font-size:18px;font-weight:700;color:var(--red)">${S.participants.filter(p=>p.active&&p.rsvp==='no').length}</div>
+          <div style="color:var(--muted);text-transform:uppercase">No van ❌</div>
+        </div>
+        <div style="padding:6px;background:var(--ash);border-radius:8px;border:1px solid var(--rim)">
+          <div style="font-size:18px;font-weight:700;color:var(--muted)">${S.participants.filter(p=>p.active&&!p.rsvp).length}</div>
+          <div style="color:var(--muted);text-transform:uppercase">Sin resp 🤷</div>
+        </div>
+      </div>
+      ${S.participants.filter(p=>p.active&&!p.rsvp).length>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">
+        Falta respuesta de: <strong>${S.participants.filter(p=>p.active&&!p.rsvp).map(p=>p.name.toUpperCase()).join(', ')}</strong>
+      </div>`:''}
+    </div>`:''}
+
     <!-- Accesos rápidos -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
       <button class="ov-btn" onclick="showTab('tareas')">📋 TAREAS</button>
@@ -1752,6 +1786,7 @@ function enviarFelizCumple(nombre) {
 }
 
 function renderAll() {
+  renderOverview();
   renderCumples();
   renderHeader();
   renderGastos();
