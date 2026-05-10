@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.3.0';
+  const APP_VERSION = '2.4.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -812,30 +812,19 @@ async function buildLogin() {
 // selectN removed - free text login
 
 async function doLogin() {
-  const v=document.getElementById('cname').value.trim();
+  const v = document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  // Buscar participante — recargar desde Supabase por las dudas
-  let part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase() && p.active);
-  if (!part && sbOk) {
+  // Buscar participante en Supabase siempre (no depender del cache)
+  let part = null;
+  if (sbOk) {
     const {data} = await sb.from('participants').select('*').ilike('name', v).eq('active', true).limit(1);
-    if (data?.[0]) { part = data[0]; }
+    if (data?.[0]) part = data[0];
   }
   if (!part) { toast('Nombre no encontrado 👆','var(--red)'); return; }
   me = part.name;
   localStorage.setItem('asado_user', part.name);
-  _pinPart = part; // necesario para entrarApp
-  const yaConfirmo = localStorage.getItem('rsvp_'+(S.event?.id||'')+'_'+part.name.toLowerCase());
-  if (yaConfirmo) { entrarApp(part.name); return; }
-  // Mostrar confirm-screen
-  document.getElementById('login-screen').style.display='none';
-  const cs = document.getElementById('confirm-screen');
-  cs.style.display='flex';
-  document.getElementById('cs-nombre').textContent = part.name;
-  if (S.event) {
-    document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
-    document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
-    document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
-  }
+  // Siempre pedir PIN
+  mostrarPinScreen(part);
 }
 
 let _pinPart = null;
@@ -937,35 +926,34 @@ function volverLogin() {
 }
 
 function entrarApp(v) {
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('confirm-screen').style.display='none';
-  document.getElementById('pin-screen').style.display='none';
+  // Ocultar todas las pantallas de auth
+  ['login-screen','confirm-screen','pin-screen'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display='none';
+  });
+  // Mostrar app
   document.getElementById('app').style.display='block';
-  document.getElementById('uav').textContent=v[0].toUpperCase();
-  document.getElementById('udisp').textContent=v;
-  const role = _pinPart?.role || 'mandi';
+  document.getElementById('uav').textContent = v[0].toUpperCase();
+  document.getElementById('udisp').textContent = v;
+  // Admin
   if (isAdmin()) {
-    document.getElementById('admin-toggle').style.display='block';
-    document.getElementById('tab-ws').style.display='flex';
+    const at = document.getElementById('admin-toggle');
+    const tw = document.getElementById('tab-ws');
+    if (at) at.style.display='block';
+    if (tw) tw.style.display='flex';
   }
-  // Vista restringida para invitados
+  // Vista restringida invitados
+  const role = _pinPart?.role || 'mandi';
   if (role === 'invitado') {
-    // Solo Menú y Gastos (solo su parte)
     document.querySelectorAll('.tab').forEach(t => t.style.display='none');
-    ['menú','gastos'].forEach(tab => {
-      const t = [...document.querySelectorAll('.tab')].find(el=>el.textContent.toLowerCase().includes(tab));
+    ['menú','gastos'].forEach(tabName => {
+      const t = [...document.querySelectorAll('.tab')].find(el => el.textContent.toLowerCase().includes(tabName));
       if (t) t.style.display='flex';
     });
     showTab('menu');
-    // Badge invitado en header
-    document.getElementById('udisp').insertAdjacentHTML('afterend','<span style="font-size:9px;background:rgba(255,140,0,.2);color:var(--ember);border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:700">INVITADO</span>');
   }
-  fetchAll().then(()=>{
-    if(!sbOk) renderAll();
-  }).catch(e => {
-    console.error('fetchAll error:', e);
-    toast('Error: '+( e?.message || JSON.stringify(e) ),'var(--red)');
-  });
+  // Cargar datos
+  fetchAll().catch(e => toast('Error: '+(e?.message||e),'var(--red)'));
   subscribe();
   startAutoRefresh();
 }
@@ -2038,29 +2026,10 @@ function renderCuentas() {
 
 // ══ INIT ══════════════════════════════════════════
 async function initApp() {
-  if (me) {
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='block';
-    document.getElementById('uav').textContent=me[0].toUpperCase();
-    document.getElementById('udisp').textContent=me;
-    if (me===ADMIN_USER){
-      document.getElementById('admin-toggle').style.display='block';
-      document.getElementById('tab-ws').style.display='flex';
-    }
-    // Cargar _pinPart para que entrarApp funcione con roles
-    if (sbOk && !_pinPart) {
-      const {data} = await sb.from('participants').select('*').ilike('name', me).limit(1);
-      if (data?.[0]) _pinPart = data[0];
-    }
-    await fetchAll();
-    subscribe();
-    startAutoRefresh();
-  } else {
-    buildLogin();
-  }
+  // Siempre arrancar desde el login — el PIN se pide siempre
+  buildLogin();
 }
 
-// Esperar que todo el DOM esté listo
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
