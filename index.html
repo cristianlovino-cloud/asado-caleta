@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.8.0';
+  const APP_VERSION = '2.9.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -1198,15 +1198,23 @@ async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
   const amt=parseFloat(document.getElementById('feamt').value);
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
-  // Actualizar UI inmediatamente
-  const tempExp = {id:'tmp_'+Date.now(), event_id:S.event.id, payer:me, description:desc, amount:amt, medio:'efectivo'};
-  S.expenses.push(tempExp);
+  if (!S.event?.id) { toast('Error: sin evento activo','var(--red)'); return; }
+  document.getElementById('fedesc').value='';
+  document.getElementById('feamt').value='';
+  tf('fexp');
+  // Insertar en Supabase primero — sin optimistic para evitar duplicados
+  const {data, error} = await sb.from('expenses')
+    .insert({event_id: S.event.id, payer: me, description: desc, amount: amt})
+    .select();
+  if (error) {
+    toast('Error al guardar: '+error.message,'var(--red)');
+    console.error('insert expense error:', error);
+    return;
+  }
+  // Agregar a la lista local con el id real de Supabase
+  if (data?.[0]) S.expenses.push(data[0]);
   renderGastos();
   toast('✅ Gasto cargado!');
-  // Sincronizar con Supabase en background
-  sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt})
-    .then(()=>fetchAll().then(()=>renderGastos()));
 }
 
 function renderGastos() {
