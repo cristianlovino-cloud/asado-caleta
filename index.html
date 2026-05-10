@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.6.0';
+  const APP_VERSION = '2.7.0';
 
   // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -770,13 +770,11 @@ async function fetchAll() {
     ]);
     if (pa.error) throw new Error('participants: '+pa.error.message);
     if (pa.data) S.participants = pa.data;
-    if (ex.data) S.expenses     = ex.data;
+    if (ex.error) console.error('expenses error:', ex.error.message);
+    else if (ex.data) S.expenses = ex.data;
     if (tk.data) S.tasks        = tk.data;
     if (mn.data) S.menu         = mn.data;
-    // Solo renderizar si el app está visible
-    if (document.getElementById('app').style.display !== 'none') {
-      renderAll();
-    }
+    renderAll(); // siempre renderizar cuando fetchAll termina
   } catch(e) {
     console.error('fetchAll interno:', e);
     throw e;
