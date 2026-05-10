@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.8.1';
+  const APP_VERSION = '1.8.2';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -572,8 +572,8 @@ body {
     <div class="modal-title">✏️ Editar Asado <button class="modal-close" onclick="closeModal('modal-event')">✕</button></div>
     <label class="fl">Nombre del evento</label>
     <input class="fi" id="me-title" placeholder="Asado en la Caleta">
-    <label class="fl">Fecha</label>
-    <input class="fi" id="me-date" placeholder="Sáb 11 Abril">
+    <label class="fl">Fecha 📅</label>
+    <input class="fi" id="me-date" type="date" style="color-scheme:dark">
     <label class="fl">Horario</label>
     <input class="fi" id="me-time" placeholder="10:00–16:30">
     <label class="fl">Lugar</label>
@@ -705,8 +705,8 @@ body {
     <p style="font-size:14px;color:var(--muted);margin-bottom:16px;line-height:1.6">El asado actual se va a archivar. Podés verlo en el historial.<br><br>Configurá el nuevo:</p>
     <label class="fl">Nombre</label>
     <input class="fi" id="na-title" value="Asado en la Caleta">
-    <label class="fl">Fecha</label>
-    <input class="fi" id="na-date" placeholder="Sáb 25 Abril">
+    <label class="fl">Fecha 📅</label>
+    <input class="fi" id="na-date" type="date" style="color-scheme:dark">
     <label class="fl">Horario</label>
     <input class="fi" id="na-time" value="10:00–16:30">
     <label class="fl">Lugar</label>
@@ -852,7 +852,9 @@ function openModal(id) {
   }
   if (id==='modal-event' && S.event) {
     document.getElementById('me-title').value = S.event.title;
-    document.getElementById('me-date').value  = S.event.event_date;
+    // Convertir DD/MM/YYYY a YYYY-MM-DD para el input date
+    const dp = (S.event.event_date||'').split('/');
+    document.getElementById('me-date').value = dp.length===3 ? `${dp[2]}-${dp[1].padStart(2,'0')}-${dp[0].padStart(2,'0')}` : S.event.event_date;
     document.getElementById('me-time').value  = S.event.time_range;
     document.getElementById('me-loc').value   = S.event.location;
     document.getElementById('me-comensales').value = S.event.comensales || '';
@@ -868,7 +870,12 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ══ ADMIN: EDITAR EVENTO ═══════════════════════════
 async function saveEvent() {
   const title = document.getElementById('me-title').value.trim();
-  const date  = document.getElementById('me-date').value.trim();
+  const rawDate = document.getElementById('me-date').value.trim();
+  let date = rawDate;
+  if (rawDate.includes('-')) {
+    const [y,m,d] = rawDate.split('-');
+    date = `${d}/${m}/${y}`;
+  }
   const time  = document.getElementById('me-time').value.trim();
   const loc   = document.getElementById('me-loc').value.trim();
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
@@ -976,7 +983,9 @@ function newAsado() { openModal('modal-new-asado'); }
 
 async function createNewAsado() {
   const title=document.getElementById('na-title').value.trim();
-  const date =document.getElementById('na-date').value.trim();
+  const rawDate=document.getElementById('na-date').value.trim();
+  let date = rawDate;
+  if (rawDate.includes('-')) { const [y,m,d]=rawDate.split('-'); date=`${d}/${m}/${y}`; }
   const time =document.getElementById('na-time').value.trim();
   const loc  =document.getElementById('na-loc').value.trim();
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
@@ -1008,6 +1017,17 @@ async function createNewAsado() {
 }
 
 // ══ HISTORIAL ═════════════════════════════════════
+async function desarchivarAsado(id) {
+  if (!confirm('¿Activar este asado? El actual quedará archivado.')) return;
+  // Archivar todos los activos primero
+  await sb.from('events').update({archived: true}).eq('archived', false);
+  // Activar el seleccionado
+  await sb.from('events').update({archived: false}).eq('id', id);
+  await fetchAll();
+  closeModal('modal-history');
+  toast('✅ Asado activado!');
+}
+
 function renderHistory() {
   const el=document.getElementById('history-list');
   if (!S.allEvents.length) { el.innerHTML='<div class="empty"><div class="em">📚</div>Sin historial</div>'; return; }
@@ -1015,7 +1035,10 @@ function renderHistory() {
     <div class="event-card${!ev.archived?' current':''}">
       <div class="ec-top">
         <div class="ec-title">${ev.title}</div>
-        <span class="ec-badge${ev.archived?' arch':''}">${ev.archived?'archivado':'activo 🟢'}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="ec-badge${ev.archived?' arch':''}">${ev.archived?'archivado':'activo 🟢'}</span>
+          ${ev.archived?`<button onclick="desarchivarAsado(${ev.id})" style="font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--fire);background:rgba(255,69,0,.1);color:var(--fire);cursor:pointer;font-weight:700">↩ ACTIVAR</button>`:''}
+        </div>
       </div>
       <div class="ec-meta">📅 ${ev.event_date} · ${ev.time_range} · 📍 ${ev.location}</div>
     </div>`).join('');
