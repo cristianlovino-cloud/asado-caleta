@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.8.2';
+  const APP_VERSION = '1.9.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -264,6 +264,7 @@ body {
 .ov-muted{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600}
 .ov-btn{display:block;width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
 .ov-btn-sec{display:block;width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
+.sh,.sl,.fl,.tab,.modal-title,.en,.blbl,.psub,.pname,.tknm,.ec-title,.ov-label,.admin-bar span,.abtn,.bta,.btp,.btg,.ltitle { text-transform:uppercase }
 </style>
 </head>
 <body>
@@ -1653,16 +1654,17 @@ function renderOverview() {
   const diaActual = hoy.getDate();
   const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-  // Fecha y countdown
+  // Fecha y countdown dinámico
   const parts = (S.event.event_date||'').split('/');
   const fechaStr = parts[0] && parts[1] ? `${parts[0]} de ${meses[parseInt(parts[1])]}` : S.event.event_date||'';
-  let countdown = '';
+  let evDate = null;
   if (parts[0] && parts[1] && parts[2]) {
-    const ev = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`);
-    const diff = Math.ceil((ev - hoy) / 86400000);
-    countdown = diff > 0 ? `<div style="font-size:11px;opacity:.8;margin-top:3px">⏳ Faltan ${diff} día${diff>1?'s':''}</div>`
-              : diff === 0 ? `<div style="font-size:13px;font-weight:700;margin-top:3px">🔥 ¡ES HOY!</div>` : '';
+    evDate = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}T${(S.event.time_range||'10:00').split(/[–-]/)[0]}:00`);
   }
+  const diff = evDate ? Math.ceil((evDate - hoy) / 86400000) : null;
+  const countdownStatic = diff === null ? '' : diff > 0
+    ? `⏳ Faltan ${diff} día${diff>1?'s':''}`
+    : diff === 0 ? '🔥 ¡ES HOY!' : '✅ Ya fue';
 
   // Stats
   const conf = allP().length;
@@ -1685,7 +1687,7 @@ function renderOverview() {
     <div class="ov-hero">
       <div class="ov-title">${(S.event.title||'ASADO').toUpperCase()}</div>
       <div class="ov-date">📍 ${S.event.location||''} · ${fechaStr} · ${S.event.time_range||''}</div>
-      ${countdown}
+      <div id="ov-clock" style="font-size:12px;opacity:.85;margin-top:4px;font-family:'Bebas Neue',cursive;letter-spacing:1px"></div>
       <div class="ov-stats" style="margin-top:14px">
         <div class="ov-stat"><div class="ov-stat-n">${conf}</div><div class="ov-stat-l">Van ✅</div></div>
         <div class="ov-stat"><div class="ov-stat-n">${pendientes}</div><div class="ov-stat-l">Tareas 📋</div></div>
@@ -1743,6 +1745,51 @@ function renderOverview() {
       ${pendientes>5?`<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px">+${pendientes-5} más</div>`:''}
     </div>`:`<div class="ov-card" style="text-align:center;padding:16px"><div style="font-size:24px">✅</div><div style="color:var(--green);font-weight:700;font-size:13px;margin-top:4px;text-transform:uppercase">TODAS LAS TAREAS LISTAS</div></div>`}
 
+    <!-- Próximos asados -->
+    ${(()=>{
+      // Calcular próximos 6 asados (2do sábado de mes par)
+      const proximos = [];
+      const hoyTs = new Date();
+      let y = hoyTs.getFullYear();
+      let m = hoyTs.getMonth() + 1; // 1-12
+      for (let i = 0; i < 12 && proximos.length < 4; i++) {
+        if (m % 2 === 0) { // mes par
+          // Buscar el 2do sábado
+          const firstDay = new Date(y, m-1, 1);
+          let satCount = 0, sabado2 = null;
+          for (let d = 1; d <= 31; d++) {
+            const day = new Date(y, m-1, d);
+            if (day.getMonth() !== m-1) break;
+            if (day.getDay() === 6) { // sábado
+              satCount++;
+              if (satCount === 2) { sabado2 = day; break; }
+            }
+          }
+          if (sabado2 && sabado2 > hoyTs) {
+            proximos.push({
+              fecha: sabado2,
+              label: `${sabado2.getDate()} de ${meses[sabado2.getMonth()+1]} ${y}`,
+              esEste: S.event && S.event.event_date === `${String(sabado2.getDate()).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`
+            });
+          }
+        }
+        m++;
+        if (m > 12) { m = 1; y++; }
+      }
+      if (!proximos.length) return '';
+      return `<div class="ov-card">
+        <div class="ov-label">📅 Calendario de asados</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">2° sábado de mes par · La Caleta</div>
+        ${proximos.map((p,i)=>`<div class="ov-row" style="${p.esEste?'background:rgba(255,69,0,.06);margin:0 -4px;padding:8px 4px;border-radius:8px;':''}">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:8px;height:8px;border-radius:50%;background:${p.esEste?'var(--fire)':'var(--rim)'}"></div>
+            <span style="font-size:13px;font-weight:${p.esEste?'700':'400'};color:${p.esEste?'var(--fire)':'var(--text)'}">${p.label}</span>
+          </div>
+          ${p.esEste?'<span style="font-size:10px;background:var(--fire);color:white;padding:2px 6px;border-radius:10px;font-weight:700">ESTE 🔥</span>':'<span style="font-size:11px;color:var(--muted)">próximo</span>'}
+        </div>`).join('')}
+      </div>`;
+    })()}
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
       <button class="ov-btn" onclick="showTab('tareas')">📋 TAREAS</button>
       <button class="ov-btn" onclick="showTab('menu')">🍖 MENÚ</button>
@@ -1756,8 +1803,40 @@ function enviarFelizCumple(nombre) {
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
 
+// Reloj countdown dinámico
+let _clockInterval = null;
+function startClock() {
+  if (_clockInterval) clearInterval(_clockInterval);
+  _clockInterval = setInterval(updateClock, 1000);
+  updateClock();
+}
+function updateClock() {
+  const el = document.getElementById('ov-clock');
+  if (!el || !S.event) return;
+  const parts = (S.event.event_date||'').split('/');
+  if (parts.length < 3) return;
+  const timeStr = (S.event.time_range||'10:00').split(/[–-]/)[0].trim();
+  const target = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}T${timeStr}:00`);
+  const now = new Date();
+  const diff = target - now;
+  if (diff <= 0) {
+    el.textContent = diff > -86400000 ? '🔥 ¡ES HOY! A las ' + timeStr : '✅ Ya fue';
+    return;
+  }
+  const dias  = Math.floor(diff / 86400000);
+  const horas = Math.floor((diff % 86400000) / 3600000);
+  const mins  = Math.floor((diff % 3600000) / 60000);
+  const segs  = Math.floor((diff % 60000) / 1000);
+  if (dias > 0) {
+    el.textContent = `⏳ ${dias}d ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(segs).padStart(2,'0')}s`;
+  } else {
+    el.textContent = `🔥 HOY · ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(segs).padStart(2,'0')}`;
+  }
+}
+
 function renderAll() {
   renderOverview();
+  startClock();
   renderCumples();
   renderHeader();
   renderGastos();
