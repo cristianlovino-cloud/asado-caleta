@@ -16,14 +16,13 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '3.3.0';
+  const APP_VERSION = '1.7.0';
 
-  // Auto-reload si hay nueva versión (solo si no hay sesión activa en progreso)
+  // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
   if (savedVersion && savedVersion !== APP_VERSION) {
     localStorage.setItem('asado_app_version', APP_VERSION);
-    // Reload suave — no interrumpe sesión
-    setTimeout(() => window.location.reload(true), 100);
+    window.location.reload(true); // force reload desde server
   } else if (!savedVersion) {
     localStorage.setItem('asado_app_version', APP_VERSION);
   }
@@ -121,10 +120,6 @@ body {
 .sh,.sl,.fl,.pname,.tknm,.sv,.lsub,.hdr-sub,.ltitle,.ach,.ac,.tok,.tpn,.blbl,.psub,.en,.ew,.ea,.mnm,.mdt,.ec-title,.ec-meta { text-transform:uppercase }
 .modal-title { text-transform:uppercase }
 .sb .sl { text-transform:uppercase }
-.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--fire);background:transparent;transition:background .15s}
-.pin-dot.filled{background:var(--fire)}
-.pin-btn{padding:16px;border-radius:14px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:22px;font-weight:600;cursor:pointer;transition:all .1s;font-family:'DM Sans',sans-serif}
-.pin-btn:active{background:var(--fire);color:white;transform:scale(.95)}
 .abtn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--rim);background:var(--ash);color:var(--text);transition:all .15s;text-transform:uppercase}
 .abtn:hover{border-color:var(--fire);color:var(--fire)}
 .abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
@@ -283,40 +278,6 @@ body {
 </div>
 
 <!-- CONFIRMACIÓN ASISTENCIA -->
-<!-- PIN Screen -->
-<div id="pin-screen" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:var(--coal)">
-  <img src="icon.png?v=2" style="width:80px;height:80px;object-fit:contain;margin-bottom:12px;filter:drop-shadow(0 4px 12px rgba(255,69,0,.4))">
-  <div id="pin-title" style="font-family:'Bebas Neue',cursive;font-size:28px;color:var(--text);letter-spacing:2px;margin-bottom:4px;text-align:center"></div>
-  <div id="pin-mode-label" style="font-size:13px;color:var(--muted);margin-bottom:24px;text-align:center"></div>
-
-  <!-- Dots display -->
-  <div style="display:flex;gap:12px;margin-bottom:24px">
-    <div class="pin-dot" id="pd0"></div>
-    <div class="pin-dot" id="pd1"></div>
-    <div class="pin-dot" id="pd2"></div>
-    <div class="pin-dot" id="pd3"></div>
-  </div>
-
-  <!-- Teclado numérico -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:240px">
-    <button class="pin-btn" onclick="pinKey('1')">1</button>
-    <button class="pin-btn" onclick="pinKey('2')">2</button>
-    <button class="pin-btn" onclick="pinKey('3')">3</button>
-    <button class="pin-btn" onclick="pinKey('4')">4</button>
-    <button class="pin-btn" onclick="pinKey('5')">5</button>
-    <button class="pin-btn" onclick="pinKey('6')">6</button>
-    <button class="pin-btn" onclick="pinKey('7')">7</button>
-    <button class="pin-btn" onclick="pinKey('8')">8</button>
-    <button class="pin-btn" onclick="pinKey('9')">9</button>
-    <button class="pin-btn" onclick="pinClear()" style="background:var(--ash);color:var(--muted);font-size:13px">BORRAR</button>
-    <button class="pin-btn" onclick="pinKey('0')">0</button>
-    <button class="pin-btn" onclick="pinDelete()" style="background:var(--ash);font-size:18px">⌫</button>
-  </div>
-
-  <div id="pin-error" style="margin-top:16px;font-size:13px;color:var(--red);font-weight:600;min-height:20px;text-align:center"></div>
-  <button onclick="volverLogin()" style="margin-top:16px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline">← Cambiar nombre</button>
-</div>
-
 <div id="confirm-screen" style="display:none;min-height:100vh;background:var(--coal);flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
@@ -390,8 +351,8 @@ body {
     <div class="sg">
       <div class="sb sbf"><div class="sl">Total gastado</div><div class="sv cf" id="st">$0</div></div>
       <div class="sb sbg"><div class="sl">Por persona</div><div class="sv cg" id="spp">$0</div></div>
-      <div class="sb sbb">
-        <div class="sl">Confirmados</div>
+      <div class="sb sbb" style="cursor:pointer" onclick="isAdmin()&&openModal('modal-comensales')">
+        <div class="sl">Comensales <span id="comen-edit" style="display:none;font-size:9px;color:var(--blue)">✏️</span></div>
         <div class="sv cb" id="sc">0</div>
       </div>
       <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
@@ -521,12 +482,9 @@ body {
 <div class="modal-bg" id="modal-comensales">
   <div class="modal">
     <div class="modal-title">👥 Comensales <button class="modal-close" onclick="closeModal('modal-comensales')">✕</button></div>
-    <div style="margin-bottom:12px;padding:8px 12px;background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.3);border-radius:8px;font-size:13px;color:#27ae60;font-weight:600">
-      ✅ Confirmados: <span id="comen-confirmados">0</span> mandis
-    </div>
-    <button onclick="usarConfirmados()" style="width:100%;margin-bottom:10px;padding:9px;border-radius:8px;border:1px solid rgba(39,174,96,.4);background:rgba(39,174,96,.1);color:#27ae60;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">↺ Usar cantidad de confirmados</button>
-    <label class="fl">O ingresá manualmente</label>
-    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="ej: 13" min="1" max="100">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Cantidad de personas que dividen el costo. Puede ser distinto a los participantes registrados.</p>
+    <label class="fl">Cantidad de comensales</label>
+    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="11" min="1" max="100">
     <div class="frow">
       <button class="btp" onclick="saveComensales()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-comensales')">CANCELAR</button>
@@ -555,6 +513,19 @@ body {
 <!-- ══ MODALES ════════════════════════════════════════ -->
 
 <!-- Modal comensales -->
+<div class="modal-bg" id="modal-comensales">
+  <div class="modal">
+    <div class="modal-title">👥 Comensales <button class="modal-close" onclick="closeModal('modal-comensales')">✕</button></div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Cantidad de personas que dividen el costo. Puede ser diferente a los participantes registrados.</p>
+    <label class="fl">Cantidad de comensales</label>
+    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="11" min="1" max="100">
+    <div class="frow">
+      <button class="btp" onclick="saveComensales()">GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-comensales')">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal editar gasto -->
 <div class="modal-bg" id="modal-edit-expense">
   <div class="modal">
@@ -620,7 +591,7 @@ body {
 <!-- Modal Cerrar Cuentas -->
 <div class="modal-bg" id="modal-cuentas">
   <div class="modal">
-    <div class="modal-title" style="text-transform:uppercase">💰 CERRAR CUENTAS <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
+    <div class="modal-title">💰 Cerrar Cuentas <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
     <button onclick="limpiarCobros()" style="font-size:11px;background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--muted);margin-bottom:10px">🗑 Limpiar cobros registrados</button>
     <div id="cuentas-resumen"></div>
   </div>
@@ -638,12 +609,6 @@ body {
       <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:110px;margin-bottom:0;font-size:16px;text-align:center;font-weight:700;letter-spacing:2px">
       <span style="font-size:12px;color:var(--muted)">día/mes solamente</span>
     </div>
-    <label class="fl">👤 Perfil</label>
-    <select class="fsel" id="ep-role" style="margin-bottom:12px">
-      <option value="mandi">🔥 Mandi (ve todo)</option>
-      <option value="invitado">👤 Invitado (solo Menú y Gastos)</option>
-    </select>
-    <button onclick="resetPinParticipant()" style="width:100%;margin-bottom:10px;padding:9px;border-radius:8px;border:1px solid rgba(255,140,0,.4);background:rgba(255,140,0,.08);color:var(--ember);font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">🔑 Resetear PIN</button>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">CANCELAR</button>
@@ -754,35 +719,24 @@ const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 // ══ FETCH ═════════════════════════════════════════
 async function fetchAll() {
   if (!sbOk) return;
-  try {
-    const {data:evts, error:evtErr} = await sb.from('events').select('*').order('created_at',{ascending:false});
-    if (evtErr) throw new Error('events: '+evtErr.message);
-    if (!evts?.length) { console.warn('No events found'); return; }
-    S.allEvents = evts;
-    S.event = evts.find(e=>!e.archived) || evts[0];
-    console.log('Evento activo id:', S.event?.id, 'title:', S.event?.title);
-    const eid = S.event.id;
+  // Evento activo (no archivado)
+  const {data:evts} = await sb.from('events').select('*').order('created_at',{ascending:false});
+  if (!evts?.length) return;
+  S.allEvents = evts;
+  S.event = evts.find(e=>!e.archived) || evts[0];
+  const eid = S.event.id;
 
-    // Queries separadas para aislar errores
-    const pa = await sb.from('participants').select('*').order('created_at');
-    const ex = await sb.from('expenses').select('*').eq('event_id',eid).order('created_at');
-    const tk = await sb.from('tasks').select('*').eq('event_id',eid).order('created_at');
-    const mn = await sb.from('menu_items').select('*').eq('event_id',eid).order('created_at');
-
-    console.log('fetchAll results - participants:', pa.data?.length, pa.error?.message);
-    console.log('fetchAll results - expenses:', ex.data?.length, ex.error?.message);
-    console.log('fetchAll results - tasks:', tk.data?.length, tk.error?.message);
-    console.log('fetchAll results - menu:', mn.data?.length, mn.error?.message);
-
-    if (pa.data) S.participants = pa.data;
-    if (ex.data) S.expenses     = ex.data;
-    if (tk.data) S.tasks        = tk.data;
-    if (mn.data) S.menu         = mn.data;
-    renderAll(); // siempre renderizar cuando fetchAll termina
-  } catch(e) {
-    console.error('fetchAll interno:', e);
-    throw e;
-  }
+  const [pa,ex,tk,mn] = await Promise.all([
+    sb.from('participants').select('*').order('created_at'),
+    sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
+    sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
+    sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
+  ]);
+  if (pa.data) S.participants = pa.data;
+  if (ex.data) S.expenses     = ex.data;
+  if (tk.data) S.tasks        = tk.data;
+  if (mn.data) S.menu         = mn.data;
+  renderAll();
 }
 
 function subscribe() {
@@ -817,106 +771,20 @@ async function buildLogin() {
 // selectN removed - free text login
 
 async function doLogin() {
-  const v = document.getElementById('cname').value.trim();
+  const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  // Buscar participante en Supabase siempre (no depender del cache)
-  let part = null;
-  if (sbOk) {
-    const {data} = await sb.from('participants').select('*').ilike('name', v).eq('active', true).limit(1);
-    if (data?.[0]) part = data[0];
-  }
-  if (!part) { toast('Nombre no encontrado 👆','var(--red)'); return; }
-  me = part.name;
-  localStorage.setItem('asado_user', part.name);
-  // Siempre pedir PIN
-  mostrarPinScreen(part);
-}
-
-let _pinPart = null;
-let _pinBuffer = '';
-let _pinMode = ''; // 'verify' | 'create' | 'confirm'
-let _pinTmp = '';
-
-function mostrarPinScreen(part) {
-  _pinPart = part;
-  _pinBuffer = '';
-  _pinTmp = '';
-  if (part.pin) {
-    _pinMode = 'verify';
-    document.getElementById('pin-mode-label').textContent = 'Ingresá tu PIN de 4 dígitos';
-  } else {
-    _pinMode = 'create';
-    document.getElementById('pin-mode-label').textContent = 'Creá tu PIN de 4 dígitos';
-  }
-  document.getElementById('pin-title').textContent = part.name.toUpperCase();
-  document.getElementById('pin-error').textContent = '';
-  actualizarDots();
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('pin-screen').style.display='flex';
-}
-
-function pinKey(n) {
-  if (_pinBuffer.length >= 4) return;
-  _pinBuffer += n;
-  actualizarDots();
-  if (_pinBuffer.length === 4) setTimeout(procesarPin, 200);
-}
-function pinDelete() { _pinBuffer = _pinBuffer.slice(0,-1); actualizarDots(); }
-function pinClear()  { _pinBuffer = ''; actualizarDots(); }
-
-function actualizarDots() {
-  for (let i=0;i<4;i++) {
-    const d = document.getElementById('pd'+i);
-    d.classList.toggle('filled', i < _pinBuffer.length);
-  }
-}
-
-async function procesarPin() {
-  const err = document.getElementById('pin-error');
-  if (_pinMode === 'verify') {
-    if (_pinBuffer === _pinPart.pin) {
-      err.textContent = '';
-      continuarTrasPin();
-    } else {
-      err.textContent = '❌ PIN incorrecto, intentá de nuevo';
-      _pinBuffer = ''; actualizarDots();
-    }
-  } else if (_pinMode === 'create') {
-    _pinTmp = _pinBuffer;
-    _pinBuffer = '';
-    _pinMode = 'confirm';
-    document.getElementById('pin-mode-label').textContent = 'Confirmá tu PIN';
-    err.textContent = '';
-    actualizarDots();
-  } else if (_pinMode === 'confirm') {
-    if (_pinBuffer === _pinTmp) {
-      // Guardar PIN en Supabase
-      await sb.from('participants').update({pin: _pinBuffer}).eq('id', _pinPart.id);
-      _pinPart.pin = _pinBuffer;
-      err.textContent = '';
-      continuarTrasPin();
-    } else {
-      err.textContent = '❌ Los PINs no coinciden, empezá de nuevo';
-      _pinBuffer = ''; _pinTmp = ''; _pinMode = 'create';
-      document.getElementById('pin-mode-label').textContent = 'Creá tu PIN de 4 dígitos';
-      actualizarDots();
-    }
-  }
-}
-
-async function continuarTrasPin() {
-  document.getElementById('pin-screen').style.display='none';
-  const role = _pinPart.role || 'mandi';
-  const yaConfirmo = localStorage.getItem('rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase());
-  if (role === 'invitado') {
-    await entrarApp(me);
+  me=v; localStorage.setItem('asado_user',v);
+  // Si ya confirmó asistencia antes, ir directo a la app
+  const yaConfirmo = localStorage.getItem('rsvp_'+( S.event?.id||'') +'_'+v.toLowerCase());
+  if (yaConfirmo) {
+    entrarApp(v);
     return;
   }
-  if (yaConfirmo) { await entrarApp(me); return; }
-  // Mostrar confirm-screen
+  // Mostrar pantalla de confirmación
+  document.getElementById('login-screen').style.display='none';
   const cs = document.getElementById('confirm-screen');
   cs.style.display='flex';
-  document.getElementById('cs-nombre').textContent = me;
+  document.getElementById('cs-nombre').textContent = v;
   if (S.event) {
     document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
     document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
@@ -924,47 +792,17 @@ async function continuarTrasPin() {
   }
 }
 
-function volverLogin() {
-  document.getElementById('pin-screen').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  _pinBuffer=''; _pinPart=null;
-}
-
-async function entrarApp(v) {
-  // Ocultar todas las pantallas de auth
-  ['login-screen','confirm-screen','pin-screen'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display='none';
-  });
-  // Mostrar app con loading
-  const appEl = document.getElementById('app');
-  appEl.style.display='block';
-  document.getElementById('uav').textContent = v[0].toUpperCase();
-  document.getElementById('udisp').textContent = v;
-  // Admin
+function entrarApp(v) {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('confirm-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('uav').textContent=v[0].toUpperCase();
+  document.getElementById('udisp').textContent=v;
   if (isAdmin()) {
-    const at = document.getElementById('admin-toggle');
-    const tw = document.getElementById('tab-ws');
-    if (at) at.style.display='block';
-    if (tw) tw.style.display='flex';
+    document.getElementById('admin-toggle').style.display='block';
+    document.getElementById('tab-ws').style.display='flex';
   }
-  // Vista restringida invitados
-  const role = _pinPart?.role || 'mandi';
-  if (role === 'invitado') {
-    document.querySelectorAll('.tab').forEach(t => t.style.display='none');
-    ['menú','gastos'].forEach(tabName => {
-      const t = [...document.querySelectorAll('.tab')].find(el => el.textContent.toLowerCase().includes(tabName));
-      if (t) t.style.display='flex';
-    });
-    showTab('menu');
-  }
-  // Cargar datos con await — esperar que todo esté listo antes de renderizar
-  try {
-    await fetchAll();
-  } catch(e) {
-    console.error('fetchAll error:', e);
-    toast('Error al cargar: '+(e?.message||String(e)),'var(--red)');
-  }
+  fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
   startAutoRefresh();
 }
@@ -985,8 +823,10 @@ function toggleAdminBar() {
 // ══ MODALES ════════════════════════════════════════
 function openModal(id) {
   if (id==='modal-comensales' && S.event) {
-    document.getElementById('comen-input').value = allP().length;
-    document.getElementById('comen-confirmados').textContent = allP().length;
+    document.getElementById('comen-input').value = S.event.comensales || allP().length;
+  }
+  if (id==='modal-comensales' && S.event) {
+    document.getElementById('comen-input').value = S.event.comensales || allP().length;
   }
   if (id==='modal-event' && S.event) {
     document.getElementById('me-title').value = S.event.title;
@@ -1025,16 +865,12 @@ function renderParticipantsModal() {
       <div style="display:flex;align-items:center;gap:10px">
         <div class="av${p.active?'':' n'}" style="width:32px;height:32px;font-size:13px">${p.name[0].toUpperCase()}</div>
         <div>
-          <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;${!p.active?'color:var(--muted);text-decoration:line-through':''}">
-            ${p.name}
-            ${p.name===ADMIN_USER?'<span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle">ADMIN</span>':''}
-            ${p.role==='invitado'?'<span style="font-size:9px;background:rgba(255,140,0,.2);color:var(--ember);border-radius:4px;padding:1px 5px;vertical-align:middle">INVITADO</span>':''}
-          </div>
+          <div style="font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;${!p.active?'color:var(--muted);text-decoration:line-through':''}">${p.name}${p.name===ADMIN_USER?' <span style="font-size:9px;background:var(--fire);color:white;border-radius:4px;padding:1px 5px;vertical-align:middle;text-transform:uppercase">ADMIN</span>':''}</div>
           ${p.birthday?`<div style="font-size:11px;color:var(--fire);margin-top:1px;font-weight:600">🎂 ${p.birthday}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:1px">Sin cumpleaños</div>'}
         </div>
       </div>
       <div style="display:flex;gap:5px">
-        <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}','${p.role||'mandi'}')">✏️</button>
+        <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
@@ -1046,21 +882,12 @@ function openRenameParticipant(id, currentName) {
   renameParticipant(id, nuevo.trim());
 }
 
-function openEditParticipant(id, currentName, currentBirthday, currentRole) {
+function openEditParticipant(id, currentName, currentBirthday) {
   document.getElementById('ep-id').value = id;
   document.getElementById('ep-name').value = currentName;
   document.getElementById('ep-birthday').value = currentBirthday || '';
-  document.getElementById('ep-role').value = currentRole || 'mandi';
   closeModal('modal-participants');
   openModal('modal-edit-participant');
-}
-
-async function resetPinParticipant() {
-  const id = parseInt(document.getElementById('ep-id').value);
-  const nombre = document.getElementById('ep-name').value;
-  if (!confirm('¿Resetear el PIN de '+nombre+'? Deberá crear uno nuevo al entrar.')) return;
-  await sb.from('participants').update({pin: null}).eq('id', id);
-  toast('✅ PIN de '+nombre+' reseteado');
 }
 
 async function saveEditParticipant() {
@@ -1074,8 +901,7 @@ async function saveEditParticipant() {
   }
   try {
     const oldP = S.participants.find(p=>p.id===id);
-    const role = document.getElementById('ep-role').value;
-    await sb.from('participants').update({name: newName, birthday: birthday||null, role}).eq('id', id);
+    await sb.from('participants').update({name: newName, birthday: birthday||null}).eq('id', id);
     if (oldP && oldP.name !== newName) {
       await sb.from('tasks').update({assignee: newName}).ilike('assignee', oldP.name);
       await sb.from('expenses').update({payer: newName}).ilike('payer', oldP.name);
@@ -1193,11 +1019,8 @@ function populateSel() {
 }
 
 // ══ GASTOS ════════════════════════════════════════
-const getTotal = ()=> {
-  console.log('getTotal - expenses count:', S.expenses.length, S.expenses.map(e=>e.amount));
-  return S.expenses.reduce((a,e)=>a+parseFloat(e.amount||0),0);
-};
-const getPP    = ()=> { const n = allP().length; return n?Math.round(getTotal()/n):0; };
+const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
+const getPP    = ()=> { const n = S.event?.comensales || allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
 
@@ -1205,42 +1028,31 @@ async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
   const amt=parseFloat(document.getElementById('feamt').value);
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  if (!S.event?.id) { toast('Error: sin evento activo','var(--red)'); return; }
-  document.getElementById('fedesc').value='';
-  document.getElementById('feamt').value='';
-  tf('fexp');
-  // Insertar en Supabase
-  const {data, error} = await sb.from('expenses')
-    .insert({event_id: S.event.id, payer: me, description: desc, amount: amt})
-    .select();
-  if (error) {
-    toast('Error: '+error.message,'var(--red)');
-    console.error('insert expense:', error);
-    return;
-  }
+  document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
+  // Actualizar UI inmediatamente
+  const tempExp = {id:'tmp_'+Date.now(), event_id:S.event.id, payer:me, description:desc, amount:amt, medio:'efectivo'};
+  S.expenses.push(tempExp);
+  renderGastos();
   toast('✅ Gasto cargado!');
-  // Recargar TODO desde Supabase para asegurar consistencia
-  await fetchAll();
+  // Sincronizar con Supabase en background
+  sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt})
+    .then(()=>fetchAll());
 }
 
 function renderGastos() {
   if (!S.event) return;
-  // Normalizar 'me' contra la BD para que bal() matchee correctamente
-  const meNorm = S.participants.find(p=>p.name.toLowerCase()===me.toLowerCase())?.name || me;
-  const pp=getPP(),total=getTotal(),mb=bal(meNorm);
+  const pp=getPP(),total=getTotal(),mb=bal(me);
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
-  const comen = allP().length;
+  const comen = S.event?.comensales || allP().length;
   document.getElementById('sc').textContent  = comen;
   if(isAdmin()) document.getElementById('comen-edit').style.display='inline';
   const sm=document.getElementById('sm');
-  sm.textContent=(mb>=0?'+':'')+fmt(mb);
+  sm.textContent=(mb>=0?'+':'-')+fmt(mb);
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
-  // Combinar confirmados + quienes pagaron algo (por si pagó alguien no confirmado)
-  const pagadores = [...new Set([...allP(), ...S.expenses.map(e=>e.payer)])].sort((a,b)=>a.localeCompare(b,'es'));
-  document.getElementById('ballist').innerHTML = pagadores.map(p=>{
-    const b=bal(p),im=p.toLowerCase()===me.toLowerCase();
+  document.getElementById('ballist').innerHTML = allP().map(p=>{
+    const b=bal(p),im=p===me;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
@@ -1254,7 +1066,7 @@ function renderGastos() {
     </div>`;
   }).join('');
 
-  const faltanPagar = pagadores.filter(p=>bal(p)<-100);
+  const faltanPagar = allP().filter(p=>bal(p)<-100);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
@@ -1552,10 +1364,6 @@ function renderHeader() {
 }
 
 // ══ COMENSALES ═══════════════════════════════════
-function usarConfirmados() {
-  document.getElementById('comen-input').value = allP().length;
-}
-
 function saveComensales() {
   const n = parseInt(document.getElementById('comen-input').value);
   if (!n || n < 1) { toast('Ingresá un número válido','var(--red)'); return; }
@@ -1598,6 +1406,17 @@ async function deleteExpense() {
   closeModal('modal-edit-expense');
   await fetchAll();
   toast('🗑 Gasto eliminado');
+}
+
+// ══ COMENSALES ═══════════════════════════════════
+function saveComensales() {
+  const n = parseInt(document.getElementById('comen-input').value);
+  if (!n || n < 1) { toast('Ingresá un número válido','var(--red)'); return; }
+  sb.from('events').update({comensales: n}).eq('id', S.event.id).then(()=>{
+    closeModal('modal-comensales');
+    fetchAll();
+    toast('✅ Comensales actualizados!');
+  });
 }
 
 function openEditExpense(id) {
@@ -1778,14 +1597,13 @@ function enviarFelizCumple(nombre) {
 }
 
 function renderAll() {
-  if (!S.event) return;
-  try { renderCumples(); } catch(e) { console.warn('renderCumples:', e); }
-  try { renderHeader(); } catch(e) { console.warn('renderHeader:', e); }
-  try { renderGastos(); } catch(e) { console.warn('renderGastos:', e); }
-  try { renderTasks(); } catch(e) { console.warn('renderTasks:', e); }
-  try { renderMenu(); } catch(e) { console.warn('renderMenu:', e); }
-  try { renderWS(); } catch(e) { console.warn('renderWS:', e); }
-  try { populateSel(); } catch(e) { console.warn('populateSel:', e); }
+  renderCumples();
+  renderHeader();
+  renderGastos();
+  renderTasks();
+  renderMenu();
+  renderWS();
+  populateSel();
 }
 
 // ══ UTILS ═════════════════════════════════════════
@@ -1849,8 +1667,8 @@ async function confirmarAsistencia(resp) {
     } catch(e) {}
   }
   toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
-  await entrarApp(me);
-  showTab('tareas');
+  entrarApp(me);
+  setTimeout(()=>showTab('tareas'), 300);
 }
 
 // ══ ASISTENCIA ADMIN ═══════════════════════════════
@@ -2038,7 +1856,7 @@ function renderCuentas() {
   const adminAcr = acreedores.indexOf(ADMIN_USER)>=0 ? ADMIN_USER : acreedores[0];
   const otrosAcr = acreedores.filter(p=>p!==adminAcr);
 
-  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p.toUpperCase()} <span style="font-size:11px;color:var(--muted)">(pagó de más)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
+  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p} <span style="font-size:11px;color:var(--muted)">(pagó de más)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
   if(otrosAcr.length>0 && adminAcr) {
     acrHtml += `<div style="margin:8px 0;padding:10px 12px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:8px;font-size:12px"><div style="font-weight:700;margin-bottom:6px">📋 ${adminAcr} cobra todo y distribuye</div>${otrosAcr.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--muted)">${adminAcr} → ${p}</span><span style="font-weight:700;color:var(--fire)">${fmt(bal(p))}</span></div>`).join('')}<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)"><span style="font-weight:600">Neto ${adminAcr}</span><span style="font-weight:700;color:var(--green)">+${fmt(bal(adminAcr)-otrosAcr.reduce((a,p)=>a+bal(p),0))}</span></div></div>`;
   }
@@ -2046,19 +1864,24 @@ function renderCuentas() {
   const deuHtml = pendientes.map(p=>{const debe=Math.abs(bal(p)); return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">${p}</span><span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span></div><div style="display:flex;gap:7px"><button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 Efectivo</button><button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 Transferencia</button></div></div>`;}).join('')
   + cobrados.map(p=>{const debe=Math.abs(bal(p));const cobro=cobros[p.toLowerCase()]; return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.7"><div style="display:flex;justify-content:space-between"><span style="font-weight:600;text-decoration:line-through;color:var(--muted)">${p}</span><span style="font-size:12px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'} — ${fmt(debe)}</span></div></div>`;}).join('');
 
-  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">${allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">Deben pagar</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ Todos saldados</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Cobrado</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Pendiente</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span></div></div>`;
+  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Total gastado</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Comensales</span><span style="font-weight:700">${S.event?.comensales||allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Por persona</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">Deben pagar</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ Todos saldados</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Cobrado</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Pendiente</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span></div></div>`;
 }
 
 // ══ INIT ══════════════════════════════════════════
-async function initApp() {
-  // Siempre arrancar desde el login — el PIN se pide siempre
-  buildLogin();
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
+if (me) {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('uav').textContent=me[0].toUpperCase();
+  document.getElementById('udisp').textContent=me;
+  if (me===ADMIN_USER){
+    document.getElementById('admin-toggle').style.display='block';
+    document.getElementById('tab-ws').style.display='flex';
+  }
+  fetchAll().then(()=>{if(!sbOk)renderAll();});
+  subscribe();
+  startAutoRefresh();
 } else {
-  initApp();
+  buildLogin();
 }
 </script>
   <script>
