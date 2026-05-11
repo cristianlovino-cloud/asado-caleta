@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '1.9.0';
+  const APP_VERSION = '2.0.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -264,7 +264,7 @@ body {
 .ov-muted{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600}
 .ov-btn{display:block;width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
 .ov-btn-sec{display:block;width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
-.sh,.sl,.fl,.tab,.modal-title,.en,.blbl,.psub,.pname,.tknm,.ec-title,.ov-label,.admin-bar span,.abtn,.bta,.btp,.btg,.ltitle { text-transform:uppercase }
+.sh,.sl,.fl,.tab,.modal-title,.en,.blbl,.psub,.pname,.tknm,.ec-title,.ec-meta,.ov-label,.ov-row span,.admin-bar span,.abtn,.bta,.btp,.btg,.ltitle,.ov-btn,.ov-btn-sec,.ov-stat-l,.ov-muted { text-transform:uppercase }
 </style>
 </head>
 <body>
@@ -1640,6 +1640,18 @@ function renderCumples() {
   if (listaMenu) listaMenu.innerHTML = tarjetas;
 }
 
+function rsvpCalendario(fechaISO, resp) {
+  const key = 'rsvp_cal_'+fechaISO;
+  const prev = localStorage.getItem(key);
+  if (prev === resp) {
+    localStorage.removeItem(key); // toggle off
+  } else {
+    localStorage.setItem(key, resp);
+    toast(resp==='si'?'✅ Anotado! Vas al asado 🔥':'❌ Anotado, nos vemos en el próximo');
+  }
+  renderOverview(); // re-renderizar para actualizar botones
+}
+
 function enviarFelizCumple(nombre) {
   const msg = `🎂 *¡FELIZ CUMPLE MANDI ${nombre.toUpperCase()}!* 🎉\n\nDesde el grupo te deseamos un día increíble, que la pases bomba y que el próximo asado sea tuyo! 🔥🥩`;
   const encoded = encodeURIComponent(msg);
@@ -1687,11 +1699,11 @@ function renderOverview() {
     <div class="ov-hero">
       <div class="ov-title">${(S.event.title||'ASADO').toUpperCase()}</div>
       <div class="ov-date">📍 ${S.event.location||''} · ${fechaStr} · ${S.event.time_range||''}</div>
-      <div id="ov-clock" style="font-size:12px;opacity:.85;margin-top:4px;font-family:'Bebas Neue',cursive;letter-spacing:1px"></div>
+      <div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:'Bebas Neue',cursive;letter-spacing:2px;background:rgba(0,0,0,.15);border-radius:10px;padding:8px 12px;display:inline-block"></div>
       <div class="ov-stats" style="margin-top:14px">
         <div class="ov-stat"><div class="ov-stat-n">${conf}</div><div class="ov-stat-l">Van ✅</div></div>
         <div class="ov-stat"><div class="ov-stat-n">${pendientes}</div><div class="ov-stat-l">Tareas 📋</div></div>
-        <div class="ov-stat"><div class="ov-stat-n">${pp>0?'$'+pp.toLocaleString('es-AR'):'$0'}</div><div class="ov-stat-l">c/u 💰</div></div>
+        <div class="ov-stat"><div class="ov-stat-n">${cumples.length>0?'🎂'+cumples.length:'—'}</div><div class="ov-stat-l">Cumples 🎂</div></div>
       </div>
     </div>
 
@@ -1778,15 +1790,31 @@ function renderOverview() {
       }
       if (!proximos.length) return '';
       return `<div class="ov-card">
-        <div class="ov-label">📅 Calendario de asados</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">2° sábado de mes par · La Caleta</div>
-        ${proximos.map((p,i)=>`<div class="ov-row" style="${p.esEste?'background:rgba(255,69,0,.06);margin:0 -4px;padding:8px 4px;border-radius:8px;':''}">
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="width:8px;height:8px;border-radius:50%;background:${p.esEste?'var(--fire)':'var(--rim)'}"></div>
-            <span style="font-size:13px;font-weight:${p.esEste?'700':'400'};color:${p.esEste?'var(--fire)':'var(--text)'}">${p.label}</span>
-          </div>
-          ${p.esEste?'<span style="font-size:10px;background:var(--fire);color:white;padding:2px 6px;border-radius:10px;font-weight:700">ESTE 🔥</span>':'<span style="font-size:11px;color:var(--muted)">próximo</span>'}
-        </div>`).join('')}
+        <div class="ov-label">📅 CALENDARIO DE ASADOS</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">2° SÁBADO DE MES PAR · LA CALETA</div>
+        ${proximos.map((p,i)=>{
+          const mesAsado = p.fecha.getMonth()+1;
+          const cumplesMes = S.participants.filter(pt=>pt.active&&pt.birthday).filter(pt=>{
+            const [d,m]=(pt.birthday||'').split('/').map(Number); return m===mesAsado;
+          });
+          // Mi RSVP para este asado (guardado en localStorage por fecha)
+          const rsvpKey = 'rsvp_cal_'+p.fecha.toISOString().split('T')[0];
+          const miRsvpCal = localStorage.getItem(rsvpKey);
+          return `<div style="padding:10px 0;border-bottom:1px solid var(--rim)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:8px;height:8px;border-radius:50%;background:${p.esEste?'var(--fire)':'var(--rim)'}"></div>
+                <span style="font-size:14px;font-weight:700;text-transform:uppercase;color:${p.esEste?'var(--fire)':'var(--text)'}">${p.label}</span>
+              </div>
+              ${p.esEste?'<span style="font-size:10px;background:var(--fire);color:white;padding:2px 8px;border-radius:10px;font-weight:700">ACTIVO 🔥</span>':''}
+            </div>
+            ${cumplesMes.length?`<div style="font-size:11px;color:var(--ember);margin-bottom:6px">🎂 ${cumplesMes.map(c=>c.name.toUpperCase()).join(', ')}</div>`:''}
+            ${!p.esEste?`<div style="display:flex;gap:6px">
+              <button onclick="rsvpCalendario('${p.fecha.toISOString().split('T')[0]}','si')" style="flex:1;padding:6px;border-radius:8px;border:1px solid ${miRsvpCal==='si'?'var(--green)':'var(--rim)'};background:${miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${miRsvpCal==='si'?'var(--green)':'var(--muted)'};font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">✅ VOY</button>
+              <button onclick="rsvpCalendario('${p.fecha.toISOString().split('T')[0]}','no')" style="flex:1;padding:6px;border-radius:8px;border:1px solid ${miRsvpCal==='no'?'var(--red)':'var(--rim)'};background:${miRsvpCal==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${miRsvpCal==='no'?'var(--red)':'var(--muted)'};font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">❌ NO PUEDO</button>
+            </div>`:''}
+          </div>`;
+        }).join('')}
       </div>`;
     })()}
 
