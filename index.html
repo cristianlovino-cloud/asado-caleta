@@ -16,7 +16,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.0.4';
+  const APP_VERSION = '2.1.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -36,6 +36,7 @@
 /* ── DARK (default) ─────────────────────── */
 :root {
   --fire:#FF4500; --ember:#FF8C00; --gold:#FFBF00;
+  --club1:#5BB8E8; --club2:#F5C518; /* Colores 7:45 */
   --coal:#141414; --smoke:#1E1E1E; --ash:#2A2A2A; --rim:#383838;
   --text:#F0EBE3; --muted:#888; --wine:#722F37;
   --green:#27AE60; --red:#E74C3C; --blue:#2E86DE;
@@ -96,7 +97,7 @@ body {
 .linput{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:10px;padding:14px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;outline:none;margin-bottom:16px;transition:border-color .2s;letter-spacing:.3px}
 .linput:focus{border-color:var(--fire)}
 .linput::placeholder{color:var(--muted)}
-.lbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:12px;color:white;font-family:'Bebas Neue',cursive;font-size:19px;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 20px rgba(255,69,0,.4);transition:transform .1s}
+.lbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:12px;color:white;font-family:'Bebas Neue',cursive;font-size:19px;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 20px rgba(255,69,0,.4);transition:transform .1s}
 .lbtn:active{transform:scale(.98)}
 .wnote{margin-top:20px;background:rgba(114,47,55,.2);border:1px solid rgba(114,47,55,.4);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:9px}
 .wnote-i{font-size:20px;flex-shrink:0}
@@ -164,9 +165,9 @@ body {
 .fi:focus,.fsel:focus{border-color:var(--fire)}
 .fsel option{background:var(--ash)}
 .frow{display:flex;gap:7px}
-.btp{flex:1;padding:10px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:8px;color:white;font-weight:600;font-size:13px;cursor:pointer}
+.btp{flex:1;padding:10px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:8px;color:white;font-weight:600;font-size:13px;cursor:pointer}
 .btg{padding:10px 13px;background:var(--ash);border:1px solid var(--rim);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer}
-.bta{width:100%;padding:11px;background:linear-gradient(135deg,var(--fire),var(--ember));border:none;border-radius:10px;color:white;font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;cursor:pointer;margin-bottom:9px;box-shadow:0 3px 14px rgba(255,69,0,.35);transition:transform .1s}
+.bta{width:100%;padding:11px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:10px;color:white;font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;cursor:pointer;margin-bottom:9px;box-shadow:0 3px 14px rgba(91,184,232,.35);transition:transform .1s}
 .bta:active{transform:scale(.98)}
 
 /* TASK */
@@ -262,7 +263,7 @@ body {
 .ov-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--rim);font-size:13px}
 .ov-row:last-child{border-bottom:none}
 .ov-muted{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600}
-.ov-btn{display:block;width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#1a9fd4,#f5c518);color:white;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.ov-btn{display:block;width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.3)}
 .ov-btn-sec{display:block;width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
 .sh,.sl,.fl,.tab,.modal-title,.en,.blbl,.psub,.pname,.tknm,.ec-title,.ec-meta,.ov-label,.ov-row span,.admin-bar span,.abtn,.bta,.btp,.btg,.ltitle,.ov-btn,.ov-btn-sec,.ov-stat-l,.ov-muted { text-transform:uppercase }
 </style>
@@ -309,7 +310,7 @@ body {
         <span style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase">¿VAS AL ASADO?</span>
       </div>
       <div style="display:flex;gap:10px">
-        <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:2px solid var(--fire);background:var(--fire);color:white;font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
+        <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:2px solid var(--fire);background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
         <button onclick="confirmarAsistencia('no')" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">❌ NO PUEDO</button>
       </div>
     </div>
