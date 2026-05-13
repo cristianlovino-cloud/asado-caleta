@@ -1,25 +1,23 @@
 {
   "name": "Asado en la Caleta",
   "short_name": "🔥 Asado",
-  "description": "App del grupo Tennis Regata 7:45",
-  "start_url": "/asado-caleta/",
-  "scope": "/asado-caleta/",
+  "description": "App del grupo 7:45",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#141414",
-  "theme_color": "#FF4500",
-  "orientation": "portrait",
+  "background_color": "#0c0c0c",
+  "theme_color": "#5BB8E8",
   "icons": [
     {
-      "src": "/asado-caleta/icon.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/asado-caleta/icon.png",
+      "src": "icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }
