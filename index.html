@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.2.2';
+  const APP_VERSION = '2.2.3';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -626,7 +626,7 @@ body {
 <div class="modal-bg" id="modal-cuentas">
   <div class="modal">
     <div class="modal-title">💰 Cerrar Cuentas <button class="modal-close" onclick="closeModal('modal-cuentas')">✕</button></div>
-    <button onclick="limpiarCobros()" style="font-size:11px;background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--muted);margin-bottom:10px">🗑 Limpiar cobros registrados</button>
+    <button onclick="limpiarCobros()" style="font-size:11px;background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--muted);margin-bottom:10px">🗑 LIMPIAR COBROS REGISTRADOS</button>
     <div id="cuentas-resumen"></div>
   </div>
 </div>
@@ -641,7 +641,7 @@ body {
     <label class="fl">🎂 Cumpleaños <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(DD/MM — ej: 23/07)</span></label>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
       <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:110px;margin-bottom:0;font-size:16px;text-align:center;font-weight:700;letter-spacing:2px">
-      <span style="font-size:12px;color:var(--muted)">día/mes solamente</span>
+      <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">día/mes solamente</span>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
@@ -1767,7 +1767,7 @@ function renderOverview() {
         </div>
         <div style="padding:8px;background:var(--ash);border-radius:8px;border:1px solid var(--rim)">
           <div style="font-size:22px;font-weight:700;color:var(--muted)">${sinResp}</div>
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Pendiente</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">PENDIENTE</div>
         </div>
       </div>
       ${sinResp>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>${S.participants.filter(p=>p.active&&!p.rsvp).map(p=>p.name.toUpperCase()).join(', ')}</strong></div>`:'<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>'}
@@ -2193,15 +2193,15 @@ function renderCuentas() {
   const adminAcr = acreedores.indexOf(ADMIN_USER)>=0 ? ADMIN_USER : acreedores[0];
   const otrosAcr = acreedores.filter(p=>p!==adminAcr);
 
-  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p.toUpperCase()} <span style="font-size:11px;color:var(--muted)">(pagó de más)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
+  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p.toUpperCase()} <span style="font-size:11px;color:var(--muted)">(PAGÓ DE MÁS)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
   if(otrosAcr.length>0 && adminAcr) {
     acrHtml += `<div style="margin:8px 0;padding:10px 12px;background:rgba(255,140,0,.08);border:1px solid rgba(255,140,0,.2);border-radius:8px;font-size:12px"><div style="font-weight:700;margin-bottom:6px">📋 ${adminAcr} cobra todo y distribuye</div>${otrosAcr.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--muted)">${adminAcr} → ${p}</span><span style="font-weight:700;color:var(--fire)">${fmt(bal(p))}</span></div>`).join('')}<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)"><span style="font-weight:600">Neto ${adminAcr}</span><span style="font-weight:700;color:var(--green)">+${fmt(bal(adminAcr)-otrosAcr.reduce((a,p)=>a+bal(p),0))}</span></div></div>`;
   }
 
-  const deuHtml = pendientes.map(p=>{const debe=Math.abs(bal(p)); return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">${p.toUpperCase()}</span><span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span></div><div style="display:flex;gap:7px"><button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 Efectivo</button><button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 Transferencia</button></div></div>`;}).join('')
+  const deuHtml = pendientes.map(p=>{const debe=Math.abs(bal(p)); return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">${p.toUpperCase()}</span><span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span></div><div style="display:flex;gap:7px"><button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 EFECTIVO</button><button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 TRANSFERENCIA</button></div></div>`;}).join('')
   + cobrados.map(p=>{const debe=Math.abs(bal(p));const cobro=cobros[p.toLowerCase()]; return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.7"><div style="display:flex;justify-content:space-between"><span style="font-weight:600;text-decoration:line-through;color:var(--muted)">${p}</span><span style="font-size:12px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'} — ${fmt(debe)}</span></div></div>`;}).join('');
 
-  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Total gastado</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Comensales</span><span style="font-weight:700">${S.event?.comensales||allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Por persona</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ Todos saldados</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--muted)">Cobrado</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:12px;color:var(--muted)">Pendiente</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ Todo cobrado'}</span></div></div>`;
+  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">${S.event?.comensales||allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ TODOS SALDADOS</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">COBRADO</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ TODO COBRADO'}</span></div></div>`;
 }
 
 // ══ INIT ══════════════════════════════════════════
