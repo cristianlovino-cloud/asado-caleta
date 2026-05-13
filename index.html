@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.1.2';
+  const APP_VERSION = '2.2.0';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -770,6 +770,15 @@ async function fetchAll() {
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data;
   if (mn.data) S.menu         = mn.data;
+  // Cargar RSVP del calendario
+  const cr = await sb.from('calendar_rsvp').select('*');
+  if (cr.data) {
+    S.rsvpCal = {};
+    cr.data.forEach(r => {
+      if (!S.rsvpCal[r.fecha]) S.rsvpCal[r.fecha] = {};
+      S.rsvpCal[r.fecha][r.nombre] = r.resp;
+    });
+  }
   renderAll();
 }
 
@@ -1652,16 +1661,31 @@ function renderCumples() {
   if (listaMenu) listaMenu.innerHTML = tarjetas;
 }
 
-function rsvpCalendario(fechaISO, resp) {
-  const key = 'rsvp_cal_'+fechaISO;
-  const prev = localStorage.getItem(key);
-  if (prev === resp) {
-    localStorage.removeItem(key); // toggle off
-  } else {
-    localStorage.setItem(key, resp);
-    toast(resp==='si'?'✅ Anotado! Vas al asado 🔥':'❌ Anotado, nos vemos en el próximo');
+async function rsvpCalendario(fechaISO, resp) {
+  if (!sbOk || !me) return;
+  const prev = S.rsvpCal?.[fechaISO]?.[me];
+  const newResp = prev === resp ? null : resp; // toggle off si es igual
+
+  // Actualizar local inmediatamente
+  if (!S.rsvpCal) S.rsvpCal = {};
+  if (!S.rsvpCal[fechaISO]) S.rsvpCal[fechaISO] = {};
+  if (newResp) S.rsvpCal[fechaISO][me] = newResp;
+  else delete S.rsvpCal[fechaISO][me];
+  renderOverview();
+
+  if (newResp) {
+    toast(newResp==='si'?'✅ Anotado! Vas al asado 🔥':'❌ Anotado, nos vemos en el próximo');
   }
-  renderOverview(); // re-renderizar para actualizar botones
+
+  // Guardar en Supabase
+  if (newResp) {
+    await sb.from('calendar_rsvp').upsert({
+      fecha: fechaISO, nombre: me, resp: newResp
+    }, {onConflict: 'fecha,nombre'});
+  } else {
+    await sb.from('calendar_rsvp').delete()
+      .eq('fecha', fechaISO).eq('nombre', me);
+  }
 }
 
 function enviarFelizCumple(nombre) {
@@ -1810,21 +1834,23 @@ function renderOverview() {
             const [d,m]=(pt.birthday||'').split('/').map(Number); return m===mesAsado;
           });
           // Mi RSVP para este asado (guardado en localStorage por fecha)
-          const rsvpKey = 'rsvp_cal_'+p.fecha.toISOString().split('T')[0];
-          const miRsvpCal = localStorage.getItem(rsvpKey);
-          return `<div style="padding:10px 0;border-bottom:1px solid var(--rim)">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <div style="display:flex;align-items:center;gap:8px">
-                <div style="width:8px;height:8px;border-radius:50%;background:${p.esEste?'var(--fire)':'var(--rim)'}"></div>
-                <span style="font-size:14px;font-weight:700;text-transform:uppercase;color:${p.esEste?'var(--fire)':'var(--text)'}">${p.label}</span>
+          const fechaISO = p.fecha.toISOString().split('T')[0];
+          const miRsvpCal = S.rsvpCal?.[fechaISO]?.[me] || null;
+          const totalVan = S.rsvpCal?.[fechaISO] ? Object.values(S.rsvpCal[fechaISO]).filter(r=>r==='si').length : 0;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rim)">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+                <div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${p.esEste?'var(--fire)':'var(--rim)'}"></div>
+                <span style="font-size:13px;font-weight:700;text-transform:uppercase;color:${p.esEste?'var(--fire)':'var(--text)'}">${p.label}</span>
+                ${p.esEste?'<span style="font-size:9px;background:var(--fire);color:white;padding:1px 5px;border-radius:8px;font-weight:700">ESTE</span>':''}
               </div>
-              ${p.esEste?'<span style="font-size:10px;background:var(--fire);color:white;padding:2px 8px;border-radius:10px;font-weight:700">ACTIVO 🔥</span>':''}
+              ${cumplesMes.length?`<div style="font-size:10px;color:var(--ember)">🎂 ${cumplesMes.map(c=>c.name.toUpperCase()).join(', ')}</div>`:''}
+              ${totalVan>0?`<div style="font-size:10px;color:var(--green);margin-top:1px">✅ ${totalVan} van</div>`:''}
             </div>
-            ${cumplesMes.length?`<div style="font-size:11px;color:var(--ember);margin-bottom:6px">🎂 ${cumplesMes.map(c=>c.name.toUpperCase()).join(', ')}</div>`:''}
-            ${!p.esEste?`<div style="display:flex;gap:6px">
-              <button onclick="rsvpCalendario('${p.fecha.toISOString().split('T')[0]}','si')" style="flex:1;padding:6px;border-radius:8px;border:1px solid ${miRsvpCal==='si'?'var(--green)':'var(--rim)'};background:${miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${miRsvpCal==='si'?'var(--green)':'var(--muted)'};font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">✅ VOY</button>
-              <button onclick="rsvpCalendario('${p.fecha.toISOString().split('T')[0]}','no')" style="flex:1;padding:6px;border-radius:8px;border:1px solid ${miRsvpCal==='no'?'var(--red)':'var(--rim)'};background:${miRsvpCal==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${miRsvpCal==='no'?'var(--red)':'var(--muted)'};font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">❌ NO PUEDO</button>
-            </div>`:''}
+            ${!p.esEste?`<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">
+              <button onclick="rsvpCalendario('${fechaISO}','si')" style="padding:6px 10px;border-radius:8px;border:2px solid ${miRsvpCal==='si'?'var(--green)':'var(--rim)'};background:${miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${miRsvpCal==='si'?'var(--green)':'var(--muted)'};font-size:13px;cursor:pointer">✅</button>
+              <button onclick="rsvpCalendario('${fechaISO}','no')" style="padding:6px 10px;border-radius:8px;border:2px solid ${miRsvpCal==='no'?'var(--red)':'var(--rim)'};background:${miRsvpCal==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${miRsvpCal==='no'?'var(--red)':'var(--muted)'};font-size:13px;cursor:pointer">❌</button>
+            </div>`:'<div style="font-size:18px;margin-left:8px">🔥</div>'}
           </div>`;
         }).join('')}
       </div>`;
