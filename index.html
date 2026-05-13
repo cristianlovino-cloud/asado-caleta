@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.1.1';
+  const APP_VERSION = '2.1.2';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -310,7 +310,7 @@ body {
 <div id="confirm-screen" style="display:none;min-height:100vh;background:var(--coal);flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
-      <img src="icon.png?v=4" style="width:88px;height:88px;margin-bottom:8px;filter:drop-shadow(0 4px 16px rgba(0,0,0,.3));border-radius:12px">
+      <img src="icon.png?v=4" style="width:100px;height:100px;margin-bottom:8px;filter:drop-shadow(0 4px 20px rgba(0,0,0,.5));mix-blend-mode:screen">
       <div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text);letter-spacing:2px;text-transform:uppercase" id="cs-title">Asado en la Caleta</div>
       <div style="font-size:15px;color:var(--fire);margin-top:6px;font-weight:700;letter-spacing:.5px;text-transform:uppercase" id="cs-date"></div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.3px" id="cs-loc"></div>
@@ -336,7 +336,7 @@ body {
   <div class="hdr">
     <div class="hdr-row">
       <div>
-                <div class="hdr-title" id="hdr-title" style="display:flex;align-items:center;gap:6px"><img src="icon.png?v=4" style="width:28px;height:28px;object-fit:contain"> <span id="evt-name">Asado</span> <span class="ldot" id="ldot" style="display:none"></span></div>
+                <div class="hdr-title" id="hdr-title" style="display:flex;align-items:center;gap:6px"><img src="icon.png?v=4" style="width:30px;height:30px;object-fit:contain;mix-blend-mode:screen;filter:brightness(1.1)"> <span id="evt-name">Asado</span> <span class="ldot" id="ldot" style="display:none"></span></div>
         <div class="hdr-sub" id="hdr-sub">cargando...</div>
       </div>
       <div style="display:flex;align-items:center;gap:7px">
