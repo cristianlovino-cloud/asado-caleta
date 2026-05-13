@@ -17,7 +17,7 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.2.0';
+  const APP_VERSION = '2.2.1';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -278,7 +278,7 @@ body {
 <!-- LOGIN -->
 <!-- Splash screen -->
 <div id="splash-screen" style="position:fixed;inset:0;background:#0c0c0c;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s">
-  <img src="icon.png?v=4" style="width:140px;height:140px;object-fit:contain;animation:splashPulse 1.2s ease-in-out infinite">
+  <img src="icon.png?v=4" style="width:140px;height:140px;object-fit:contain;animation:splashPulse 1.2s ease-in-out infinite;mix-blend-mode:screen">
   <div style="font-family:'Bebas Neue',cursive;font-size:22px;color:white;letter-spacing:3px;margin-top:16px;opacity:.8">CARGANDO...</div>
 </div>
 
@@ -310,7 +310,7 @@ body {
 <div id="confirm-screen" style="display:none;min-height:100vh;background:var(--coal);flex-direction:column;align-items:center;justify-content:center;padding:24px">
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
-      <img src="icon.png?v=4" style="width:100px;height:100px;margin-bottom:8px;filter:drop-shadow(0 4px 20px rgba(0,0,0,.5));mix-blend-mode:screen">
+      <img src="icon.png?v=4" style="width:100px;height:100px;margin-bottom:8px;filter:drop-shadow(0 4px 20px rgba(0,0,0,.6));mix-blend-mode:multiply">
       <div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text);letter-spacing:2px;text-transform:uppercase" id="cs-title">Asado en la Caleta</div>
       <div style="font-size:15px;color:var(--fire);margin-top:6px;font-weight:700;letter-spacing:.5px;text-transform:uppercase" id="cs-date"></div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.3px" id="cs-loc"></div>
@@ -818,8 +818,9 @@ async function doLogin() {
   const v=document.getElementById('cname').value.trim();
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
   me=v; localStorage.setItem('asado_user',v);
-  // Si ya confirmó asistencia antes, ir directo a la app
-  const yaConfirmo = localStorage.getItem('rsvp_'+( S.event?.id||'') +'_'+v.toLowerCase());
+  // Verificar rsvp desde Supabase (fuente de verdad)
+  const part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase());
+  const yaConfirmo = part?.rsvp === 'si' || part?.rsvp === 'no';
   if (yaConfirmo) {
     entrarApp(v);
     return;
@@ -828,7 +829,7 @@ async function doLogin() {
   document.getElementById('login-screen').style.display='none';
   const cs = document.getElementById('confirm-screen');
   cs.style.display='flex';
-  document.getElementById('cs-nombre').textContent = v;
+  document.getElementById('cs-nombre').textContent = part?.name || v;
   if (S.event) {
     document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
     document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
@@ -1746,8 +1747,10 @@ function renderOverview() {
     <div class="ov-card">
       <div class="ov-label">👤 Mi estado — ${me.toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:14px">${miRsvp==='si'?'✅ VAS AL ASADO':miRsvp==='no'?'❌ NO VAS':'🤷 Sin confirmar'}</span>
-        ${!miRsvp?`<button onclick="showTab('tareas')" class="ov-btn" style="width:auto;padding:6px 12px;margin:0;font-size:13px">CONFIRMAR</button>`:''}
+        <span style="font-size:14px;font-weight:700">${miRsvp==='si'?'✅ VAS AL ASADO':miRsvp==='no'?'❌ NO VAS':'🤷 SIN CONFIRMAR'}</span>
+        ${miRsvp==='si'?`<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase">CAMBIAR</button>`:''}
+        ${miRsvp==='no'?`<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.1);color:var(--green);font-size:11px;cursor:pointer;text-transform:uppercase">VOY DESPUÉS DE TODO ✅</button>`:''}
+        ${!miRsvp?`<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>`:''}
       </div>
     </div>
 
@@ -1898,6 +1901,28 @@ function updateClock() {
   } else {
     el.textContent = `🔥 HOY · ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(segs).padStart(2,'0')}`;
   }
+}
+
+function mostrarConfirmScreen() {
+  document.getElementById('app').style.display='none';
+  const cs = document.getElementById('confirm-screen');
+  cs.style.display='flex';
+  document.getElementById('cs-nombre').textContent = me;
+  if (S.event) {
+    document.getElementById('cs-title').textContent = S.event.title||'Asado en la Caleta';
+    document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
+    document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
+  }
+}
+
+async function cambiarAsistencia() {
+  const part = S.participants.find(p=>p.name.toLowerCase()===me.toLowerCase());
+  if (!part) return;
+  const nuevoRsvp = part.rsvp === 'si' ? 'no' : 'si';
+  await sb.from('participants').update({rsvp: nuevoRsvp, rsvp_at: new Date().toISOString()}).ilike('name', me);
+  localStorage.setItem('rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase(), nuevoRsvp);
+  await fetchAll();
+  toast(nuevoRsvp==='si'?'✅ ¡Nos vemos en el asado!':'😔 Anotado, la próxima crack');
 }
 
 function hideSplash() {
