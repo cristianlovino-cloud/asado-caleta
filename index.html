@@ -17,7 +17,13 @@
   <meta name="theme-color" content="#FF4500">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
-  const APP_VERSION = '2.2.3';
+  // ── Timezone Argentina ─────────────────
+  function ahoraAR() {
+    // Devuelve la fecha/hora actual en zona horaria de Buenos Aires
+    return new Date(new Date().toLocaleString('en-US', {timeZone:'America/Argentina/Buenos_Aires'}));
+  }
+
+  const APP_VERSION = '2.2.5';
 
   // Auto-reload si hay nueva versión
   const savedVersion = localStorage.getItem('asado_app_version');
@@ -1611,7 +1617,7 @@ function renderCumples() {
   const banner = document.getElementById('banner-cumples');
   const lista = document.getElementById('cumples-list');
   if (!banner || !lista) return;
-  const hoy = new Date();
+  const hoy = ahoraAR();
   const mesActual = hoy.getMonth() + 1;
   const diaActual = hoy.getDate();
   const cumples = S.participants
@@ -1698,7 +1704,7 @@ function enviarFelizCumple(nombre) {
 function renderOverview() {
   const el = document.getElementById('ov-content');
   if (!el || !S.event) return;
-  const hoy = new Date();
+  const hoy = ahoraAR();
   const mesActual = hoy.getMonth() + 1;
   const diaActual = hoy.getDate();
   const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -1800,7 +1806,7 @@ function renderOverview() {
     ${(()=>{
       // Calcular próximos 6 asados (2do sábado de mes par)
       const proximos = [];
-      const hoyTs = new Date();
+      const hoyTs = ahoraAR();
       let y = hoyTs.getFullYear();
       let m = hoyTs.getMonth() + 1; // 1-12
       for (let i = 0; i < 12 && proximos.length < 4; i++) {
@@ -1886,7 +1892,7 @@ function updateClock() {
   if (parts.length < 3) return;
   const timeStr = (S.event.time_range||'10:00').split(/[–-]/)[0].trim();
   const target = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}T${timeStr}:00`);
-  const now = new Date();
+  const now = ahoraAR();
   const diff = target - now;
   if (diff <= 0) {
     el.textContent = diff > -86400000 ? '🔥 ¡ES HOY! A las ' + timeStr : '✅ Ya fue';
@@ -1927,8 +1933,11 @@ async function cambiarAsistencia() {
 
 function hideSplash() {
   const s = document.getElementById('splash-screen');
-  if (s) { s.style.opacity='0'; setTimeout(()=>s.remove(),500); }
+  if (s && s.parentNode) { s.style.opacity='0'; setTimeout(()=>{ if(s.parentNode) s.remove(); },500); }
 }
+
+// Timeout de seguridad: si en 6 segundos no cargó, ocultar splash igual
+setTimeout(()=>hideSplash(), 6000);
 
 function renderAll() {
   hideSplash();
@@ -2214,7 +2223,9 @@ if (me) {
     const at = document.getElementById('admin-toggle');
     if (at) at.style.display='block';
   }
-  fetchAll().then(()=>{if(!sbOk)renderAll();});
+  fetchAll()
+    .then(()=>{ if(!sbOk) renderAll(); })
+    .catch(e=>{ console.error('fetchAll error:',e); hideSplash(); renderAll(); });
   subscribe();
   startAutoRefresh();
 } else {
