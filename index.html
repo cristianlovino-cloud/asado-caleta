@@ -132,9 +132,10 @@ body {
 .abtn:hover{border-color:var(--fire);color:var(--fire)}
 .abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
 
-.tabs{display:flex;background:var(--smoke);border-bottom:1px solid var(--rim);position:sticky;top:62px;z-index:99}
+.tabs{display:flex;background:var(--smoke);border-bottom:1px solid var(--rim);position:sticky;top:62px;z-index:99;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
 .tabs.with-admin{top:102px}
-.tab{flex:1;padding:9px 2px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab{flex:0 0 auto;min-width:58px;padding:9px 6px;text-align:center;font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
 .tab.active{color:var(--fire);border-bottom-color:var(--fire)}
 .tab .ti{font-size:15px;display:block;margin-bottom:2px}
 .panel{display:none;padding:12px 12px 90px}
@@ -379,6 +380,8 @@ body {
     <div class="tab" onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
     <div class="tab" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
+    <div class="tab" onclick="showTab('votos')"><span class="ti">🗳️</span>Votos</div>
+    <div class="tab" onclick="showTab('stats')"><span class="ti">🏆</span>Stats</div>
   </div>
 
   <!-- OVERVIEW -->
@@ -515,6 +518,26 @@ body {
       <button class="bwa" onclick="openWA()">📲 Abrir en WhatsApp</button>
       <button class="bcp" onclick="copyMsg()">📋 Copiar</button>
     </div>
+  </div>
+
+  <!-- VOTOS -->
+  <div class="panel" id="panel-votos">
+    <div class="sh">🗳️ Votá el menú</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">¿Qué querés comer en el próximo asado?</div>
+    <div id="votos-list"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
+    <div class="div"></div>
+    <div class="sh">➕ SUGERIR OPCIÓN</div>
+    <div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;padding:12px">
+      <label class="fl">Plato / corte</label>
+      <input class="fi" id="voto-sugerencia" placeholder="EJ: ENTRAÑA, MOLLEJAS..." style="text-transform:uppercase">
+      <button class="btp" style="width:100%" onclick="agregarSugerenciaVoto()">SUGERIR</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="panel" id="panel-stats">
+    <div class="sh">🏆 Estadísticas históricas</div>
+    <div id="stats-content"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
   </div>
 </div>
 
@@ -766,18 +789,17 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn] = await Promise.all([
+  const [pa,ex,tk,mn,cr] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
     sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
+    sb.from('calendar_rsvp').select('*'),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data;
   if (mn.data) S.menu         = mn.data;
-  // Cargar RSVP del calendario
-  const cr = await sb.from('calendar_rsvp').select('*');
   if (cr.data) {
     S.rsvpCal = {};
     cr.data.forEach(r => {
@@ -1081,6 +1103,8 @@ function showTab(t) {
   document.getElementById(`panel-${t}`).classList.add('active');
   if (t==='ws') { setTimeout(()=>renderWS(), 50); }
   if (t==='carne') calcularCarne();
+  if (t==='votos') renderVotos();
+  if (t==='stats') renderStats();
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
 // Todos los participantes activos (no solo confirmados) para asignar tareas
@@ -1152,7 +1176,7 @@ function renderGastos() {
     :[...S.expenses].reverse().map(e=>`
       <div class="er">
         <div class="ei">🧾</div>
-        <div class="eb"><div class="en">${e.description}</div><div class="ew">${e.payer}</div></div>
+        <div class="eb"><div class="en">${e.description.toUpperCase()}</div><div class="ew">${e.payer.toUpperCase()}</div></div>
         <div style="display:flex;align-items:center;gap:7px">
           <div class="ea">${fmt(e.amount)}</div>
           ${isAdmin()?`<button onclick="openEditExpense(${e.id})" style="background:var(--ash);border:1px solid var(--rim);border-radius:6px;padding:4px 7px;font-size:12px;cursor:pointer;color:var(--muted)">✏️</button>`:''}
@@ -1223,8 +1247,8 @@ function renderTasks() {
   el.innerHTML = ordered.map(group=>{
     const isMe = group.nombre&&group.nombre.toLowerCase()===me.toLowerCase();
     const header = group.nombre
-      ? `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${isMe?'var(--fire)':'var(--muted)'};border-bottom:1px solid var(--rim)">👤 ${group.nombre}${isMe?' (vos)':''}</div>`
-      : `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)">🙋 Sin asignar</div>`;
+      ? `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${isMe?'var(--fire)':'var(--muted)'};border-bottom:1px solid var(--rim)">👤 ${group.nombre.toUpperCase()}${isMe?' (VOS)':''}</div>`
+      : `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)">🙋 SIN ASIGNAR</div>`;
 
     const items = group.tasks.map(t=>{
       const done = t.done;
@@ -1243,12 +1267,12 @@ function renderTasks() {
           </div>
           <div class="tkfoot">
             ${done
-              ?`<span style="font-size:11px;color:var(--green)">✅ listo</span>`
+              ?`<span style="font-size:11px;color:var(--green)">✅ LISTO</span>`
               :!group.nombre
-                ?`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(255,69,0,.08);color:var(--fire);cursor:pointer">✋ Yo me encargo</button>`
+                ?`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(255,69,0,.08);color:var(--fire);cursor:pointer">✋ YO ME ENCARGO</button>`
                 :isMe
-                  ?`<span style="font-size:11px;color:var(--fire)">tuya 🔥</span>`
-                  :`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);cursor:pointer">Tomar tarea</button>`
+                  ?`<span style="font-size:11px;color:var(--fire)">TUYA 🔥</span>`
+                  :`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);cursor:pointer">TOMAR TAREA</button>`
             }
             ${isAdmin()&&!done?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:14px;cursor:pointer;padding:0 6px;margin-left:auto">✏️</span>`:''}
           </div>
@@ -1421,10 +1445,10 @@ function renderMenu() {
     <div class="mr">
       <div class="ml">
         <div class="mem">${m.emoji}</div>
-        <div><div class="mnm">${m.name}</div><div class="mdt">${m.detail}</div></div>
+        <div><div class="mnm">${m.name.toUpperCase()}</div><div class="mdt">${m.detail.toUpperCase()}</div></div>
       </div>
       <div class="mright">
-        <span class="${m.status==='confirmed'?'tok':'tpn'}" onclick="toggleMenuStatus(${m.id},'${m.status}')">${m.status==='confirmed'?'✓ listo':'pendiente'}</span>
+        <span class="${m.status==='confirmed'?'tok':'tpn'}" onclick="toggleMenuStatus(${m.id},'${m.status}')">${m.status==='confirmed'?'✓ LISTO':'PENDIENTE'}</span>
         ${isAdmin()?`<button style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px" onclick="deleteMenuItem(${m.id})">🗑</button>`:''}
       </div>
     </div>`).join('');
@@ -1797,7 +1821,7 @@ function renderOverview() {
       <div class="ov-label">📋 Tareas pendientes (${pendientes})</div>
       ${S.tasks.filter(t=>!t.done).slice(0,5).map(t=>`<div class="ov-row">
         <span>${t.name.split('\n')[0]}</span>
-        <span class="ov-muted">${t.assignee||'Sin asignar'}</span>
+        <span class="ov-muted">${(t.assignee||'SIN ASIGNAR').toUpperCase()}</span>
       </div>`).join('')}
       ${pendientes>5?`<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px">+${pendientes-5} más</div>`:''}
     </div>`:`<div class="ov-card" style="text-align:center;padding:16px"><div style="font-size:24px">✅</div><div style="color:var(--green);font-weight:700;font-size:13px;margin-top:4px;text-transform:uppercase">TODAS LAS TAREAS LISTAS</div></div>`}
@@ -2181,7 +2205,194 @@ function calcularCarne() {
   if(el) el.innerHTML = html + `<div style="margin-top:10px;padding:10px;background:rgba(255,69,0,.08);border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--muted)">Total estimado</div><div style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--fire)">${totalKg} kg</div><div style="font-size:10px;color:var(--muted)">para ${n} personas</div></div>`;
 }
 
-// ══ COBROS ADMIN (localStorage) ═══════════════════════════
+// ══ VOTOS ═════════════════════════════════════════
+const OPCIONES_VOTOS_DEFAULT = [
+  {id:'v_tira',   emoji:'🥩', nombre:'TIRA DE ASADO'},
+  {id:'v_vacio',  emoji:'🥩', nombre:'VACÍO'},
+  {id:'v_chorizo',emoji:'🌭', nombre:'CHORIZOS'},
+  {id:'v_molleja',emoji:'🫀', nombre:'MOLLEJAS'},
+  {id:'v_provol', emoji:'🧀', nombre:'PROVOLETA'},
+  {id:'v_morcilla',emoji:'⚫',nombre:'MORCILLAS'},
+  {id:'v_pollo',  emoji:'🍗', nombre:'POLLO'},
+  {id:'v_costilla',emoji:'🦴',nombre:'COSTILLA'},
+];
+
+function getVotos() {
+  try { return JSON.parse(localStorage.getItem('asado_votos_'+(S.event?.id||0))||'{}'); } catch { return {}; }
+}
+function saveVotos(v) { localStorage.setItem('asado_votos_'+(S.event?.id||0), JSON.stringify(v)); }
+function getOpciones() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('asado_votos_opciones_'+(S.event?.id||0))||'null');
+    return saved || OPCIONES_VOTOS_DEFAULT;
+  } catch { return OPCIONES_VOTOS_DEFAULT; }
+}
+function saveOpciones(op) { localStorage.setItem('asado_votos_opciones_'+(S.event?.id||0), JSON.stringify(op)); }
+
+function votarOpcion(id) {
+  const votos = getVotos();
+  const misVotos = votos[me] || [];
+  const idx = misVotos.indexOf(id);
+  if (idx >= 0) misVotos.splice(idx, 1);
+  else { if (misVotos.length >= 3) { toast('MÁXIMO 3 VOTOS 👆','var(--ember)'); return; } misVotos.push(id); }
+  votos[me] = misVotos;
+  saveVotos(votos);
+  renderVotos();
+  toast(idx >= 0 ? '✗ VOTO QUITADO' : '✅ VOTO REGISTRADO');
+}
+
+function agregarSugerenciaVoto() {
+  const input = document.getElementById('voto-sugerencia');
+  const nombre = input.value.trim().toUpperCase();
+  if (!nombre) { toast('ESCRIBÍ UNA OPCIÓN','var(--red)'); return; }
+  const opciones = getOpciones();
+  const id = 'v_custom_'+Date.now();
+  const emojis = ['🔥','🥩','🍖','🌿'];
+  opciones.push({id, emoji: emojis[Math.floor(Math.random()*emojis.length)], nombre});
+  saveOpciones(opciones);
+  input.value = '';
+  renderVotos();
+  toast('✅ OPCIÓN AGREGADA');
+}
+
+function renderVotos() {
+  const el = document.getElementById('votos-list');
+  if (!el) return;
+  const votos = getVotos();
+  const opciones = getOpciones();
+  const misVotos = votos[me] || [];
+
+  // Contar votos por opción
+  const conteo = {};
+  opciones.forEach(op => conteo[op.id] = 0);
+  Object.values(votos).forEach(mv => mv.forEach(id => { if (conteo[id] !== undefined) conteo[id]++; }));
+
+  // Ordenar por votos desc
+  const sorted = [...opciones].sort((a,b) => (conteo[b.id]||0) - (conteo[a.id]||0));
+  const maxVotos = Math.max(1, ...Object.values(conteo));
+  const totalVotantes = Object.keys(votos).length;
+
+  el.innerHTML = sorted.map((op, i) => {
+    const c = conteo[op.id] || 0;
+    const pct = Math.round((c / maxVotos) * 100);
+    const votado = misVotos.includes(op.id);
+    const medalla = i === 0 && c > 0 ? '🥇' : i === 1 && c > 0 ? '🥈' : i === 2 && c > 0 ? '🥉' : '';
+    return `<div onclick="votarOpcion('${op.id}')" style="margin-bottom:9px;background:${votado?'rgba(255,69,0,.1)':'var(--smoke)'};border:2px solid ${votado?'var(--fire)':'var(--rim)'};border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .15s">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">${op.emoji}</span>
+          <span style="font-size:13px;font-weight:700;text-transform:uppercase;color:${votado?'var(--fire)':'var(--text)'}">${op.nombre}</span>
+          ${medalla?`<span style="font-size:14px">${medalla}</span>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-family:'Bebas Neue',cursive;font-size:18px;color:${votado?'var(--fire)':'var(--muted)'}">${c}</span>
+          <span style="font-size:16px;color:${votado?'var(--fire)':'var(--rim)'}">${votado?'✅':'○'}</span>
+        </div>
+      </div>
+      <div style="height:5px;background:var(--ash);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${votado?'var(--fire)':'linear-gradient(90deg,var(--club1),var(--club2))'};border-radius:4px;transition:width .4s"></div>
+      </div>
+    </div>`;
+  }).join('') + `<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:.5px">${totalVotantes} PERSONA${totalVotantes!==1?'S':''} VOTARON · PODÉS VOTAR HASTA 3 OPCIONES</div>`;
+}
+
+// ══ STATS ═════════════════════════════════════════
+async function renderStats() {
+  const el = document.getElementById('stats-content');
+  if (!el || !S.allEvents.length) return;
+
+  // Necesitamos datos históricos de cada evento
+  const eventIds = S.allEvents.map(e => e.id);
+
+  const [exAll, parAll] = await Promise.all([
+    sb.from('expenses').select('*').in('event_id', eventIds),
+    sb.from('participants').select('*'),
+  ]);
+
+  const gastosPorEvento = {};
+  (exAll.data||[]).forEach(e => {
+    if (!gastosPorEvento[e.event_id]) gastosPorEvento[e.event_id] = [];
+    gastosPorEvento[e.event_id].push(e);
+  });
+
+  const stats = S.allEvents.map(ev => {
+    const gastos = gastosPorEvento[ev.id] || [];
+    const total = gastos.reduce((a,e)=>a+parseFloat(e.amount),0);
+    const confirmados = parAll.data?.filter(p=>p.active&&p.rsvp==='si').length || 0;
+    const pagadores = [...new Set(gastos.map(e=>e.payer))];
+    // El que más gastó
+    const pagosPorPer = {};
+    gastos.forEach(e => pagosPorPer[e.payer] = (pagosPorPer[e.payer]||0)+parseFloat(e.amount));
+    const topPagador = Object.entries(pagosPorPer).sort((a,b)=>b[1]-a[1])[0];
+    return { ev, total, confirmados, gastos: gastos.length, topPagador };
+  }).filter(s => s.total > 0);
+
+  if (!stats.length) {
+    el.innerHTML = '<div class="empty"><div class="em">📊</div>SIN DATOS HISTÓRICOS AÚN</div>';
+    return;
+  }
+
+  const masCaroIdx = stats.reduce((iMax,s,i,arr)=>s.total>arr[iMax].total?i:iMax,0);
+  const masBaratoIdx = stats.reduce((iMin,s,i,arr)=>s.total<arr[iMin].total?i:iMin,0);
+
+  // Ranking de quién más paga
+  const rankingPagos = {};
+  stats.forEach(s => {
+    const gastos = gastosPorEvento[s.ev.id]||[];
+    gastos.forEach(e=>{rankingPagos[e.payer]=(rankingPagos[e.payer]||0)+parseFloat(e.amount);});
+  });
+  const rankingArr = Object.entries(rankingPagos).sort((a,b)=>b[1]-a[1]);
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
+      <div class="sb sbf"><div class="sl">ASADOS</div><div class="sv cf">${stats.length}</div></div>
+      <div class="sb sbg"><div class="sl">TOTAL HISTÓRICO</div><div class="sv cg">${fmt(stats.reduce((a,s)=>a+s.total,0))}</div></div>
+    </div>
+
+    <div class="sh">🔥 RÉCORDS</div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="pr">
+        <div class="pl"><div class="av" style="background:linear-gradient(135deg,#e74c3c,#c0392b)">💸</div>
+          <div><div class="pname">MÁS CARO</div><div class="psub">${stats[masCaroIdx].ev.title} · ${stats[masCaroIdx].ev.event_date}</div></div>
+        </div>
+        <div><div class="bval cf">${fmt(stats[masCaroIdx].total)}</div></div>
+      </div>
+      <div class="pr">
+        <div class="pl"><div class="av" style="background:linear-gradient(135deg,#27ae60,#1a7a40)">💚</div>
+          <div><div class="pname">MÁS BARATO</div><div class="psub">${stats[masBaratoIdx].ev.title} · ${stats[masBaratoIdx].ev.event_date}</div></div>
+        </div>
+        <div><div class="bval cgr">${fmt(stats[masBaratoIdx].total)}</div></div>
+      </div>
+    </div>
+
+    <div class="sh">🏆 RANKING DE GASTADORES</div>
+    <div class="card" style="margin-bottom:12px">
+      ${rankingArr.map(([ nombre, total ],i)=>`
+        <div class="pr">
+          <div class="pl">
+            <div class="av${nombre===me?'':' n'}">${['🥇','🥈','🥉'][i]||`${i+1}`}</div>
+            <div><div class="pname">${nombre.toUpperCase()}${nombre===me?' <span style="font-size:10px;color:var(--fire)">(VOS)</span>':''}</div>
+            <div class="psub">EN ${stats.filter(s=>(gastosPorEvento[s.ev.id]||[]).some(e=>e.payer===nombre)).length} ASADOS</div></div>
+          </div>
+          <div><div class="bval cf">${fmt(total)}</div></div>
+        </div>`).join('')}
+    </div>
+
+    <div class="sh">📅 HISTORIAL</div>
+    <div class="card">
+      ${stats.map(s=>`
+        <div class="pr">
+          <div class="pl">
+            <div class="av n" style="font-size:10px">${s.ev.event_date?.split('/').slice(0,2).join('/')}</div>
+            <div><div class="pname">${s.ev.title.toUpperCase()}</div>
+            <div class="psub">${s.gastos} GASTOS · ${s.topPagador?'PAGÓ MÁS: '+s.topPagador[0].toUpperCase():''}</div></div>
+          </div>
+          <div><div class="bval cg">${fmt(s.total)}</div></div>
+        </div>`).join('')}
+    </div>`;
+}
+
+
 function getCobros() { try { return JSON.parse(localStorage.getItem('asado_cobros_'+(S.event?.id||0))||'{}'); } catch { return {}; } }
 function saveCobros(cobros) { localStorage.setItem('asado_cobros_'+(S.event?.id||0), JSON.stringify(cobros)); }
 function limpiarCobros() { if(!confirm('¿Limpiar cobros?')) return; localStorage.removeItem('asado_cobros_'+(S.event?.id||0)); renderCuentas(); toast('Cobros limpiados'); }
