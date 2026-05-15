@@ -19,8 +19,10 @@
 <script>
   // ── Timezone Argentina ─────────────────
   function ahoraAR() {
-    // Devuelve la fecha/hora actual en zona horaria de Buenos Aires
-    return new Date(new Date().toLocaleString('en-US', {timeZone:'America/Argentina/Buenos_Aires'}));
+    // Hora actual en Argentina (UTC-3), sin depender de toLocaleString
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
   const APP_VERSION = '2.2.5';
@@ -1918,18 +1920,27 @@ function updateClock() {
   const target = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}T${timeStr}:00-03:00`);
   const now = ahoraAR();
   const diff = target - now;
+  // Comparar fechas (solo día) para saber si es hoy
+  const esHoy = now.getDate() === target.getDate()
+             && now.getMonth() === target.getMonth()
+             && now.getFullYear() === target.getFullYear();
   if (diff <= 0) {
-    el.textContent = diff > -86400000 ? '🔥 ¡ES HOY! A las ' + timeStr : '✅ Ya fue';
+    // Ya arrancó el asado
+    el.textContent = esHoy ? '🔥 ¡ARRANCÓ! A las ' + timeStr : '✅ Ya fue';
     return;
   }
   const dias  = Math.floor(diff / 86400000);
   const horas = Math.floor((diff % 86400000) / 3600000);
   const mins  = Math.floor((diff % 3600000) / 60000);
   const segs  = Math.floor((diff % 60000) / 1000);
-  if (dias > 0) {
-    el.textContent = `⏳ ${dias}d ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(segs).padStart(2,'0')}s`;
-  } else {
+  if (esHoy) {
+    // Es hoy pero todavía no arrancó
     el.textContent = `🔥 HOY · ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(segs).padStart(2,'0')}`;
+  } else if (dias === 0) {
+    // Faltan horas (menos de 24hs pero no es hoy = medianoche pasada)
+    el.textContent = `⏳ Mañana · ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
+  } else {
+    el.textContent = `⏳ ${dias}d ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(segs).padStart(2,'0')}s`;
   }
 }
 
