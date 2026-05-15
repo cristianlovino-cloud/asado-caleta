@@ -384,6 +384,7 @@ body {
     <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
     <div class="tab" onclick="showTab('votos')"><span class="ti">🗳️</span>Votos</div>
     <div class="tab" onclick="showTab('stats')"><span class="ti">🏆</span>Stats</div>
+    <div class="tab" onclick="showTab('sports')"><span class="ti">⚽</span>Sports</div>
   </div>
 
   <!-- OVERVIEW -->
@@ -533,6 +534,39 @@ body {
       <label class="fl">Plato / corte</label>
       <input class="fi" id="voto-sugerencia" placeholder="EJ: ENTRAÑA, MOLLEJAS..." style="text-transform:uppercase">
       <button class="btp" style="width:100%" onclick="agregarSugerenciaVoto()">SUGERIR</button>
+    </div>
+  </div>
+
+  <!-- SPORTS -->
+  <div class="panel" id="panel-sports">
+    <!-- Sub-tabs -->
+    <div style="display:flex;gap:0;margin:-14px -14px 14px;border-bottom:1px solid var(--rim)">
+      <button id="stab-mundial" onclick="setSportsTab('mundial')" style="flex:1;padding:12px 6px;background:transparent;border:none;border-bottom:3px solid var(--fire);color:var(--fire);font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:2px;cursor:pointer">⚽ MUNDIAL</button>
+      <button id="stab-f1" onclick="setSportsTab('f1')" style="flex:1;padding:12px 6px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--muted);font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:2px;cursor:pointer">🏎️ F1</button>
+    </div>
+    <!-- Mundial panel -->
+    <div id="sports-mundial">
+      <!-- Countdown mundial -->
+      <div style="background:linear-gradient(135deg,rgba(91,184,232,.12),rgba(245,197,24,.12));border:1px solid rgba(91,184,232,.3);border-radius:16px;padding:16px;margin-bottom:14px;text-align:center">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:4px">FIFA WORLD CUP 2026</div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:8px">🇲🇽 México · 🇺🇸 USA · 🇨🇦 Canadá · 48 equipos</div>
+        <div id="mundial-countdown" style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--club2);letter-spacing:2px">CARGANDO...</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">11 JUN 2026 — 19 JUL 2026</div>
+      </div>
+      <!-- Grupos -->
+      <div class="sh">🌍 LOS 12 GRUPOS</div>
+      <div id="mundial-grupos"><div style="text-align:center;padding:20px;color:var(--muted)">Cargando grupos...</div></div>
+    </div>
+    <!-- F1 panel -->
+    <div id="sports-f1" style="display:none">
+      <!-- Próxima carrera -->
+      <div id="f1-proxima" style="margin-bottom:14px"></div>
+      <!-- Standings pilotos -->
+      <div class="sh">🏆 CAMPEONATO PILOTOS</div>
+      <div id="f1-pilotos"><div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div></div>
+      <!-- Calendario -->
+      <div class="sh" style="margin-top:14px">📅 CALENDARIO 2025</div>
+      <div id="f1-calendario"><div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div></div>
     </div>
   </div>
 
@@ -1107,6 +1141,7 @@ function showTab(t) {
   if (t==='carne') calcularCarne();
   if (t==='votos') renderVotos();
   if (t==='stats') renderStats();
+  if (t==='sports') initSports();
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
 // Todos los participantes activos (no solo confirmados) para asignar tareas
@@ -2455,6 +2490,190 @@ if (me) {
 }
 </script>
   <script>
+
+// ══ SPORTS ════════════════════════════════════════════════
+const SPORTS_API = 'https://asado-sports-api.onrender.com';
+let sportsLoaded = { mundial: false, f1: false };
+
+function setSportsTab(tab) {
+  document.getElementById('sports-mundial').style.display = tab==='mundial'?'block':'none';
+  document.getElementById('sports-f1').style.display     = tab==='f1'?'block':'none';
+  const sm = document.getElementById('stab-mundial');
+  const sf = document.getElementById('stab-f1');
+  if(sm){ sm.style.borderBottomColor=tab==='mundial'?'var(--fire)':'transparent'; sm.style.color=tab==='mundial'?'var(--fire)':'var(--muted)'; }
+  if(sf){ sf.style.borderBottomColor=tab==='f1'?'var(--fire)':'transparent';     sf.style.color=tab==='f1'?'var(--fire)':'var(--muted)'; }
+  if(tab==='mundial' && !sportsLoaded.mundial) loadMundial();
+  if(tab==='f1'      && !sportsLoaded.f1)      loadF1();
+}
+
+function initSports() {
+  mundialCountdown();
+  setInterval(mundialCountdown, 60000);
+  if (!sportsLoaded.mundial) loadMundial();
+}
+
+function mundialCountdown() {
+  const el = document.getElementById('mundial-countdown');
+  if (!el) return;
+  const target = new Date('2026-06-11T00:00:00-03:00');
+  const diff = target - new Date();
+  if (diff <= 0) { el.textContent = '🔥 ¡ARRANCÓ EL MUNDIAL!'; return; }
+  const dias  = Math.floor(diff / 86400000);
+  const horas = Math.floor((diff % 86400000) / 3600000);
+  const mins  = Math.floor((diff % 3600000) / 60000);
+  el.textContent = String(dias) + 'D ' + String(horas).padStart(2,'0') + 'H ' + String(mins).padStart(2,'0') + 'M';
+}
+
+const BANDERAS = {
+  'México':'🇲🇽','Jamaica':'🇯🇲','Honduras':'🇭🇳','Ecuador':'🇪🇨',
+  'Estados Unidos':'🇺🇸','Panamá':'🇵🇦','Bosnia y Herzegovina':'🇧🇦','Ghana':'🇬🇭',
+  'Canadá':'🇨🇦','Trinidad y Tobago':'🇹🇹','Países Bajos':'🇳🇱','Noruega':'🇳🇴',
+  'Brasil':'🇧🇷','Japón':'🇯🇵','Suiza':'🇨🇭','Camerún':'🇨🇲',
+  'Argentina':'🇦🇷','Hungría':'🇭🇺','Marruecos':'🇲🇦',
+  'España':'🇪🇸','Senegal':'🇸🇳','Serbia':'🇷🇸','Nueva Zelanda':'🇳🇿',
+  'Alemania':'🇩🇪','Australia':'🇦🇺','Arabia Saudita':'🇸🇦','Costa Rica':'🇨🇷',
+  'Portugal':'🇵🇹','Eslovenia':'🇸🇮','Ucrania':'🇺🇦','Sudáfrica':'🇿🇦',
+  'Francia':'🇫🇷','Bélgica':'🇧🇪','R. Checa':'🇨🇿','Haití':'🇭🇹',
+  'Inglaterra':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Túnez':'🇹🇳','Eslovaquia':'🇸🇰','Kenia':'🇰🇪',
+  'Colombia':'🇨🇴','Rumania':'🇷🇴',"Côte d'Ivoire":'🇨🇮','Togo':'🇹🇬',
+  'Uruguay':'🇺🇾','Cuba':'🇨🇺','Qatar':'🇶🇦','China':'🇨🇳',
+};
+
+async function loadMundial() {
+  const el = document.getElementById('mundial-grupos');
+  if (!el) return;
+  try {
+    const r = await fetch(SPORTS_API+'/mundial/grupos');
+    const json = await r.json();
+    if (!json.ok) throw new Error(json.error);
+    renderGrupos(json.data, json.source);
+    sportsLoaded.mundial = true;
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Sin conexión al servidor</div>';
+  }
+}
+
+function renderGrupos(grupos, source) {
+  const el = document.getElementById('mundial-grupos');
+  if (!el) return;
+  const badge = source==='static'
+    ? '<span style="font-size:9px;background:rgba(255,140,0,.15);color:var(--ember);border:1px solid var(--ember);border-radius:4px;padding:2px 5px">SORTEO</span>'
+    : '<span style="font-size:9px;background:rgba(39,174,96,.15);color:var(--green);border:1px solid var(--green);border-radius:4px;padding:2px 5px">LIVE</span>';
+  el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+    grupos.map(function(g) {
+      var letra   = g.letra || (g.grupo||'').replace('Grupo ','');
+      var equipos = g.equipos || [];
+      return '<div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;overflow:hidden">' +
+        '<div style="background:linear-gradient(135deg,var(--club1),var(--club2));padding:6px 10px;display:flex;align-items:center;justify-content:space-between">' +
+          '<span style="font-family:Bebas Neue,cursive;font-size:15px;color:#111;letter-spacing:1px">GRUPO ' + letra + '</span>' +
+          badge +
+        '</div>' +
+        equipos.map(function(eq,i) {
+          var nombre = eq.nombre||eq.name||'';
+          var pts    = eq.pts||eq.points||0;
+          var pj     = eq.pj||eq.playedGames||0;
+          var flag   = BANDERAS[nombre]||'🏳️';
+          var isArg  = nombre.indexOf('Argentina')>=0;
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;' +
+            (i<equipos.length-1?'border-bottom:1px solid var(--rim)':'') +
+            (isArg?';background:rgba(91,184,232,.08)':'') + '">' +
+            '<div style="display:flex;align-items:center;gap:5px">' +
+              '<span style="font-size:10px;color:var(--muted);width:10px">' + (i+1) + '</span>' +
+              '<span style="font-size:14px">' + flag + '</span>' +
+              '<span style="font-size:10px;font-weight:700;color:' + (isArg?'var(--club1)':'var(--text)') + ';text-transform:uppercase">' + nombre + '</span>' +
+            '</div>' +
+            '<span style="font-family:Bebas Neue,cursive;font-size:13px;color:' + (pts>0?'var(--green)':'var(--muted)') + '">' + pts + '</span>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }).join('') + '</div>';
+}
+
+const F1_COLORES = {
+  'McLaren':'#F47600','Red Bull Racing':'#4781D7','Ferrari':'#ED1131',
+  'Mercedes':'#00D7B6','Aston Martin':'#229971','Alpine':'#00A1E8',
+  'Williams':'#1868DB','Racing Bulls':'#6C98FF','Haas F1 Team':'#B6BABD',
+  'Audi':'#F50537','Cadillac':'#C8102E',
+};
+
+async function loadF1() {
+  await Promise.all([loadF1Pilotos(), loadF1Calendario()]);
+  sportsLoaded.f1 = true;
+}
+
+async function loadF1Pilotos() {
+  const el = document.getElementById('f1-pilotos');
+  if (!el) return;
+  try {
+    const r = await fetch(SPORTS_API+'/f1/pilotos');
+    const json = await r.json();
+    if (!json.ok) throw new Error(json.error||'Sin datos');
+    const pilotos = json.data;
+    el.innerHTML = '<div class="card" style="padding:0;overflow:hidden">' +
+      pilotos.map(function(p,i) {
+        var color  = F1_COLORES[p.escuderia]||'#888';
+        var medals = ['🥇','🥈','🥉'];
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;' + (i<pilotos.length-1?'border-bottom:1px solid var(--rim)':'') + '">' +
+          '<div style="width:4px;height:36px;border-radius:2px;background:' + color + ';flex-shrink:0"></div>' +
+          '<div style="width:26px;text-align:center;font-family:Bebas Neue,cursive;font-size:' + (i<3?'18':'13') + 'px;color:var(--muted)">' + (medals[i]||p.pos) + '</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (p.nombre||p.codigo) + '</div>' +
+            '<div style="font-size:10px;color:' + color + '">' + (p.escuderia||'') + '</div>' +
+          '</div>' +
+          '<div style="font-family:Bebas Neue,cursive;font-size:17px;color:' + color + ';white-space:nowrap">' + (p.pts||p.numero||'') + '<span style="font-size:9px;color:var(--muted)"> ' + (p.pts!==undefined?'PTS':'#') + '</span></div>' +
+        '</div>';
+      }).join('') + '</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">⚠️ ' + e.message + '</div>';
+  }
+}
+
+async function loadF1Calendario() {
+  const el  = document.getElementById('f1-calendario');
+  const elP = document.getElementById('f1-proxima');
+  if (!el) return;
+  try {
+    const r = await fetch(SPORTS_API+'/f1/calendario');
+    const json = await r.json();
+    if (!json.ok) throw new Error(json.error||'Sin datos');
+    var carreras = json.data;
+    var hoy = new Date();
+    var proxima = null;
+    for(var i=0;i<carreras.length;i++){ if(new Date(carreras[i].fecha)>=hoy){ proxima=carreras[i]; break; } }
+
+    if (proxima && elP) {
+      var diff = new Date(proxima.fecha) - hoy;
+      var dias = Math.floor(diff/86400000);
+      elP.innerHTML = '<div style="background:linear-gradient(135deg,rgba(237,17,49,.1),rgba(244,118,0,.08));border:1px solid rgba(237,17,49,.25);border-radius:16px;padding:14px;margin-bottom:14px">' +
+        '<div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:3px">🏎️ PRÓXIMA CARRERA</div>' +
+        '<div style="font-family:Bebas Neue,cursive;font-size:20px;color:var(--text);letter-spacing:1px">' + proxima.nombre + '</div>' +
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">' + (proxima.circuito||proxima.ciudad) + ' · ' + proxima.pais + '</div>' +
+        '<div style="font-family:Bebas Neue,cursive;font-size:30px;color:#ED1131">⏳ ' + dias + ' DÍAS</div>' +
+        '<div style="font-size:11px;color:var(--muted)">' + proxima.fecha + '</div>' +
+      '</div>';
+    }
+
+    el.innerHTML = '<div class="card" style="padding:0;overflow:hidden">' +
+      carreras.map(function(c,i) {
+        var esProx = proxima && c.ronda===proxima.ronda;
+        var pasada = new Date(c.fecha) < hoy;
+        var color  = pasada?'var(--muted)':esProx?'#ED1131':'var(--text)';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;' +
+          (i<carreras.length-1?'border-bottom:1px solid var(--rim)':'') +
+          (esProx?';background:rgba(237,17,49,.05)':'') + '">' +
+          '<div style="width:20px;text-align:center;font-size:10px;font-weight:700;color:' + color + '">' + (c.ronda||i+1) + '</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:11px;font-weight:600;color:' + color + ';text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + c.nombre + '</div>' +
+            '<div style="font-size:10px;color:var(--muted)">' + c.pais + ' · ' + c.fecha + '</div>' +
+          '</div>' +
+          '<div style="font-size:14px">' + (pasada?'✅':esProx?'🔴':'') + '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">⚠️ ' + e.message + '</div>';
+  }
+}
+
     // Service Worker para cache-busting automático
     if ('serviceWorker' in navigator) {
       // Desregistrar cualquier SW viejo para evitar que sirva cache stale
