@@ -2428,25 +2428,85 @@ function registrarCobro(persona, monto, medio) {
 
 // ══ CIERRE DE CUENTAS ═════════════════════════════════════
 function renderCuentas() {
-  const el = document.getElementById('cuentas-resumen'); if(!el) return;
-  const cobros = getCobros(), pp = getPP(), total = getTotal();
-  const deudores = allP().filter(p=>bal(p)<-100);
-  const acreedores = allP().filter(p=>bal(p)>100);
-  const cobrados = deudores.filter(p=>cobros[p.toLowerCase()]);
+  const el = document.getElementById('cuentas-content');
+  if (!el) return;
+  const cobros  = getCobros();
+  const total   = S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
+  const numP    = S.event?.comensales || allP().length;
+  const pp      = numP > 0 ? total/numP : 0;
+  const deudores  = allP().filter(p=>bal(p)<-0.5);
   const pendientes = deudores.filter(p=>!cobros[p.toLowerCase()]);
+  const cobrados   = deudores.filter(p=> cobros[p.toLowerCase()]);
+
+  // Totales por medio
   const totalCobrado = cobrados.reduce((a,p)=>a+Math.abs(bal(p)),0);
-  const adminAcr = acreedores.indexOf(ADMIN_USER)>=0 ? ADMIN_USER : acreedores[0];
-  const otrosAcr = acreedores.filter(p=>p!==adminAcr);
+  const totalEfectivo = cobrados
+    .filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_efectivo')
+    .reduce((a,p)=>a+Math.abs(bal(p)),0);
+  const totalTransferencia = cobrados
+    .filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_transferencia')
+    .reduce((a,p)=>a+Math.abs(bal(p)),0);
+  const totalPendiente = pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0);
 
-  let acrHtml = acreedores.map(p=>`<div style="padding:8px 13px;background:rgba(39,174,96,.08);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between"><span style="font-weight:600">${p.toUpperCase()} <span style="font-size:11px;color:var(--muted)">(PAGÓ DE MÁS)</span></span><span style="color:var(--green);font-weight:700">+${fmt(bal(p))}</span></div>`).join('');
-  if(otrosAcr.length>0 && adminAcr) {
-    acrHtml += `<div style="margin:8px 0;padding:10px 12px;background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.2);border-radius:8px;font-size:12px"><div style="font-weight:700;margin-bottom:6px">📋 ${adminAcr} cobra todo y distribuye</div>${otrosAcr.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-top:1px solid rgba(255,255,255,.05)"><span style="color:var(--muted)">${adminAcr} → ${p}</span><span style="font-weight:700;color:var(--fire)">${fmt(bal(p))}</span></div>`).join('')}<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1)"><span style="font-weight:600">Neto ${adminAcr}</span><span style="font-weight:700;color:var(--green)">+${fmt(bal(adminAcr)-otrosAcr.reduce((a,p)=>a+bal(p),0))}</span></div></div>`;
-  }
+  const acrHtml = renderAcreedores();
 
-  const deuHtml = pendientes.map(p=>{const debe=Math.abs(bal(p)); return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:600">${p.toUpperCase()}</span><span style="font-size:12px;color:var(--red)">debe ${fmt(debe)}</span></div><div style="display:flex;gap:7px"><button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">💵 EFECTIVO</button><button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">📲 TRANSFERENCIA</button></div></div>`;}).join('')
-  + cobrados.map(p=>{const debe=Math.abs(bal(p));const cobro=cobros[p.toLowerCase()]; return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.7"><div style="display:flex;justify-content:space-between"><span style="font-weight:600;text-decoration:line-through;color:var(--muted)">${p}</span><span style="font-size:12px;color:var(--green)">✅ ${cobro.medio==='cobro_efectivo'?'💵 efectivo':'📲 transferencia'} — ${fmt(debe)}</span></div></div>`;}).join('');
+  const deuHtml = pendientes.map(p=>{
+    const debe = Math.abs(bal(p));
+    return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + '</span>' +
+        '<span style="font-size:12px;color:var(--red)">DEBE ' + fmt(debe) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:7px">' +
+        '<button onclick="registrarCobro('' + p + '',' + debe + ','cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:700;cursor:pointer">💵 EFECTIVO</button>' +
+        '<button onclick="registrarCobro('' + p + '',' + debe + ','cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:700;cursor:pointer">📲 TRANSFERENCIA</button>' +
+      '</div>' +
+    '</div>';
+  }).join('')
+  + cobrados.map(p=>{
+    const debe = Math.abs(bal(p));
+    const cobro = cobros[p.toLowerCase()];
+    const esEfectivo = cobro.medio === 'cobro_efectivo';
+    return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<span style="font-weight:700;text-decoration:line-through;color:var(--muted);text-transform:uppercase">' + p.toUpperCase() + '</span>' +
+        '<span style="font-size:12px;color:var(--green)">✅ ' + (esEfectivo?'💵 EFECTIVO':'📲 TRANSF.') + ' — ' + fmt(debe) + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 
-  el.innerHTML = `<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">${S.event?.comensales||allP().length}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div></div>${acrHtml}<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div><div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ TODOS SALDADOS</div>'}</div><div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">COBRADO</span><span id="pie-cobrado" style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0)):'✅ TODO COBRADO'}</span></div></div>`;
+  el.innerHTML =
+    // Resumen total
+    '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">' + numP + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
+    '</div>' +
+    acrHtml +
+    '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div>' +
+    '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">' +
+      (deuHtml || '<div style="padding:12px;text-align:center;color:var(--green)">✅ TODOS SALDADOS</div>') +
+    '</div>' +
+    // Pie con totales por medio
+    '<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">💵 COBRADO EFECTIVO</span>' +
+        '<span style="font-weight:700;color:var(--green)">' + fmt(totalEfectivo) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">📲 COBRADO TRANSFERENCIA</span>' +
+        '<span style="font-weight:700;color:var(--club1)">' + fmt(totalTransferencia) + '</span>' +
+      '</div>' +
+      '<div style="height:1px;background:var(--rim);margin:4px 0 6px"></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL COBRADO</span>' +
+        '<span style="font-weight:700;color:var(--green)">' + fmt(totalCobrado) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between">' +
+        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span>' +
+        '<span style="font-weight:700;color:' + (pendientes.length>0?'var(--red)':'var(--green)') + '">' + (pendientes.length>0?fmt(totalPendiente):'✅ TODO COBRADO') + '</span>' +
+      '</div>' +
+    '</div>';
 }
 
 // ══ INIT ══════════════════════════════════════════
