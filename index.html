@@ -392,7 +392,6 @@ body {
     <div class="tab" onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
     <div class="tab" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
-    <div class="tab" onclick="showTab('mundial')"><span class="ti">⚽</span>Mundial</div>
     <div class="tab" onclick="showTab('votos')"><span class="ti">🗳️</span>Votos</div>
     <div class="tab" onclick="showTab('stats')"><span class="ti">🏆</span>Stats</div>
   </div>
@@ -545,20 +544,6 @@ body {
       <input class="fi" id="voto-sugerencia" placeholder="EJ: ENTRAÑA, MOLLEJAS..." style="text-transform:uppercase">
       <button class="btp" style="width:100%" onclick="agregarSugerenciaVoto()">SUGERIR</button>
     </div>
-  </div>
-
-  <!-- MUNDIAL -->
-  <div class="panel" id="panel-mundial">
-    <!-- Countdown -->
-    <div style="background:linear-gradient(135deg,rgba(91,184,232,.12),rgba(245,197,24,.12));border:1px solid rgba(91,184,232,.3);border-radius:16px;padding:16px;margin-bottom:14px;text-align:center">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:4px">FIFA WORLD CUP 2026</div>
-      <div style="font-size:12px;color:var(--text);margin-bottom:6px">🇲🇽 México · 🇺🇸 USA · 🇨🇦 Canadá · 48 equipos</div>
-      <div id="mundial-countdown" style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--club2);letter-spacing:2px">CARGANDO...</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px">11 JUN 2026 — 19 JUL 2026</div>
-    </div>
-    <!-- Grupos directo, sin sub-tabs -->
-    <div class="sh">🌍 LOS 12 GRUPOS</div>
-    <div id="mundial-grupos"></div>
   </div>
 
   <!-- STATS -->
@@ -1132,7 +1117,6 @@ function showTab(t) {
   if (t==='carne') calcularCarne();
   if (t==='votos') renderVotos();
   if (t==='stats') renderStats();
-  if (t==='mundial') initMundial();
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
 // Todos los participantes activos (no solo confirmados) para asignar tareas
