@@ -70,7 +70,23 @@
   }
 
   // Ejecutar: primero chequear, luego publicar
-  checkRemoteVersion().then(() => publishVersion());
+  checkRemoteVersion(); // Solo chequear al iniciar — publicar solo via botón admin
+
+  // ── Publicar versión (admin) ─────────────
+  window.publicarVersion = async function() {
+    if (!confirm('Publicar v' + APP_VERSION + ' para todos?')) return;
+    try {
+      const url = 'https://tppffkngfncybwkmmbjc.supabase.co';
+      const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
+      const r = await fetch(url+'/rest/v1/app_config', {
+        method:'POST',
+        headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({key:'appVersion',value:APP_VERSION})
+      });
+      if (r.ok) alert('✅ v'+APP_VERSION+' publicada! Todos van a recargar solos.');
+      else alert('❌ Error. Creaste la tabla app_config en Supabase?');
+    } catch(e) { alert('❌ Sin conexión: '+e.message); }
+  };
 
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
@@ -411,6 +427,7 @@ body {
     <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
+    <button class="abtn" onclick="publicarVersion()" style="border-color:rgba(91,184,232,.4);color:var(--club1)">📡 Publicar versión</button>
   </div>
 
   <div class="tabs" id="tabs">
