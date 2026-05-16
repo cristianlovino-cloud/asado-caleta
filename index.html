@@ -25,7 +25,7 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.3.4';
+  const APP_VERSION = '2.3.5';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // ── Publicar versión (admin) ─────────────
@@ -2540,33 +2540,25 @@ function renderCuentas() {
     <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div>
     <div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ TODOS SALDADOS</div>'}</div>
     <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)">
-      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">📥 LO QUE COBRASTE</div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted)">💵 Efectivo cobrado</span><span style="font-weight:700;color:var(--green)">${fmt(totalEfectivo)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted)">📲 Transferencias cobradas</span><span style="font-weight:700;color:var(--club1)">${fmt(totalTransferencia)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px;padding-top:4px;border-top:1px solid var(--rim)"><span style="font-size:11px;color:var(--muted)">Total cobrado</span><span style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:11px;color:var(--muted)">Pendiente de cobro</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(totalPendiente):'✅ TODO'}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">💵 EFECTIVO COBRADO</span><span style="font-weight:700;color:var(--green)">${fmt(totalEfectivo)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">📲 TRANSFERENCIAS COBRADAS</span><span style="font-weight:700;color:var(--club1)">${fmt(totalTransferencia)}</span></div>
+      <div style="height:1px;background:var(--rim);margin:4px 0 6px"></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL COBRADO</span><span style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(totalPendiente):'✅ TODO COBRADO'}</span></div>
     </div>
-    ${(() => {
-      // Calcular pagos a acreedores desagregados por medio
+    ${(function(){
       const otrosAcr = acreedores.filter(p=>p.toLowerCase()!==me.toLowerCase());
       if (!otrosAcr.length) return '';
-      const pagadoEfAcr  = otrosAcr.reduce((a,p)=>{
-        const pp = pagosAcr[p.toLowerCase()]||[];
-        return a + pp.filter(x=>x.medio==='pago_efectivo').reduce((s,x)=>s+parseFloat(x.monto),0);
-      },0);
-      const pagadoTrAcr  = otrosAcr.reduce((a,p)=>{
-        const pp = pagosAcr[p.toLowerCase()]||[];
-        return a + pp.filter(x=>x.medio==='pago_transferencia').reduce((s,x)=>s+parseFloat(x.monto),0);
-      },0);
-      const netoEf = totalEfectivo - pagadoEfAcr;
-      const netoTr = totalTransferencia - pagadoTrAcr;
-      const netoTotal = netoEf + netoTr;
-      return \`<div style="padding:10px 12px;border-radius:8px;background:rgba(91,184,232,.08);border:1px solid rgba(91,184,232,.2)">
-        <div style="font-size:10px;color:var(--club1);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🏦 TU NETO FINAL — CRIS</div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted)">💵 Efectivo neto</span><span style="font-weight:700;color:var(--green)">\${fmt(netoEf)}</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted)">📲 Transferencias netas</span><span style="font-weight:700;color:var(--club1)">\${fmt(netoTr)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding-top:4px;border-top:1px solid rgba(91,184,232,.2)"><span style="font-size:12px;font-weight:700;color:var(--club1)">TOTAL NETO</span><span style="font-family:'Bebas Neue',cursive;font-size:20px;color:var(--club1)">\${fmt(netoTotal)}</span></div>
-      </div>\`;
+      const dadoEf = otrosAcr.reduce((a,p)=>{ const pp=pagosAcr[p.toLowerCase()]||[]; return a+pp.filter(x=>x.medio==='pago_efectivo').reduce((s,x)=>s+parseFloat(x.monto),0); },0);
+      const dadoTr = otrosAcr.reduce((a,p)=>{ const pp=pagosAcr[p.toLowerCase()]||[]; return a+pp.filter(x=>x.medio==='pago_transferencia').reduce((s,x)=>s+parseFloat(x.monto),0); },0);
+      const netoEf = totalEfectivo - dadoEf;
+      const netoTr = totalTransferencia - dadoTr;
+      return '<div style="margin-top:8px;padding:10px 12px;border-radius:8px;background:rgba(91,184,232,.08);border:1px solid rgba(91,184,232,.25)">'
+        + '<div style="font-size:10px;color:var(--club1);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🏦 TU NETO — CRIS</div>'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted)">💵 Efectivo neto</span><span style="font-weight:700;color:var(--green)">'+fmt(netoEf)+'</span></div>'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;color:var(--muted)">📲 Transferencias netas</span><span style="font-weight:700;color:var(--club1)">'+fmt(netoTr)+'</span></div>'
+        + '<div style="display:flex;justify-content:space-between;padding-top:5px;border-top:1px solid rgba(91,184,232,.2)"><span style="font-size:12px;font-weight:700;color:var(--club1)">TOTAL NETO</span><span style="font-family:Bebas Neue,cursive;font-size:20px;color:var(--club1)">'+fmt(netoEf+netoTr)+'</span></div>'
+        + '</div>';
     })()}`;
 }
 
