@@ -25,7 +25,7 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.3.3';
+  const APP_VERSION = '2.3.4';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // ── Publicar versión (admin) ─────────────
@@ -48,7 +48,7 @@
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
   const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="window.supabase={createClient:()=>{throw new Error('SDK no cargó')}};initApp();"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 /* ── DARK (default) ─────────────────────── */
 :root {
@@ -793,7 +793,7 @@ const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
 // ══ FETCH ═════════════════════════════════════════
 async function fetchAll() {
-  if (!sbOk) { hideSplash(); return; }
+  if (!sbOk) return;
   // Evento activo (no archivado)
   const {data:evts} = await sb.from('events').select('*').order('created_at',{ascending:false});
   if (!evts?.length) return;
@@ -1985,7 +1985,8 @@ function hideSplash() {
   if (s && s.parentNode) { s.style.opacity='0'; setTimeout(()=>{ if(s.parentNode) s.remove(); },500); }
 }
 
-// Timeout movido a initApp()
+// Timeout de seguridad: si en 6 segundos no cargó, ocultar splash igual
+setTimeout(()=>hideSplash(), 6000);
 
 function renderAll() {
   hideSplash();
@@ -2433,87 +2434,47 @@ function renderCuentas() {
   const total   = S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
   const numP    = S.event?.comensales || allP().length;
   const pp      = numP > 0 ? total/numP : 0;
-  const deudores  = allP().filter(p=>bal(p)<-0.5);
+  const deudores   = allP().filter(p=>bal(p)<-0.5);
   const pendientes = deudores.filter(p=>!cobros[p.toLowerCase()]);
   const cobrados   = deudores.filter(p=> cobros[p.toLowerCase()]);
 
-  // Totales por medio
-  const totalCobrado = cobrados.reduce((a,p)=>a+Math.abs(bal(p)),0);
-  const totalEfectivo = cobrados
-    .filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_efectivo')
-    .reduce((a,p)=>a+Math.abs(bal(p)),0);
-  const totalTransferencia = cobrados
-    .filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_transferencia')
-    .reduce((a,p)=>a+Math.abs(bal(p)),0);
-  const totalPendiente = pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0);
+  const totalCobrado      = cobrados.reduce((a,p)=>a+Math.abs(bal(p)),0);
+  const totalEfectivo     = cobrados.filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_efectivo').reduce((a,p)=>a+Math.abs(bal(p)),0);
+  const totalTransferencia= cobrados.filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_transferencia').reduce((a,p)=>a+Math.abs(bal(p)),0);
+  const totalPendiente    = pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0);
 
   const acrHtml = renderAcreedores();
 
   const deuHtml = pendientes.map(p=>{
-    const debe = Math.abs(bal(p));
-    return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
-        '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + '</span>' +
-        '<span style="font-size:12px;color:var(--red)">DEBE ' + fmt(debe) + '</span>' +
-      '</div>' +
-      '<div style="display:flex;gap:7px">' +
-        '<button onclick="registrarCobro('' + p + '',' + debe + ','cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:700;cursor:pointer">💵 EFECTIVO</button>' +
-        '<button onclick="registrarCobro('' + p + '',' + debe + ','cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:700;cursor:pointer">📲 TRANSFERENCIA</button>' +
-      '</div>' +
-    '</div>';
+    const debe=Math.abs(bal(p));
+    return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-weight:700;text-transform:uppercase">${p.toUpperCase()}</span><span style="font-size:12px;color:var(--red)">DEBE ${fmt(debe)}</span></div><div style="display:flex;gap:7px"><button onclick="registrarCobro('${p}',${debe},'cobro_efectivo')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:700;cursor:pointer">💵 EFECTIVO</button><button onclick="registrarCobro('${p}',${debe},'cobro_transferencia')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:13px;font-weight:700;cursor:pointer">📲 TRANSFERENCIA</button></div></div>`;
   }).join('')
   + cobrados.map(p=>{
-    const debe = Math.abs(bal(p));
-    const cobro = cobros[p.toLowerCase()];
-    const esEfectivo = cobro.medio === 'cobro_efectivo';
-    return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center">' +
-        '<span style="font-weight:700;text-decoration:line-through;color:var(--muted);text-transform:uppercase">' + p.toUpperCase() + '</span>' +
-        '<span style="font-size:12px;color:var(--green)">✅ ' + (esEfectivo?'💵 EFECTIVO':'📲 TRANSF.') + ' — ' + fmt(debe) + '</span>' +
-      '</div>' +
-    '</div>';
+    const debe=Math.abs(bal(p)); const cobro=cobros[p.toLowerCase()];
+    const esEfectivo=cobro.medio==='cobro_efectivo';
+    return `<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:700;text-decoration:line-through;color:var(--muted);text-transform:uppercase">${p.toUpperCase()}</span><span style="font-size:12px;color:var(--green)">✅ ${esEfectivo?'💵 EFECTIVO':'📲 TRANSF.'} — ${fmt(debe)}</span></div></div>`;
   }).join('');
 
-  el.innerHTML =
-    // Resumen total
-    '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">' + numP + '</span></div>' +
-      '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
-    '</div>' +
-    acrHtml +
-    '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div>' +
-    '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">' +
-      (deuHtml || '<div style="padding:12px;text-align:center;color:var(--green)">✅ TODOS SALDADOS</div>') +
-    '</div>' +
-    // Pie con totales por medio
-    '<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)">' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
-        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">💵 COBRADO EFECTIVO</span>' +
-        '<span style="font-weight:700;color:var(--green)">' + fmt(totalEfectivo) + '</span>' +
-      '</div>' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
-        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">📲 COBRADO TRANSFERENCIA</span>' +
-        '<span style="font-weight:700;color:var(--club1)">' + fmt(totalTransferencia) + '</span>' +
-      '</div>' +
-      '<div style="height:1px;background:var(--rim);margin:4px 0 6px"></div>' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
-        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL COBRADO</span>' +
-        '<span style="font-weight:700;color:var(--green)">' + fmt(totalCobrado) + '</span>' +
-      '</div>' +
-      '<div style="display:flex;justify-content:space-between">' +
-        '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span>' +
-        '<span style="font-weight:700;color:' + (pendientes.length>0?'var(--red)':'var(--green)') + '">' + (pendientes.length>0?fmt(totalPendiente):'✅ TODO COBRADO') + '</span>' +
-      '</div>' +
-    '</div>';
+  el.innerHTML = `
+    <div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">${fmt(total)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">${numP}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">${fmt(pp)}</span></div>
+    </div>
+    ${acrHtml}
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div>
+    <div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">${deuHtml||'<div style="padding:12px;text-align:center;color:var(--green)">✅ TODOS SALDADOS</div>'}</div>
+    <div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">💵 EFECTIVO COBRADO</span><span style="font-weight:700;color:var(--green)">${fmt(totalEfectivo)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">📲 TRANSFERENCIAS COBRADAS</span><span style="font-weight:700;color:var(--club1)">${fmt(totalTransferencia)}</span></div>
+      <div style="height:1px;background:var(--rim);margin:4px 0 6px"></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL COBRADO</span><span style="font-weight:700;color:var(--green)">${fmt(totalCobrado)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span><span style="font-weight:700;color:${pendientes.length>0?'var(--red)':'var(--green)'}">${pendientes.length>0?fmt(totalPendiente):'✅ TODO COBRADO'}</span></div>
+    </div>`;
 }
 
 // ══ INIT ══════════════════════════════════════════
-window.initApp = function() {
-  // Forzar hideSplash después de 3s pase lo que pase
-  setTimeout(()=>hideSplash(), 3000);
-
-  if (me) {
+if (me) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('uav').textContent=me[0].toUpperCase();
@@ -2527,18 +2488,308 @@ window.initApp = function() {
     .catch(e=>{ console.error('fetchAll error:',e); hideSplash(); renderAll(); });
   subscribe();
   startAutoRefresh();
-  } else {
-    buildLogin();
-  }
-};
-
-// Llamar initApp cuando el DOM esté listo
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initApp);
 } else {
-  initApp();
+  buildLogin();
 }
 </script>
+  <script>
 
+// ══ MUNDIAL SUB-TABS ══════════════════════════════════════
+function setMundialTab(tab) {
+  ['grupos','llaves','fechas'].forEach(t => {
+    const btn = document.getElementById('mtab-'+t);
+    const sub = document.getElementById('msub-'+t);
+    const active = t === tab;
+    if (btn) { btn.style.borderBottomColor = active ? 'var(--fire)' : 'transparent'; btn.style.color = active ? 'var(--fire)' : 'var(--muted)'; }
+    if (sub) sub.style.display = active ? 'block' : 'none';
+  });
+  if (tab === 'llaves')  renderLlaves();
+  if (tab === 'fechas')  renderFechas();
+}
+
+// ── Llaves / Bracket ──────────────────────────────────────
+// Cruces oficiales del Mundial 2026 (formato FIFA)
+// Fase de grupos: 12 grupos, clasifican 1°, 2° y 8 mejores 3°
+// Octavos: 32 equipos
+const LLAVES = {
+  octavos: [
+    { id:'O1', partido:'1A', local:'1° Grupo A', visita:'2° Grupo B' },
+    { id:'O2', partido:'2A', local:'1° Grupo C', visita:'2° Grupo D' },
+    { id:'O3', partido:'3A', local:'1° Grupo E', visita:'2° Grupo F' },
+    { id:'O4', partido:'4A', local:'1° Grupo G', visita:'2° Grupo H' },
+    { id:'O5', partido:'5A', local:'1° Grupo B', visita:'2° Grupo A' },
+    { id:'O6', partido:'6A', local:'1° Grupo D', visita:'2° Grupo C' },
+    { id:'O7', partido:'7A', local:'1° Grupo F', visita:'2° Grupo E' },
+    { id:'O8', partido:'8A', local:'1° Grupo H', visita:'2° Grupo G' },
+    { id:'O9', partido:'1B', local:'1° Grupo I', visita:'2° Grupo J' },
+    { id:'O10',partido:'2B', local:'1° Grupo K', visita:'2° Grupo L' },
+    { id:'O11',partido:'3B', local:'1° Grupo J', visita:'2° Grupo I' },
+    { id:'O12',partido:'4B', local:'1° Grupo L', visita:'2° Grupo K' },
+    { id:'O13',partido:'5B', local:'Mejor 3° (A/B/C/D)', visita:'Mejor 3° (E/F/G/H)' },
+    { id:'O14',partido:'6B', local:'Mejor 3° (I/J/K/L)', visita:'Mejor 3° (A/B/C/D)' },
+    { id:'O15',partido:'7B', local:'Mejor 3° (E/F/G/H)', visita:'Mejor 3° (I/J/K/L)' },
+    { id:'O16',partido:'8B', local:'Mejor 3° restante', visita:'Mejor 3° restante' },
+  ],
+  cuartos: [
+    { id:'Q1', local:'G. O1', visita:'G. O2' },
+    { id:'Q2', local:'G. O3', visita:'G. O4' },
+    { id:'Q3', local:'G. O5', visita:'G. O6' },
+    { id:'Q4', local:'G. O7', visita:'G. O8' },
+    { id:'Q5', local:'G. O9', visita:'G. O10' },
+    { id:'Q6', local:'G. O11', visita:'G. O12' },
+    { id:'Q7', local:'G. O13', visita:'G. O14' },
+    { id:'Q8', local:'G. O15', visita:'G. O16' },
+  ],
+  semis: [
+    { id:'S1', local:'G. Q1', visita:'G. Q2' },
+    { id:'S2', local:'G. Q3', visita:'G. Q4' },
+    { id:'S3', local:'G. Q5', visita:'G. Q6' },
+    { id:'S4', local:'G. Q7', visita:'G. Q8' },
+  ],
+  final4: [
+    { id:'F1', local:'G. S1', visita:'G. S2' },
+    { id:'F2', local:'G. S3', visita:'G. S4' },
+  ],
+  final: { id:'FINAL', local:'G. F1', visita:'G. F2' },
+};
+
+function matchCard(m, fase) {
+  const colors = { octavos:'var(--blue)', cuartos:'var(--club1)', semis:'var(--ember)', final4:'var(--fire)', final:'var(--club2)' };
+  const color = colors[fase] || 'var(--muted)';
+  const local   = m.local   || '?';
+  const visita  = m.visita  || '?';
+  const goles_l = m.goles_l !== undefined ? m.goles_l : '';
+  const goles_v = m.goles_v !== undefined ? m.goles_v : '';
+  const jugado  = goles_l !== '' && goles_v !== '';
+  return '<div style="background:var(--smoke);border:1px solid var(--rim);border-radius:10px;overflow:hidden;margin-bottom:6px">' +
+    '<div style="height:3px;background:'+color+'"></div>' +
+    '<div style="padding:8px 10px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:11px;font-weight:700;color:'+(jugado&&parseInt(goles_l)>parseInt(goles_v)?'var(--green)':'var(--text)')+';text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+local+'</div>' +
+          '<div style="font-size:9px;color:var(--muted);margin-top:1px">LOCAL</div>' +
+        '</div>' +
+        '<div style="font-family:Bebas Neue,cursive;font-size:'+(jugado?'22':'16')+'px;color:var(--muted);text-align:center;min-width:40px">'+(jugado?goles_l+' - '+goles_v:'VS')+'</div>' +
+        '<div style="flex:1;min-width:0;text-align:right">' +
+          '<div style="font-size:11px;font-weight:700;color:'+(jugado&&parseInt(goles_v)>parseInt(goles_l)?'var(--green)':'var(--text)')+';text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+visita+'</div>' +
+          '<div style="font-size:9px;color:var(--muted);margin-top:1px">VISITANTE</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderLlaves() {
+  const el = document.getElementById('mundial-llaves');
+  if (!el) return;
+
+  const seccion = (titulo, partidos, fase) =>
+    '<div class="sh" style="margin-top:12px">'+titulo+'</div>' +
+    partidos.map(m => matchCard(m, fase)).join('');
+
+  el.innerHTML =
+    '<div style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.2);border-radius:12px;padding:10px 12px;margin-bottom:14px;text-align:center">' +
+      '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Los cruces se actualizan cuando termine la fase de grupos</div>' +
+      '<div style="font-size:12px;color:var(--fire);font-weight:700;margin-top:4px">FASE DE GRUPOS: 11 JUN — 2 JUL 2026</div>' +
+    '</div>' +
+    seccion('⚔️ OCTAVOS DE FINAL (3–6 JUL)', LLAVES.octavos.slice(0,8), 'octavos') +
+    seccion('⚔️ OCTAVOS — ZONA B (3–6 JUL)', LLAVES.octavos.slice(8), 'octavos') +
+    seccion('🔵 CUARTOS DE FINAL (9–12 JUL)', LLAVES.cuartos, 'cuartos') +
+    seccion('🟡 SEMIFINALES (15–16 JUL)', LLAVES.semis, 'semis') +
+    seccion('🔥 SEMIFINALES ZONA B (15–16 JUL)', LLAVES.final4, 'final4') +
+    '<div class="sh" style="margin-top:12px">🏆 FINAL (19 JUL — METLIFE STADIUM)</div>' +
+    matchCard(LLAVES.final, 'final');
+}
+
+// ── Fechas clave ──────────────────────────────────────────
+const FECHAS_MUNDIAL = [
+  { fecha:'11 JUN 2026', emoji:'🎉', titulo:'INICIO DEL MUNDIAL', desc:'Ciudad de México — Inauguración', tipo:'key' },
+  { fecha:'11–30 JUN 2026', emoji:'🌍', titulo:'FASE DE GRUPOS', desc:'12 grupos · 3 partidos c/u · 48 equipos', tipo:'fase' },
+  { fecha:'1–2 JUL 2026', emoji:'📊', titulo:'DEFINICIÓN MEJORES 3°', desc:'Se definen los 8 mejores terceros clasificados', tipo:'info' },
+  { fecha:'3–6 JUL 2026', emoji:'⚔️', titulo:'OCTAVOS DE FINAL', desc:'32 equipos · 16 partidos · Eliminación directa', tipo:'fase' },
+  { fecha:'9–12 JUL 2026', emoji:'🔵', titulo:'CUARTOS DE FINAL', desc:'16 equipos · 8 partidos', tipo:'fase' },
+  { fecha:'15–16 JUL 2026', emoji:'🟡', titulo:'SEMIFINALES', desc:'8 equipos · 4 partidos', tipo:'fase' },
+  { fecha:'18 JUL 2026', emoji:'🥉', titulo:'TERCER PUESTO', desc:'MetLife Stadium, Nueva Jersey', tipo:'info' },
+  { fecha:'19 JUL 2026', emoji:'🏆', titulo:'GRAN FINAL', desc:'MetLife Stadium, Nueva Jersey · Nueva York', tipo:'key' },
+];
+
+const SEDES_MUNDIAL = [
+  { pais:'🇲🇽', ciudad:'Ciudad de México', estadio:'Estadio Azteca', cap:'87.500' },
+  { pais:'🇲🇽', ciudad:'Guadalajara', estadio:'Estadio Akron', cap:'49.850' },
+  { pais:'🇲🇽', ciudad:'Monterrey', estadio:'Estadio BBVA', cap:'53.500' },
+  { pais:'🇺🇸', ciudad:'Nueva York/Nueva Jersey', estadio:'MetLife Stadium', cap:'82.500' },
+  { pais:'🇺🇸', ciudad:'Los Ángeles', estadio:'SoFi Stadium', cap:'70.240' },
+  { pais:'🇺🇸', ciudad:'Dallas', estadio:'AT&T Stadium', cap:'80.000' },
+  { pais:'🇺🇸', ciudad:'San Francisco', estadio:'Levi's Stadium', cap:'68.500' },
+  { pais:'🇺🇸', ciudad:'Miami', estadio:'Hard Rock Stadium', cap:'64.767' },
+  { pais:'🇺🇸', ciudad:'Seattle', estadio:'Lumen Field', cap:'72.000' },
+  { pais:'🇺🇸', ciudad:'Boston', estadio:'Gillette Stadium', cap:'65.878' },
+  { pais:'🇺🇸', ciudad:'Kansas City', estadio:'Arrowhead Stadium', cap:'76.416' },
+  { pais:'🇺🇸', ciudad:'Atlanta', estadio:'Mercedes-Benz Stadium', cap:'71.000' },
+  { pais:'🇺🇸', ciudad:'Filadelfia', estadio:'Lincoln Financial Field', cap:'69.176' },
+  { pais:'🇨🇦', ciudad:'Toronto', estadio:'BMO Field', cap:'45.000' },
+  { pais:'🇨🇦', ciudad:'Vancouver', estadio:'BC Place', cap:'54.500' },
+  { pais:'🇺🇸', ciudad:'Houston', estadio:'NRG Stadium', cap:'72.220' },
+];
+
+function renderFechas() {
+  const el = document.getElementById('mundial-fechas');
+  if (!el) return;
+  el.innerHTML =
+    '<div class="sh">📅 CALENDARIO DE FASES</div>' +
+    '<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">' +
+    FECHAS_MUNDIAL.map((f,i) => {
+      const bg = f.tipo==='key' ? 'rgba(245,197,24,.06)' : f.tipo==='fase' ? 'rgba(91,184,232,.04)' : 'transparent';
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;'+(i<FECHAS_MUNDIAL.length-1?'border-bottom:1px solid var(--rim)':'')+';background:'+bg+'">' +
+        '<div style="font-size:20px;margin-top:2px">'+f.emoji+'</div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase">'+f.titulo+'</div>' +
+          '<div style="font-size:10px;color:var(--fire);font-weight:600;margin:1px 0">'+f.fecha+'</div>' +
+          '<div style="font-size:10px;color:var(--muted)">'+f.desc+'</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>' +
+    '<div class="sh">🏟️ LAS 16 SEDES</div>' +
+    '<div class="card" style="padding:0;overflow:hidden">' +
+    SEDES_MUNDIAL.map((s,i) => '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;'+(i<SEDES_MUNDIAL.length-1?'border-bottom:1px solid var(--rim)':'')+'">' +
+      '<span style="font-size:20px">'+s.pais+'</span>' +
+      '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text)">'+s.ciudad+'</div>' +
+      '<div style="font-size:10px;color:var(--muted)">'+s.estadio+'</div></div>' +
+      '<div style="font-size:11px;color:var(--muted);text-align:right">'+s.cap+'<br><span style="font-size:9px">cap.</span></div>' +
+    '</div>').join('') + '</div>';
+}
+
+// ══ SPORTS ════════════════════════════════════════════════
+const SPORTS_API = 'https://asado-sports-api.onrender.com';
+let sportsLoaded = { mundial: false, f1: false };
+
+
+
+function initMundial() {
+  mundialCountdown();
+  setInterval(mundialCountdown, 60000);
+  if (!sportsLoaded.mundial) {
+    renderGruposLocal(); // instantáneo, sin fetch
+    sportsLoaded.mundial = true;
+  }
+}
+
+function mundialCountdown() {
+  const el = document.getElementById('mundial-countdown');
+  if (!el) return;
+  const target = new Date('2026-06-11T00:00:00-03:00');
+  const diff = target - new Date();
+  if (diff <= 0) { el.textContent = '🔥 ¡ARRANCÓ EL MUNDIAL!'; return; }
+  const dias  = Math.floor(diff / 86400000);
+  const horas = Math.floor((diff % 86400000) / 3600000);
+  const mins  = Math.floor((diff % 3600000) / 60000);
+  el.textContent = String(dias) + 'D ' + String(horas).padStart(2,'0') + 'H ' + String(mins).padStart(2,'0') + 'M';
+}
+
+const BANDERAS = {
+  // Con tildes
+  'México':'🇲🇽','Jamaica':'🇯🇲','Honduras':'🇭🇳','Ecuador':'🇪🇨',
+  'Estados Unidos':'🇺🇸','Panamá':'🇵🇦','Bosnia y Herzegovina':'🇧🇦','Ghana':'🇬🇭',
+  'Canadá':'🇨🇦','Trinidad y Tobago':'🇹🇹','Países Bajos':'🇳🇱','Noruega':'🇳🇴',
+  'Brasil':'🇧🇷','Japón':'🇯🇵','Suiza':'🇨🇭','Camerún':'🇨🇲',
+  'Argentina':'🇦🇷','Hungría':'🇭🇺','Marruecos':'🇲🇦',
+  'España':'🇪🇸','Senegal':'🇸🇳','Serbia':'🇷🇸','Nueva Zelanda':'🇳🇿',
+  // Sin tildes (backend)
+  'Mexico':'🇲🇽','Panama':'🇵🇦','Canada':'🇨🇦','Paises Bajos':'🇳🇱',
+  'Japon':'🇯🇵','Camerun':'🇨🇲','Hungria':'🇭🇺','Espana':'🇪🇸',
+  'Belgica':'🇧🇪','Tunez':'🇹🇳','Sudafrica':'🇿🇦','Iran':'🇮🇷',
+  'Alemania':'🇩🇪','Australia':'🇦🇺','Arabia Saudita':'🇸🇦','Costa Rica':'🇨🇷',
+  'Portugal':'🇵🇹','Eslovenia':'🇸🇮','Ucrania':'🇺🇦','Sudáfrica':'🇿🇦',
+  'Francia':'🇫🇷','Bélgica':'🇧🇪','R. Checa':'🇨🇿','Haití':'🇭🇹',
+  'Inglaterra':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Túnez':'🇹🇳','Eslovaquia':'🇸🇰','Kenia':'🇰🇪',
+  'Colombia':'🇨🇴','Rumania':'🇷🇴',"Côte d'Ivoire":'🇨🇮','Togo':'🇹🇬',
+  'Uruguay':'🇺🇾','Cuba':'🇨🇺','Qatar':'🇶🇦','China':'🇨🇳',
+};
+
+function loadMundial() {
+  // Grupos hardcodeados: carga instantánea, sin fetch
+  renderGruposLocal();
+  sportsLoaded.mundial = true;
+}
+
+function renderGruposLocal() {
+  const GRUPOS_LOCAL = {
+    A:['Mexico','Jamaica','Honduras','Ecuador'],
+    B:['Estados Unidos','Panama','Bosnia y Herzegovina','Ghana'],
+    C:['Canada','Trinidad y Tobago','Paises Bajos','Noruega'],
+    D:['Brasil','Japon','Suiza','Camerun'],
+    E:['Argentina','Marruecos','Hungria','Arabia Saudita'],
+    F:['Espana','Senegal','Serbia','Nueva Zelanda'],
+    G:['Alemania','Colombia','Costa de Marfil','Eslovaquia'],
+    H:['Portugal','Eslovenia','Ucrania','Sudafrica'],
+    I:['Francia','Belgica','Rep. Checa','Haiti'],
+    J:['Inglaterra','Tunez','Costa Rica','Kenia'],
+    K:['Uruguay','Rumania','Egipto','Togo'],
+    L:['Iran','Cuba','Qatar','China'],
+  };
+  const grupos = Object.entries(GRUPOS_LOCAL).map(([k,v]) => ({
+    letra:k, grupo:'Grupo '+k,
+    equipos: v.map(e => ({nombre:e,pts:0,pj:0,pg:0,pe:0,pp:0,gf:0,gc:0}))
+  }));
+  renderGrupos(grupos, 'static');
+}
+
+function renderGrupos(grupos, source) {
+  const el = document.getElementById('mundial-grupos');
+  if (!el) return;
+  const badge = source==='static'
+    ? '<span style="font-size:9px;background:rgba(245,197,24,.15);color:var(--ember);border:1px solid var(--ember);border-radius:4px;padding:2px 5px">SORTEO</span>'
+    : '<span style="font-size:9px;background:rgba(39,174,96,.15);color:var(--green);border:1px solid var(--green);border-radius:4px;padding:2px 5px">LIVE</span>';
+  el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+    grupos.map(function(g) {
+      var letra   = g.letra || (g.grupo||'').replace('Grupo ','');
+      var equipos = g.equipos || [];
+      return '<div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;overflow:hidden">' +
+        '<div style="background:linear-gradient(135deg,var(--club1),var(--club2));padding:6px 10px;display:flex;align-items:center;justify-content:space-between">' +
+          '<span style="font-family:Bebas Neue,cursive;font-size:15px;color:#111;letter-spacing:1px">GRUPO ' + letra + '</span>' +
+          badge +
+        '</div>' +
+        equipos.map(function(eq,i) {
+          var nombre = eq.nombre||eq.name||'';
+          var pts    = eq.pts||eq.points||0;
+          var pj     = eq.pj||eq.playedGames||0;
+          var flag   = BANDERAS[nombre]||'🏳️';
+          var isArg  = nombre.indexOf('Argentina')>=0;
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;' +
+            (i<equipos.length-1?'border-bottom:1px solid var(--rim)':'') +
+            (isArg?';background:rgba(91,184,232,.08)':'') + '">' +
+            '<div style="display:flex;align-items:center;gap:5px">' +
+              '<span style="font-size:10px;color:var(--muted);width:10px">' + (i+1) + '</span>' +
+              '<span style="font-size:14px">' + flag + '</span>' +
+              '<span style="font-size:10px;font-weight:700;color:' + (isArg?'var(--club1)':'var(--text)') + ';text-transform:uppercase">' + nombre + '</span>' +
+            '</div>' +
+            '<span style="font-family:Bebas Neue,cursive;font-size:13px;color:' + (pts>0?'var(--green)':'var(--muted)') + '">' + pts + '</span>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }).join('') + '</div>';
+}
+
+const F1_COLORES = {
+  'McLaren':'#F47600','Red Bull Racing':'#4781D7','Ferrari':'#ED1131',
+  'Mercedes':'#00D7B6','Aston Martin':'#229971','Alpine':'#00A1E8',
+  'Williams':'#1868DB','Racing Bulls':'#6C98FF','Haas F1 Team':'#B6BABD',
+  'Audi':'#F50537','Cadillac':'#C8102E',
+};
+
+
+
+
+
+
+
+    // Service Worker para cache-busting automático
+    if ('serviceWorker' in navigator) {
+      // Desregistrar cualquier SW viejo para evitar que sirva cache stale
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(reg => reg.unregister());
+      });
+    }
+  </script>
 </body>
 </html>
