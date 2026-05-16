@@ -25,7 +25,7 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.3.2';
+  const APP_VERSION = '2.3.3';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // ── Publicar versión (admin) ─────────────
@@ -793,7 +793,7 @@ const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
 // ══ FETCH ═════════════════════════════════════════
 async function fetchAll() {
-  if (!sbOk) return;
+  if (!sbOk) { hideSplash(); return; }
   // Evento activo (no archivado)
   const {data:evts} = await sb.from('events').select('*').order('created_at',{ascending:false});
   if (!evts?.length) return;
@@ -1985,8 +1985,8 @@ function hideSplash() {
   if (s && s.parentNode) { s.style.opacity='0'; setTimeout(()=>{ if(s.parentNode) s.remove(); },500); }
 }
 
-// Timeout de seguridad: si en 6 segundos no cargó, ocultar splash igual
-setTimeout(()=>hideSplash(), 6000);
+// Timeout de seguridad: si en 4 segundos no cargó, ocultar splash igual
+setTimeout(()=>hideSplash(), 4000);
 
 function renderAll() {
   hideSplash();
