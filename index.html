@@ -25,16 +25,52 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.2.5';
+  const APP_VERSION = '2.3.0';
+  localStorage.setItem('asado_app_version', APP_VERSION);
 
-  // Auto-reload si hay nueva versión
-  const savedVersion = localStorage.getItem('asado_app_version');
-  if (savedVersion && savedVersion !== APP_VERSION) {
-    localStorage.setItem('asado_app_version', APP_VERSION);
-    window.location.reload(true); // force reload desde server
-  } else if (!savedVersion) {
-    localStorage.setItem('asado_app_version', APP_VERSION);
+  // Auto-update: chequea versión remota en Supabase config
+  // El primero que abre la nueva versión escribe la versión en Supabase
+  // Cualquier otro que abra con versión vieja → recarga automática
+  async function checkRemoteVersion() {
+    try {
+      const url = 'https://tppffkngfncybwkmmbjc.supabase.co';
+      const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
+      const r = await fetch(url+'/rest/v1/app_config?key=eq.appVersion&select=value', {
+        headers: {'apikey': key, 'Authorization': 'Bearer '+key}
+      });
+      const data = await r.json();
+      if (!data || !data.length) {
+        // Primera vez: crear el registro con la versión actual
+        await fetch(url+'/rest/v1/app_config', {
+          method: 'POST',
+          headers: {'apikey': key, 'Authorization': 'Bearer '+key, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'},
+          body: JSON.stringify({key: 'appVersion', value: APP_VERSION})
+        });
+        return;
+      }
+      const remoteVersion = data[0].value;
+      if (remoteVersion !== APP_VERSION) {
+        // Versión local distinta a la remota → tengo versión vieja, recargar
+        window.location.reload(true);
+      }
+    } catch(e) { /* sin internet, no pasa nada */ }
   }
+
+  // Publicar nueva versión: si soy el primero con esta versión, la escribo en Supabase
+  async function publishVersion() {
+    try {
+      const url = 'https://tppffkngfncybwkmmbjc.supabase.co';
+      const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
+      await fetch(url+'/rest/v1/app_config', {
+        method: 'POST',
+        headers: {'apikey': key, 'Authorization': 'Bearer '+key, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'},
+        body: JSON.stringify({key: 'appVersion', value: APP_VERSION})
+      });
+    } catch(e) {}
+  }
+
+  // Ejecutar: primero chequear, luego publicar
+  checkRemoteVersion().then(() => publishVersion());
 
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
@@ -2701,18 +2737,10 @@ const BANDERAS = {
   'Uruguay':'🇺🇾','Cuba':'🇨🇺','Qatar':'🇶🇦','China':'🇨🇳',
 };
 
-async function loadMundial() {
-  // Mostrar grupos locales inmediatamente (no esperar backend)
+function loadMundial() {
+  // Grupos hardcodeados: carga instantánea, sin fetch
   renderGruposLocal();
   sportsLoaded.mundial = true;
-  // Intentar actualizar desde backend en background (para cuando empiece el torneo)
-  try {
-    const r = await fetch(SPORTS_API+'/mundial/grupos', {signal: AbortSignal.timeout(8000)});
-    const json = await r.json();
-    if (json.ok && json.source === 'live') {
-      renderGrupos(json.data, json.source); // Solo actualiza si hay datos en vivo
-    }
-  } catch(e) { /* backend dormido, no pasa nada */ }
 }
 
 function renderGruposLocal() {
