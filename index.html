@@ -2428,7 +2428,7 @@ function registrarCobro(persona, monto, medio) {
 
 // ══ CIERRE DE CUENTAS ═════════════════════════════════════
 function renderCuentas() {
-  const el = document.getElementById('cuentas-content');
+  const el = document.getElementById('cuentas-resumen');
   if (!el) return;
   const cobros  = getCobros();
   const total   = S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
