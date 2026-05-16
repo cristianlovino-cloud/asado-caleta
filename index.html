@@ -25,7 +25,7 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.3.0';
+  const APP_VERSION = '2.3.1';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Auto-update: chequea versión remota en Supabase config
@@ -594,30 +594,15 @@ body {
   <!-- MUNDIAL -->
   <div class="panel" id="panel-mundial">
     <!-- Countdown -->
-    <div style="background:linear-gradient(135deg,rgba(91,184,232,.12),rgba(245,197,24,.12));border:1px solid rgba(91,184,232,.3);border-radius:16px;padding:16px;margin-bottom:12px;text-align:center">
+    <div style="background:linear-gradient(135deg,rgba(91,184,232,.12),rgba(245,197,24,.12));border:1px solid rgba(91,184,232,.3);border-radius:16px;padding:16px;margin-bottom:14px;text-align:center">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:4px">FIFA WORLD CUP 2026</div>
       <div style="font-size:12px;color:var(--text);margin-bottom:6px">🇲🇽 México · 🇺🇸 USA · 🇨🇦 Canadá · 48 equipos</div>
       <div id="mundial-countdown" style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--club2);letter-spacing:2px">CARGANDO...</div>
       <div style="font-size:11px;color:var(--muted);margin-top:2px">11 JUN 2026 — 19 JUL 2026</div>
     </div>
-    <!-- Sub-tabs Mundial -->
-    <div style="display:flex;gap:0;margin:0 -14px 14px;border-bottom:1px solid var(--rim);overflow-x:auto;scrollbar-width:none">
-      <button id="mtab-grupos"  onclick="setMundialTab('grupos')"  style="flex:1;min-width:80px;padding:10px 6px;background:transparent;border:none;border-bottom:3px solid var(--fire);color:var(--fire);font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1.5px;cursor:pointer;white-space:nowrap">🌍 GRUPOS</button>
-      <button id="mtab-llaves"  onclick="setMundialTab('llaves')"  style="flex:1;min-width:80px;padding:10px 6px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--muted);font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1.5px;cursor:pointer;white-space:nowrap">🏆 LLAVES</button>
-      <button id="mtab-fechas"  onclick="setMundialTab('fechas')"  style="flex:1;min-width:80px;padding:10px 6px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--muted);font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1.5px;cursor:pointer;white-space:nowrap">📅 FECHAS</button>
-    </div>
-    <!-- Grupos -->
-    <div id="msub-grupos">
-      <div id="mundial-grupos"><div style="text-align:center;padding:20px;color:var(--muted)">Cargando grupos...</div></div>
-    </div>
-    <!-- Llaves -->
-    <div id="msub-llaves" style="display:none">
-      <div id="mundial-llaves"></div>
-    </div>
-    <!-- Fechas clave -->
-    <div id="msub-fechas" style="display:none">
-      <div id="mundial-fechas"></div>
-    </div>
+    <!-- Grupos directo, sin sub-tabs -->
+    <div class="sh">🌍 LOS 12 GRUPOS</div>
+    <div id="mundial-grupos"></div>
   </div>
 
   <!-- STATS -->
@@ -2719,7 +2704,10 @@ let sportsLoaded = { mundial: false, f1: false };
 function initMundial() {
   mundialCountdown();
   setInterval(mundialCountdown, 60000);
-  if (!sportsLoaded.mundial) loadMundial();
+  if (!sportsLoaded.mundial) {
+    renderGruposLocal(); // instantáneo, sin fetch
+    sportsLoaded.mundial = true;
+  }
 }
 
 function mundialCountdown() {
