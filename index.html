@@ -541,15 +541,30 @@ body {
   <!-- MUNDIAL -->
   <div class="panel" id="panel-mundial">
     <!-- Countdown -->
-    <div style="background:linear-gradient(135deg,rgba(91,184,232,.12),rgba(245,197,24,.12));border:1px solid rgba(91,184,232,.3);border-radius:16px;padding:16px;margin-bottom:14px;text-align:center">
+    <div style="background:linear-gradient(135deg,rgba(91,184,232,.12),rgba(245,197,24,.12));border:1px solid rgba(91,184,232,.3);border-radius:16px;padding:16px;margin-bottom:12px;text-align:center">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:4px">FIFA WORLD CUP 2026</div>
-      <div style="font-size:13px;color:var(--text);margin-bottom:8px">🇲🇽 México · 🇺🇸 USA · 🇨🇦 Canadá · 48 equipos</div>
+      <div style="font-size:12px;color:var(--text);margin-bottom:6px">🇲🇽 México · 🇺🇸 USA · 🇨🇦 Canadá · 48 equipos</div>
       <div id="mundial-countdown" style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--club2);letter-spacing:2px">CARGANDO...</div>
       <div style="font-size:11px;color:var(--muted);margin-top:2px">11 JUN 2026 — 19 JUL 2026</div>
     </div>
+    <!-- Sub-tabs Mundial -->
+    <div style="display:flex;gap:0;margin:0 -14px 14px;border-bottom:1px solid var(--rim);overflow-x:auto;scrollbar-width:none">
+      <button id="mtab-grupos"  onclick="setMundialTab('grupos')"  style="flex:1;min-width:80px;padding:10px 6px;background:transparent;border:none;border-bottom:3px solid var(--fire);color:var(--fire);font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1.5px;cursor:pointer;white-space:nowrap">🌍 GRUPOS</button>
+      <button id="mtab-llaves"  onclick="setMundialTab('llaves')"  style="flex:1;min-width:80px;padding:10px 6px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--muted);font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1.5px;cursor:pointer;white-space:nowrap">🏆 LLAVES</button>
+      <button id="mtab-fechas"  onclick="setMundialTab('fechas')"  style="flex:1;min-width:80px;padding:10px 6px;background:transparent;border:none;border-bottom:3px solid transparent;color:var(--muted);font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1.5px;cursor:pointer;white-space:nowrap">📅 FECHAS</button>
+    </div>
     <!-- Grupos -->
-    <div class="sh">🌍 LOS 12 GRUPOS</div>
-    <div id="mundial-grupos"><div style="text-align:center;padding:20px;color:var(--muted)">Cargando grupos...</div></div>
+    <div id="msub-grupos">
+      <div id="mundial-grupos"><div style="text-align:center;padding:20px;color:var(--muted)">Cargando grupos...</div></div>
+    </div>
+    <!-- Llaves -->
+    <div id="msub-llaves" style="display:none">
+      <div id="mundial-llaves"></div>
+    </div>
+    <!-- Fechas clave -->
+    <div id="msub-fechas" style="display:none">
+      <div id="mundial-fechas"></div>
+    </div>
   </div>
 
   <!-- STATS -->
@@ -2476,6 +2491,171 @@ if (me) {
 }
 </script>
   <script>
+
+// ══ MUNDIAL SUB-TABS ══════════════════════════════════════
+function setMundialTab(tab) {
+  ['grupos','llaves','fechas'].forEach(t => {
+    const btn = document.getElementById('mtab-'+t);
+    const sub = document.getElementById('msub-'+t);
+    const active = t === tab;
+    if (btn) { btn.style.borderBottomColor = active ? 'var(--fire)' : 'transparent'; btn.style.color = active ? 'var(--fire)' : 'var(--muted)'; }
+    if (sub) sub.style.display = active ? 'block' : 'none';
+  });
+  if (tab === 'llaves')  renderLlaves();
+  if (tab === 'fechas')  renderFechas();
+}
+
+// ── Llaves / Bracket ──────────────────────────────────────
+// Cruces oficiales del Mundial 2026 (formato FIFA)
+// Fase de grupos: 12 grupos, clasifican 1°, 2° y 8 mejores 3°
+// Octavos: 32 equipos
+const LLAVES = {
+  octavos: [
+    { id:'O1', partido:'1A', local:'1° Grupo A', visita:'2° Grupo B' },
+    { id:'O2', partido:'2A', local:'1° Grupo C', visita:'2° Grupo D' },
+    { id:'O3', partido:'3A', local:'1° Grupo E', visita:'2° Grupo F' },
+    { id:'O4', partido:'4A', local:'1° Grupo G', visita:'2° Grupo H' },
+    { id:'O5', partido:'5A', local:'1° Grupo B', visita:'2° Grupo A' },
+    { id:'O6', partido:'6A', local:'1° Grupo D', visita:'2° Grupo C' },
+    { id:'O7', partido:'7A', local:'1° Grupo F', visita:'2° Grupo E' },
+    { id:'O8', partido:'8A', local:'1° Grupo H', visita:'2° Grupo G' },
+    { id:'O9', partido:'1B', local:'1° Grupo I', visita:'2° Grupo J' },
+    { id:'O10',partido:'2B', local:'1° Grupo K', visita:'2° Grupo L' },
+    { id:'O11',partido:'3B', local:'1° Grupo J', visita:'2° Grupo I' },
+    { id:'O12',partido:'4B', local:'1° Grupo L', visita:'2° Grupo K' },
+    { id:'O13',partido:'5B', local:'Mejor 3° (A/B/C/D)', visita:'Mejor 3° (E/F/G/H)' },
+    { id:'O14',partido:'6B', local:'Mejor 3° (I/J/K/L)', visita:'Mejor 3° (A/B/C/D)' },
+    { id:'O15',partido:'7B', local:'Mejor 3° (E/F/G/H)', visita:'Mejor 3° (I/J/K/L)' },
+    { id:'O16',partido:'8B', local:'Mejor 3° restante', visita:'Mejor 3° restante' },
+  ],
+  cuartos: [
+    { id:'Q1', local:'G. O1', visita:'G. O2' },
+    { id:'Q2', local:'G. O3', visita:'G. O4' },
+    { id:'Q3', local:'G. O5', visita:'G. O6' },
+    { id:'Q4', local:'G. O7', visita:'G. O8' },
+    { id:'Q5', local:'G. O9', visita:'G. O10' },
+    { id:'Q6', local:'G. O11', visita:'G. O12' },
+    { id:'Q7', local:'G. O13', visita:'G. O14' },
+    { id:'Q8', local:'G. O15', visita:'G. O16' },
+  ],
+  semis: [
+    { id:'S1', local:'G. Q1', visita:'G. Q2' },
+    { id:'S2', local:'G. Q3', visita:'G. Q4' },
+    { id:'S3', local:'G. Q5', visita:'G. Q6' },
+    { id:'S4', local:'G. Q7', visita:'G. Q8' },
+  ],
+  final4: [
+    { id:'F1', local:'G. S1', visita:'G. S2' },
+    { id:'F2', local:'G. S3', visita:'G. S4' },
+  ],
+  final: { id:'FINAL', local:'G. F1', visita:'G. F2' },
+};
+
+function matchCard(m, fase) {
+  const colors = { octavos:'var(--blue)', cuartos:'var(--club1)', semis:'var(--ember)', final4:'var(--fire)', final:'var(--club2)' };
+  const color = colors[fase] || 'var(--muted)';
+  const local   = m.local   || '?';
+  const visita  = m.visita  || '?';
+  const goles_l = m.goles_l !== undefined ? m.goles_l : '';
+  const goles_v = m.goles_v !== undefined ? m.goles_v : '';
+  const jugado  = goles_l !== '' && goles_v !== '';
+  return '<div style="background:var(--smoke);border:1px solid var(--rim);border-radius:10px;overflow:hidden;margin-bottom:6px">' +
+    '<div style="height:3px;background:'+color+'"></div>' +
+    '<div style="padding:8px 10px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:11px;font-weight:700;color:'+(jugado&&parseInt(goles_l)>parseInt(goles_v)?'var(--green)':'var(--text)')+';text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+local+'</div>' +
+          '<div style="font-size:9px;color:var(--muted);margin-top:1px">LOCAL</div>' +
+        '</div>' +
+        '<div style="font-family:Bebas Neue,cursive;font-size:'+(jugado?'22':'16')+'px;color:var(--muted);text-align:center;min-width:40px">'+(jugado?goles_l+' - '+goles_v:'VS')+'</div>' +
+        '<div style="flex:1;min-width:0;text-align:right">' +
+          '<div style="font-size:11px;font-weight:700;color:'+(jugado&&parseInt(goles_v)>parseInt(goles_l)?'var(--green)':'var(--text)')+';text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+visita+'</div>' +
+          '<div style="font-size:9px;color:var(--muted);margin-top:1px">VISITANTE</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderLlaves() {
+  const el = document.getElementById('mundial-llaves');
+  if (!el) return;
+
+  const seccion = (titulo, partidos, fase) =>
+    '<div class="sh" style="margin-top:12px">'+titulo+'</div>' +
+    partidos.map(m => matchCard(m, fase)).join('');
+
+  el.innerHTML =
+    '<div style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.2);border-radius:12px;padding:10px 12px;margin-bottom:14px;text-align:center">' +
+      '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Los cruces se actualizan cuando termine la fase de grupos</div>' +
+      '<div style="font-size:12px;color:var(--fire);font-weight:700;margin-top:4px">FASE DE GRUPOS: 11 JUN — 2 JUL 2026</div>' +
+    '</div>' +
+    seccion('⚔️ OCTAVOS DE FINAL (3–6 JUL)', LLAVES.octavos.slice(0,8), 'octavos') +
+    seccion('⚔️ OCTAVOS — ZONA B (3–6 JUL)', LLAVES.octavos.slice(8), 'octavos') +
+    seccion('🔵 CUARTOS DE FINAL (9–12 JUL)', LLAVES.cuartos, 'cuartos') +
+    seccion('🟡 SEMIFINALES (15–16 JUL)', LLAVES.semis, 'semis') +
+    seccion('🔥 SEMIFINALES ZONA B (15–16 JUL)', LLAVES.final4, 'final4') +
+    '<div class="sh" style="margin-top:12px">🏆 FINAL (19 JUL — METLIFE STADIUM)</div>' +
+    matchCard(LLAVES.final, 'final');
+}
+
+// ── Fechas clave ──────────────────────────────────────────
+const FECHAS_MUNDIAL = [
+  { fecha:'11 JUN 2026', emoji:'🎉', titulo:'INICIO DEL MUNDIAL', desc:'Ciudad de México — Inauguración', tipo:'key' },
+  { fecha:'11–30 JUN 2026', emoji:'🌍', titulo:'FASE DE GRUPOS', desc:'12 grupos · 3 partidos c/u · 48 equipos', tipo:'fase' },
+  { fecha:'1–2 JUL 2026', emoji:'📊', titulo:'DEFINICIÓN MEJORES 3°', desc:'Se definen los 8 mejores terceros clasificados', tipo:'info' },
+  { fecha:'3–6 JUL 2026', emoji:'⚔️', titulo:'OCTAVOS DE FINAL', desc:'32 equipos · 16 partidos · Eliminación directa', tipo:'fase' },
+  { fecha:'9–12 JUL 2026', emoji:'🔵', titulo:'CUARTOS DE FINAL', desc:'16 equipos · 8 partidos', tipo:'fase' },
+  { fecha:'15–16 JUL 2026', emoji:'🟡', titulo:'SEMIFINALES', desc:'8 equipos · 4 partidos', tipo:'fase' },
+  { fecha:'18 JUL 2026', emoji:'🥉', titulo:'TERCER PUESTO', desc:'MetLife Stadium, Nueva Jersey', tipo:'info' },
+  { fecha:'19 JUL 2026', emoji:'🏆', titulo:'GRAN FINAL', desc:'MetLife Stadium, Nueva Jersey · Nueva York', tipo:'key' },
+];
+
+const SEDES_MUNDIAL = [
+  { pais:'🇲🇽', ciudad:'Ciudad de México', estadio:'Estadio Azteca', cap:'87.500' },
+  { pais:'🇲🇽', ciudad:'Guadalajara', estadio:'Estadio Akron', cap:'49.850' },
+  { pais:'🇲🇽', ciudad:'Monterrey', estadio:'Estadio BBVA', cap:'53.500' },
+  { pais:'🇺🇸', ciudad:'Nueva York/Nueva Jersey', estadio:'MetLife Stadium', cap:'82.500' },
+  { pais:'🇺🇸', ciudad:'Los Ángeles', estadio:'SoFi Stadium', cap:'70.240' },
+  { pais:'🇺🇸', ciudad:'Dallas', estadio:'AT&T Stadium', cap:'80.000' },
+  { pais:'🇺🇸', ciudad:'San Francisco', estadio:'Levi's Stadium', cap:'68.500' },
+  { pais:'🇺🇸', ciudad:'Miami', estadio:'Hard Rock Stadium', cap:'64.767' },
+  { pais:'🇺🇸', ciudad:'Seattle', estadio:'Lumen Field', cap:'72.000' },
+  { pais:'🇺🇸', ciudad:'Boston', estadio:'Gillette Stadium', cap:'65.878' },
+  { pais:'🇺🇸', ciudad:'Kansas City', estadio:'Arrowhead Stadium', cap:'76.416' },
+  { pais:'🇺🇸', ciudad:'Atlanta', estadio:'Mercedes-Benz Stadium', cap:'71.000' },
+  { pais:'🇺🇸', ciudad:'Filadelfia', estadio:'Lincoln Financial Field', cap:'69.176' },
+  { pais:'🇨🇦', ciudad:'Toronto', estadio:'BMO Field', cap:'45.000' },
+  { pais:'🇨🇦', ciudad:'Vancouver', estadio:'BC Place', cap:'54.500' },
+  { pais:'🇺🇸', ciudad:'Houston', estadio:'NRG Stadium', cap:'72.220' },
+];
+
+function renderFechas() {
+  const el = document.getElementById('mundial-fechas');
+  if (!el) return;
+  el.innerHTML =
+    '<div class="sh">📅 CALENDARIO DE FASES</div>' +
+    '<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">' +
+    FECHAS_MUNDIAL.map((f,i) => {
+      const bg = f.tipo==='key' ? 'rgba(245,197,24,.06)' : f.tipo==='fase' ? 'rgba(91,184,232,.04)' : 'transparent';
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;'+(i<FECHAS_MUNDIAL.length-1?'border-bottom:1px solid var(--rim)':'')+';background:'+bg+'">' +
+        '<div style="font-size:20px;margin-top:2px">'+f.emoji+'</div>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase">'+f.titulo+'</div>' +
+          '<div style="font-size:10px;color:var(--fire);font-weight:600;margin:1px 0">'+f.fecha+'</div>' +
+          '<div style="font-size:10px;color:var(--muted)">'+f.desc+'</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>' +
+    '<div class="sh">🏟️ LAS 16 SEDES</div>' +
+    '<div class="card" style="padding:0;overflow:hidden">' +
+    SEDES_MUNDIAL.map((s,i) => '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;'+(i<SEDES_MUNDIAL.length-1?'border-bottom:1px solid var(--rim)':'')+'">' +
+      '<span style="font-size:20px">'+s.pais+'</span>' +
+      '<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text)">'+s.ciudad+'</div>' +
+      '<div style="font-size:10px;color:var(--muted)">'+s.estadio+'</div></div>' +
+      '<div style="font-size:11px;color:var(--muted);text-align:right">'+s.cap+'<br><span style="font-size:9px">cap.</span></div>' +
+    '</div>').join('') + '</div>';
+}
 
 // ══ SPORTS ════════════════════════════════════════════════
 const SPORTS_API = 'https://asado-sports-api.onrender.com';
