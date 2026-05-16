@@ -2419,7 +2419,30 @@ async function renderStats() {
 
 
 function getCobros() { try { return JSON.parse(localStorage.getItem('asado_cobros_'+(S.event?.id||0))||'{}'); } catch { return {}; } }
+function getPagosAcr() { try { return JSON.parse(localStorage.getItem('asado_pagos_acr_'+(S.event?.id||0))||'{}'); } catch { return {}; } }
+function savePagosAcr(p) { localStorage.setItem('asado_pagos_acr_'+(S.event?.id||0), JSON.stringify(p)); }
+function registrarPagoAcr(acreedor, monto, medio) {
+  const pagos = getPagosAcr();
+  if (!pagos[acreedor.toLowerCase()]) pagos[acreedor.toLowerCase()] = [];
+  pagos[acreedor.toLowerCase()].push({medio, monto, ts: Date.now()});
+  savePagosAcr(pagos);
+  renderCuentas();
+  toast('✅ Pago registrado a ' + acreedor + '!');
+}
+function limpiarPagoAcr(acreedor) {
+  const pagos = getPagosAcr();
+  delete pagos[acreedor.toLowerCase()];
+  savePagosAcr(pagos);
+  renderCuentas();
+}
 function saveCobros(cobros) { localStorage.setItem('asado_cobros_'+(S.event?.id||0), JSON.stringify(cobros)); }
+function abrirPagoCustom(acreedor, saldoPendiente) {
+  const monto = prompt('Monto a pagar a ' + acreedor + ' (pendiente: $' + Math.round(saldoPendiente).toLocaleString('es-AR') + ')');
+  if (!monto || isNaN(monto)) return;
+  const medio = confirm('¿Efectivo? (Cancelar = Transferencia)') ? 'pago_efectivo' : 'pago_transferencia';
+  registrarPagoAcr(acreedor, parseFloat(monto), medio);
+}
+
 function limpiarCobros() { if(!confirm('¿Limpiar cobros?')) return; localStorage.removeItem('asado_cobros_'+(S.event?.id||0)); renderCuentas(); toast('Cobros limpiados'); }
 function registrarCobro(persona, monto, medio) {
   const cobros = getCobros(); cobros[persona.toLowerCase()] = {medio,monto,ts:Date.now()}; saveCobros(cobros);
@@ -2443,19 +2466,56 @@ function renderCuentas() {
   const totalTransferencia= cobrados.filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_transferencia').reduce((a,p)=>a+Math.abs(bal(p)),0);
   const totalPendiente    = pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0);
 
-  // Acreedores (los que pagaron de más)
+  // Acreedores y liquidación
+  const pagosAcr = getPagosAcr();
   const acreedores = allP().filter(p=>bal(p)>0.5);
+  
+  // Neto del admin (me): lo que cobró menos lo que le debe dar a otros acreedores
+  const miSaldo = bal(me);
+  const totalADarAcr = acreedores.filter(p=>p.toLowerCase()!==me.toLowerCase()).reduce((a,p)=>a+bal(p),0);
+  const netoAdmin = miSaldo > 0 ? miSaldo - Math.abs(totalADarAcr) : 0;
+
   const acrHtml = acreedores.length ? 
+    '<div class="sh" style="margin-bottom:8px">💸 LIQUIDACIÓN — PAGOS A ACREEDORES</div>' +
     '<div style="margin-bottom:12px">' +
-    acreedores.map(p=>{
+    acreedores.map(p => {
       const saldo = bal(p);
-      const otrosDeben = allP().filter(q=>bal(q)<-0.5);
-      const distribHtml = otrosDeben.map(q=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:var(--muted)">${p} → ${q}</span><span style="color:var(--gold)">${fmt(Math.abs(bal(q)))}</span></div>`).join('');
-      return `<div style="background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.2);border-radius:10px;padding:10px 12px;margin-bottom:7px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-          <span style="font-weight:700;text-transform:uppercase">${p.toUpperCase()} <span style="font-size:10px;color:var(--muted)">(PAGÓ DE MÁS)</span></span>
-          <span style="color:var(--green);font-weight:700">+${fmt(saldo)}</span>
+      const esSoAdmin = p.toLowerCase() === me.toLowerCase();
+      const pagosDeEste = pagosAcr[p.toLowerCase()] || [];
+      const totalPagado = pagosDeEste.reduce((a,x)=>a+parseFloat(x.monto),0);
+      const pagadoEfectivo = pagosDeEste.filter(x=>x.medio==='pago_efectivo').reduce((a,x)=>a+parseFloat(x.monto),0);
+      const pagadoTransf   = pagosDeEste.filter(x=>x.medio==='pago_transferencia').reduce((a,x)=>a+parseFloat(x.monto),0);
+      const saldado = totalPagado >= saldo - 1;
+      
+      if (esSoAdmin) {
+        // El admin (Cris) muestra su neto
+        return `<div style="background:rgba(91,184,232,.08);border:2px solid rgba(91,184,232,.3);border-radius:10px;padding:10px 12px;margin-bottom:7px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-weight:700;text-transform:uppercase;color:var(--club1)">${p.toUpperCase()} <span style="font-size:10px;color:var(--muted)">(VOS — PAGÓ DE MÁS)</span></span>
+            <span style="color:var(--green);font-weight:700">+${fmt(saldo)}</span>
+          </div>
+        </div>`;
+      }
+
+      return `<div style="background:${saldado?'rgba(39,174,96,.06)':'rgba(245,197,24,.06)'};border:1px solid ${saldado?'rgba(39,174,96,.3)':'rgba(245,197,24,.25)'};border-radius:10px;padding:10px 12px;margin-bottom:7px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <span style="font-weight:700;text-transform:uppercase">${p.toUpperCase()} <span style="font-size:10px;color:var(--muted)">(LE DEBÉS)</span></span>
+          <span style="color:${saldado?'var(--green)':'var(--gold)'};font-weight:700">${saldado?'✅ SALDADO':fmt(saldo - totalPagado)+' PENDIENTE'}</span>
         </div>
+        ${pagosDeEste.length ? `<div style="margin-bottom:8px;padding:6px 8px;background:var(--ash);border-radius:6px">
+          ${pagosDeEste.map(x=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">
+            <span style="color:var(--muted)">${x.medio==='pago_efectivo'?'💵 Efectivo':'📲 Transferencia'}</span>
+            <span style="color:var(--green)">${fmt(x.monto)}</span>
+          </div>`).join('')}
+          <div style="border-top:1px solid var(--rim);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;font-size:11px">
+            <span style="color:var(--muted)">Total pagado</span><span style="color:var(--green);font-weight:700">${fmt(totalPagado)}</span>
+          </div>
+        </div>` : ''}
+        ${!saldado ? `<div style="display:flex;gap:7px">
+          <button onclick="registrarPagoAcr('${p}',${saldo-totalPagado},'pago_efectivo')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">💵 EFECTIVO</button>
+          <button onclick="registrarPagoAcr('${p}',${saldo-totalPagado},'pago_transferencia')" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">📲 TRANSF.</button>
+          <button onclick="abrirPagoCustom('${p}',${saldo-totalPagado})" style="padding:8px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer">✏️</button>
+        </div>` : `<button onclick="limpiarPagoAcr('${p}')" style="font-size:10px;background:transparent;border:none;color:var(--muted);cursor:pointer;text-decoration:underline">Deshacer</button>`}
       </div>`;
     }).join('') + '</div>'
     : '';
