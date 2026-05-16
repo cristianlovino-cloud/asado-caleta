@@ -48,7 +48,7 @@
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
   const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="window.supabase={createClient:()=>{throw new Error('SDK no cargó')}};initApp();"></script>
 <style>
 /* ── DARK (default) ─────────────────────── */
 :root {
@@ -1985,8 +1985,7 @@ function hideSplash() {
   if (s && s.parentNode) { s.style.opacity='0'; setTimeout(()=>{ if(s.parentNode) s.remove(); },500); }
 }
 
-// Timeout de seguridad: si en 4 segundos no cargó, ocultar splash igual
-setTimeout(()=>hideSplash(), 4000);
+// Timeout movido a initApp()
 
 function renderAll() {
   hideSplash();
@@ -2510,7 +2509,11 @@ function renderCuentas() {
 }
 
 // ══ INIT ══════════════════════════════════════════
-if (me) {
+window.initApp = function() {
+  // Forzar hideSplash después de 3s pase lo que pase
+  setTimeout(()=>hideSplash(), 3000);
+
+  if (me) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('uav').textContent=me[0].toUpperCase();
@@ -2524,8 +2527,16 @@ if (me) {
     .catch(e=>{ console.error('fetchAll error:',e); hideSplash(); renderAll(); });
   subscribe();
   startAutoRefresh();
+  } else {
+    buildLogin();
+  }
+};
+
+// Llamar initApp cuando el DOM esté listo
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
 } else {
-  buildLogin();
+  initApp();
 }
 </script>
 
