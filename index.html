@@ -2443,7 +2443,22 @@ function renderCuentas() {
   const totalTransferencia= cobrados.filter(p=>cobros[p.toLowerCase()]?.medio==='cobro_transferencia').reduce((a,p)=>a+Math.abs(bal(p)),0);
   const totalPendiente    = pendientes.reduce((a,p)=>a+Math.abs(bal(p)),0);
 
-  const acrHtml = renderAcreedores();
+  // Acreedores (los que pagaron de más)
+  const acreedores = allP().filter(p=>bal(p)>0.5);
+  const acrHtml = acreedores.length ? 
+    '<div style="margin-bottom:12px">' +
+    acreedores.map(p=>{
+      const saldo = bal(p);
+      const otrosDeben = allP().filter(q=>bal(q)<-0.5);
+      const distribHtml = otrosDeben.map(q=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:var(--muted)">${p} → ${q}</span><span style="color:var(--gold)">${fmt(Math.abs(bal(q)))}</span></div>`).join('');
+      return `<div style="background:rgba(39,174,96,.08);border:1px solid rgba(39,174,96,.2);border-radius:10px;padding:10px 12px;margin-bottom:7px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="font-weight:700;text-transform:uppercase">${p.toUpperCase()} <span style="font-size:10px;color:var(--muted)">(PAGÓ DE MÁS)</span></span>
+          <span style="color:var(--green);font-weight:700">+${fmt(saldo)}</span>
+        </div>
+      </div>`;
+    }).join('') + '</div>'
+    : '';
 
   const deuHtml = pendientes.map(p=>{
     const debe=Math.abs(bal(p));
