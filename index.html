@@ -2682,12 +2682,17 @@ function mundialCountdown() {
 }
 
 const BANDERAS = {
+  // Con tildes
   'México':'🇲🇽','Jamaica':'🇯🇲','Honduras':'🇭🇳','Ecuador':'🇪🇨',
   'Estados Unidos':'🇺🇸','Panamá':'🇵🇦','Bosnia y Herzegovina':'🇧🇦','Ghana':'🇬🇭',
   'Canadá':'🇨🇦','Trinidad y Tobago':'🇹🇹','Países Bajos':'🇳🇱','Noruega':'🇳🇴',
   'Brasil':'🇧🇷','Japón':'🇯🇵','Suiza':'🇨🇭','Camerún':'🇨🇲',
   'Argentina':'🇦🇷','Hungría':'🇭🇺','Marruecos':'🇲🇦',
   'España':'🇪🇸','Senegal':'🇸🇳','Serbia':'🇷🇸','Nueva Zelanda':'🇳🇿',
+  // Sin tildes (backend)
+  'Mexico':'🇲🇽','Panama':'🇵🇦','Canada':'🇨🇦','Paises Bajos':'🇳🇱',
+  'Japon':'🇯🇵','Camerun':'🇨🇲','Hungria':'🇭🇺','Espana':'🇪🇸',
+  'Belgica':'🇧🇪','Tunez':'🇹🇳','Sudafrica':'🇿🇦','Iran':'🇮🇷',
   'Alemania':'🇩🇪','Australia':'🇦🇺','Arabia Saudita':'🇸🇦','Costa Rica':'🇨🇷',
   'Portugal':'🇵🇹','Eslovenia':'🇸🇮','Ucrania':'🇺🇦','Sudáfrica':'🇿🇦',
   'Francia':'🇫🇷','Bélgica':'🇧🇪','R. Checa':'🇨🇿','Haití':'🇭🇹',
@@ -2697,17 +2702,39 @@ const BANDERAS = {
 };
 
 async function loadMundial() {
-  const el = document.getElementById('mundial-grupos');
-  if (!el) return;
+  // Mostrar grupos locales inmediatamente (no esperar backend)
+  renderGruposLocal();
+  sportsLoaded.mundial = true;
+  // Intentar actualizar desde backend en background (para cuando empiece el torneo)
   try {
-    const r = await fetch(SPORTS_API+'/mundial/grupos');
+    const r = await fetch(SPORTS_API+'/mundial/grupos', {signal: AbortSignal.timeout(8000)});
     const json = await r.json();
-    if (!json.ok) throw new Error(json.error);
-    renderGrupos(json.data, json.source);
-    sportsLoaded.mundial = true;
-  } catch(e) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Sin conexión al servidor</div>';
-  }
+    if (json.ok && json.source === 'live') {
+      renderGrupos(json.data, json.source); // Solo actualiza si hay datos en vivo
+    }
+  } catch(e) { /* backend dormido, no pasa nada */ }
+}
+
+function renderGruposLocal() {
+  const GRUPOS_LOCAL = {
+    A:['Mexico','Jamaica','Honduras','Ecuador'],
+    B:['Estados Unidos','Panama','Bosnia y Herzegovina','Ghana'],
+    C:['Canada','Trinidad y Tobago','Paises Bajos','Noruega'],
+    D:['Brasil','Japon','Suiza','Camerun'],
+    E:['Argentina','Marruecos','Hungria','Arabia Saudita'],
+    F:['Espana','Senegal','Serbia','Nueva Zelanda'],
+    G:['Alemania','Colombia','Costa de Marfil','Eslovaquia'],
+    H:['Portugal','Eslovenia','Ucrania','Sudafrica'],
+    I:['Francia','Belgica','Rep. Checa','Haiti'],
+    J:['Inglaterra','Tunez','Costa Rica','Kenia'],
+    K:['Uruguay','Rumania','Egipto','Togo'],
+    L:['Iran','Cuba','Qatar','China'],
+  };
+  const grupos = Object.entries(GRUPOS_LOCAL).map(([k,v]) => ({
+    letra:k, grupo:'Grupo '+k,
+    equipos: v.map(e => ({nombre:e,pts:0,pj:0,pg:0,pe:0,pp:0,gf:0,gc:0}))
+  }));
+  renderGrupos(grupos, 'static');
 }
 
 function renderGrupos(grupos, source) {
