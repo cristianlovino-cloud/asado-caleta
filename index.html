@@ -1785,11 +1785,11 @@ function renderOverview() {
     <div class="ov-hero">
       <div class="ov-title">${(S.event.title||'ASADO').toUpperCase()}</div>
       <div class="ov-date">📍 ${S.event.location||''} · ${fechaStr} · ${S.event.time_range||''}</div>
-      <div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:'Bebas Neue',cursive;letter-spacing:2px;background:rgba(0,0,0,.15);border-radius:10px;padding:8px 12px;display:inline-block"></div>
+      <div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:'Bebas Neue',cursive;letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>
       <div class="ov-stats" style="margin-top:14px">
         <div class="ov-stat"><div class="ov-stat-n">${conf}</div><div class="ov-stat-l">Van ✅</div></div>
         <div class="ov-stat"><div class="ov-stat-n">${pendientes}</div><div class="ov-stat-l">Tareas 📋</div></div>
-        <div class="ov-stat"><div class="ov-stat-n">${cumples.length>0?'🎂'+cumples.length:'—'}</div><div class="ov-stat-l">Cumples 🎂</div></div>
+        ${cumples.length>0?`<div class="ov-stat"><div class="ov-stat-n">🎂${cumples.length}</div><div class="ov-stat-l">CUMPLES</div></div>`:''}
       </div>
     </div>
 
@@ -1797,7 +1797,7 @@ function renderOverview() {
       <div class="ov-label">👤 Mi estado — ${me.toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:14px;font-weight:700">${miRsvp==='si'?'✅ VAS AL ASADO':miRsvp==='no'?'❌ NO VAS':'🤷 SIN CONFIRMAR'}</span>
-        ${miRsvp==='si'?`<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase">CAMBIAR</button>`:''}
+        ${miRsvp==='si'?`<button onclick="cambiarAsistencia()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase;margin-right:4px">CAMBIAR</button>`:''}
         ${miRsvp==='no'?`<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.1);color:var(--green);font-size:11px;cursor:pointer;text-transform:uppercase">VOY DESPUÉS DE TODO ✅</button>`:''}
         ${!miRsvp?`<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>`:''}
       </div>
@@ -1838,9 +1838,10 @@ function renderOverview() {
 
     ${pendientes>0?`<div class="ov-card">
       <div class="ov-label">📋 Tareas pendientes (${pendientes})</div>
-      ${S.tasks.filter(t=>!t.done).slice(0,5).map(t=>`<div class="ov-row">
-        <span>${t.name.split('\n')[0]}</span>
-        <span class="ov-muted">${(t.assignee||'SIN ASIGNAR').toUpperCase()}</span>
+      ${S.tasks.filter(t=>!t.done).slice(0,5).map(t=>`<div class="ov-row" style="align-items:center;gap:8px;padding:6px 0">
+        <span onclick="toggleTask(${t.id},false)" style="width:20px;height:20px;border-radius:5px;border:2px solid var(--rim);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;background:var(--ash)">&#9633;</span>
+        <span style="flex:1;font-size:13px">${t.name.split('\n')[0]}</span>
+        <span class="ov-muted" style="font-size:11px">${(t.assignee||'SIN ASIGNAR').toUpperCase()}</span>
       </div>`).join('')}
       ${pendientes>5?`<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px">+${pendientes-5} más</div>`:''}
     </div>`:`<div class="ov-card" style="text-align:center;padding:16px"><div style="font-size:24px">✅</div><div style="color:var(--green);font-weight:700;font-size:13px;margin-top:4px;text-transform:uppercase">TODAS LAS TAREAS LISTAS</div></div>`}
