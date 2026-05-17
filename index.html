@@ -392,8 +392,7 @@ body {
     <div class="tab" onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
     <div class="tab" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
-    <div class="tab" onclick="showTab('votos')"><span class="ti">🗳️</span>Votos</div>
-    <div class="tab" onclick="showTab('stats')"><span class="ti">🏆</span>Stats</div>
+
   </div>
 
   <!-- OVERVIEW -->
@@ -553,6 +552,22 @@ body {
   </div>
 </div>
 
+<!-- Modal Votos -->
+<div class="modal-bg" id="modal-votos">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">🗳️ Votos <button class="modal-close" onclick="closeModal('modal-votos')">✕</button></div>
+    <div id="modal-votos-content"></div>
+  </div>
+</div>
+
+<!-- Modal Stats -->
+<div class="modal-bg" id="modal-stats">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">🏆 Estadísticas <button class="modal-close" onclick="closeModal('modal-stats')">✕</button></div>
+    <div id="modal-stats-content"><div style="text-align:center;padding:30px;color:var(--muted)">Cargando...</div></div>
+  </div>
+</div>
+
 <!-- Modal comensales -->
 <div class="modal-bg" id="modal-comensales">
   <div class="modal">
@@ -586,6 +601,22 @@ body {
 </div>
 
 <!-- ══ MODALES ════════════════════════════════════════ -->
+
+<!-- Modal Votos -->
+<div class="modal-bg" id="modal-votos">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">🗳️ Votos <button class="modal-close" onclick="closeModal('modal-votos')">✕</button></div>
+    <div id="modal-votos-content"></div>
+  </div>
+</div>
+
+<!-- Modal Stats -->
+<div class="modal-bg" id="modal-stats">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">🏆 Estadísticas <button class="modal-close" onclick="closeModal('modal-stats')">✕</button></div>
+    <div id="modal-stats-content"><div style="text-align:center;padding:30px;color:var(--muted)">Cargando...</div></div>
+  </div>
+</div>
 
 <!-- Modal comensales -->
 <div class="modal-bg" id="modal-comensales">
@@ -1775,11 +1806,12 @@ function renderOverview() {
   const miPart = S.participants.find(p=>p.name.toLowerCase()===me.toLowerCase());
   const miRsvp = miPart?.rsvp;
 
-  // Cumpleaños del mes
+  // Cumpleaños del mes del ASADO (no del mes actual)
+  const mesAsado = parts[1] ? parseInt(parts[1]) : mesActual;
   const cumples = S.participants.filter(p=>p.active&&p.birthday).map(p=>{
     const [d,m]=(p.birthday||'').split('/').map(Number);
     return {nombre:p.name,dia:d,mes:m};
-  }).filter(c=>!isNaN(c.mes)&&c.mes===mesActual).sort((a,b)=>a.dia-b.dia);
+  }).filter(c=>!isNaN(c.mes)&&c.mes===mesAsado).sort((a,b)=>a.dia-b.dia);
 
   el.innerHTML = `
     <div class="ov-hero">
@@ -1823,7 +1855,7 @@ function renderOverview() {
     </div>
 
     ${cumples.length?`<div class="ov-card">
-      <div class="ov-label">🎂 Cumpleaños de ${meses[mesActual]}</div>
+      <div class="ov-label">🎂 Cumpleaños de ${meses[mesAsado]}</div>
       ${cumples.map(c=>{const hoyEs=c.dia===diaActual;return`<div class="ov-row">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white">${c.nombre[0].toUpperCase()}</div>
@@ -1845,6 +1877,20 @@ function renderOverview() {
       </div>`).join('')}
       ${pendientes>5?`<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px">+${pendientes-5} más</div>`:''}
     </div>`:`<div class="ov-card" style="text-align:center;padding:16px"><div style="font-size:24px">✅</div><div style="color:var(--green);font-weight:700;font-size:13px;margin-top:4px;text-transform:uppercase">TODAS LAS TAREAS LISTAS</div></div>`}
+
+    <!-- Accesos rápidos -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div onclick="abrirVotosModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center">
+        <div style="font-size:26px;margin-bottom:4px">🗳️</div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text)">VOTOS</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Menú / Fecha</div>
+      </div>
+      <div onclick="abrirStatsModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center">
+        <div style="font-size:26px;margin-bottom:4px">🏆</div>
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text)">STATS</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Historial</div>
+      </div>
+    </div>
 
     <!-- Próximos asados -->
     ${(()=>{
