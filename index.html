@@ -146,7 +146,7 @@ body {
 .tabs{display:flex;background:var(--smoke);border-bottom:1px solid var(--rim);position:sticky;top:62px;z-index:99;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tabs.with-admin{top:102px}
-.tab{flex:0 0 auto;min-width:58px;padding:9px 6px;text-align:center;font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
 .tab.active{color:var(--fire);border-bottom-color:var(--fire)}
 .tab .ti{font-size:15px;display:block;margin-bottom:2px}
 .panel{display:none;padding:12px 12px 90px}
@@ -1851,7 +1851,8 @@ function renderOverview() {
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase">PENDIENTE</div>
         </div>
       </div>
-      ${sinResp>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>${S.participants.filter(p=>p.active&&!p.rsvp).map(p=>p.name.toUpperCase()).join(', ')}</strong></div>`:'<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>'}
+      ${sinResp>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>${S.participants.filter(p=>p.active&&!p.rsvp).map(p=>p.name.toUpperCase()).join(', ')}</strong></div>
+      <button onclick="openModal('modal-asistencia')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase">👥 VER ASISTENCIA</button>`:'<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>'}
     </div>
 
     ${cumples.length?`<div class="ov-card">
@@ -2467,6 +2468,91 @@ async function renderStats() {
     </div>`;
 }
 
+
+// ══ ACCESOS RÁPIDOS INICIO ════════════════════════════════
+function abrirVotosModal() {
+  openModal('modal-votos');
+  const el = document.getElementById('modal-votos-content');
+  if (!el) return;
+  el.innerHTML = '<div id="votos-list-modal"></div>'
+    + '<div style="height:1px;background:var(--rim);margin:14px 0"></div>'
+    + '<div class="sh">➕ SUGERIR OPCIÓN</div>'
+    + '<div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;padding:12px">'
+    + '<input class="fi" id="voto-sugerencia-modal" placeholder="EJ: ENTRAÑA, MOLLEJAS..." style="text-transform:uppercase;margin-bottom:8px">'
+    + '<button class="btp" style="width:100%" onclick="agregarSugerenciaVotoModal()">SUGERIR</button></div>';
+  renderVotosEn('votos-list-modal');
+}
+function agregarSugerenciaVotoModal() {
+  const input = document.getElementById('voto-sugerencia-modal');
+  const nombre = (input?.value||'').trim().toUpperCase();
+  if (!nombre) { toast('ESCRIBÍ UNA OPCIÓN','var(--red)'); return; }
+  const opciones = getOpciones();
+  opciones.push({id:'v_custom_'+Date.now(), emoji:'🔥', nombre});
+  saveOpciones(opciones); input.value = '';
+  renderVotosEn('votos-list-modal'); toast('✅ OPCIÓN AGREGADA');
+}
+function renderVotosEn(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const votos = getVotos(), opciones = getOpciones(), misVotos = votos[me]||[];
+  const conteo = {};
+  opciones.forEach(function(op){conteo[op.id]=0;});
+  Object.values(votos).forEach(function(mv){mv.forEach(function(id){if(conteo[id]!==undefined)conteo[id]++;});});
+  const sorted = [...opciones].sort(function(a,b){return (conteo[b.id]||0)-(conteo[a.id]||0);});
+  const maxV = Math.max(1,...Object.values(conteo));
+  const totalV = Object.keys(votos).length;
+  el.innerHTML = sorted.map(function(op,i){
+    const cnt=conteo[op.id]||0, pct=Math.round((cnt/maxV)*100), votado=misVotos.includes(op.id);
+    const medalla=i===0&&cnt>0?'🥇':i===1&&cnt>0?'🥈':i===2&&cnt>0?'🥉':'';
+    return '<div onclick="votarOpcionY(''+op.id+'',''+containerId+'')" style="margin-bottom:9px;background:'+(votado?'rgba(245,197,24,.1)':'var(--smoke)')+';border:2px solid '+(votado?'var(--fire)':'var(--rim)')+';border-radius:14px;padding:12px 14px;cursor:pointer">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">'
+      +'<div style="display:flex;align-items:center;gap:8px"><span>'+op.emoji+'</span>'
+      +'<span style="font-size:13px;font-weight:700;text-transform:uppercase;color:'+(votado?'var(--fire)':'var(--text)')+'">'+op.nombre+'</span>'+(medalla?'<span>'+medalla+'</span>':'')+'</div>'
+      +'<span style="font-size:16px">'+(votado?'✅':'○')+'</span></div>'
+      +'<div style="height:5px;background:var(--ash);border-radius:4px;overflow:hidden">'
+      +'<div style="height:100%;width:'+pct+'%;background:'+(votado?'var(--fire)':'linear-gradient(90deg,var(--club1),var(--club2))')+';border-radius:4px"></div></div></div>';
+  }).join('')+'<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px">'+totalV+' PERSONA'+(totalV!==1?'S':'')+' VOTARON</div>';
+}
+function votarOpcionY(id, containerId) {
+  const votos=getVotos(), misVotos=votos[me]||[], idx=misVotos.indexOf(id);
+  if(idx>=0) misVotos.splice(idx,1);
+  else { if(misVotos.length>=3){toast('MÁXIMO 3 VOTOS','var(--ember)');return;} misVotos.push(id); }
+  votos[me]=misVotos; saveVotos(votos);
+  renderVotosEn(containerId);
+  toast(idx>=0?'✗ VOTO QUITADO':'✅ VOTO REGISTRADO');
+}
+async function abrirStatsModal() {
+  openModal('modal-stats');
+  const el = document.getElementById('modal-stats-content');
+  if (!el||!S.allEvents||!S.allEvents.length) { if(el) el.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted)">Sin historial aún</div>'; return; }
+  const eventIds = S.allEvents.map(function(e){return e.id;});
+  const exAll = await sb.from('expenses').select('*').in('event_id',eventIds);
+  const gpE = {};
+  (exAll.data||[]).forEach(function(e){if(!gpE[e.event_id])gpE[e.event_id]=[];gpE[e.event_id].push(e);});
+  const stats = S.allEvents.map(function(ev){
+    const g=gpE[ev.id]||[], total=g.reduce(function(a,e){return a+parseFloat(e.amount);},0);
+    const pp={};
+    g.forEach(function(e){pp[e.payer]=(pp[e.payer]||0)+parseFloat(e.amount);});
+    return {ev,total,gastos:g.length,pp};
+  }).filter(function(s){return s.total>0;});
+  if(!stats.length){el.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted)">Sin datos aún</div>';return;}
+  const masCaroIdx=stats.reduce(function(iM,s,i,arr){return s.total>arr[iM].total?i:iM;},0);
+  const rk={};
+  stats.forEach(function(s){Object.entries(s.pp).forEach(function(kv){rk[kv[0]]=(rk[kv[0]]||0)+kv[1];});});
+  const rkArr=Object.entries(rk).sort(function(a,b){return b[1]-a[1];});
+  el.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">'
+    +'<div class="sb sbf"><div class="sl">ASADOS</div><div class="sv cf">'+stats.length+'</div></div>'
+    +'<div class="sb sbg"><div class="sl">TOTAL HISTÓRICO</div><div class="sv cg">'+fmt(stats.reduce(function(a,s){return a+s.total;},0))+'</div></div></div>'
+    +'<div class="sh">🔥 MÁS CARO</div><div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between"><span style="font-weight:700">'+stats[masCaroIdx].ev.title.toUpperCase()+'</span><span style="color:var(--fire);font-weight:700">'+fmt(stats[masCaroIdx].total)+'</span></div></div>'
+    +'<div class="sh">🏆 RANKING</div><div class="card" style="padding:0;margin-bottom:12px">'
+    +rkArr.map(function(kv,i){return '<div style="display:flex;justify-content:space-between;padding:9px 12px;'+(i<rkArr.length-1?'border-bottom:1px solid var(--rim)':'')+'">'
+      +'<span>'+(['🥇','🥈','🥉'][i]||i+1)+' '+kv[0].toUpperCase()+(kv[0]===me?' (VOS)':'')+'</span>'
+      +'<span style="font-weight:700;color:var(--fire)">'+fmt(kv[1])+'</span></div>';}).join('')+'</div>'
+    +'<div class="sh">📅 HISTORIAL</div><div class="card" style="padding:0">'
+    +stats.map(function(s,i){return '<div style="display:flex;justify-content:space-between;padding:9px 12px;'+(i<stats.length-1?'border-bottom:1px solid var(--rim)':'')+'">'
+      +'<div><div style="font-weight:600;font-size:13px">'+s.ev.title.toUpperCase()+'</div><div style="font-size:10px;color:var(--muted)">'+(s.ev.event_date||'')+'</div></div>'
+      +'<span style="font-weight:700;color:var(--green)">'+fmt(s.total)+'</span></div>';}).join('')+'</div>';
+}
 
 function getCobros() { try { return JSON.parse(localStorage.getItem('asado_cobros_'+(S.event?.id||0))||'{}'); } catch { return {}; } }
 function getPagosAcr() { try { return JSON.parse(localStorage.getItem('asado_pagos_acr_'+(S.event?.id||0))||'{}'); } catch { return {}; } }
