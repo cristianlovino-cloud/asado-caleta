@@ -316,7 +316,7 @@ body {
       onkeydown="if(event.key==='Enter')doLogin()"
       style="text-transform:uppercase;letter-spacing:1px;font-weight:600">
     <div id="sugerencias" style="display:none;background:var(--smoke);border:1px solid var(--rim);border-radius:14px;margin-top:6px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div>
-    <button class="lbtn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
+    <button class="lbtn" id="login-btn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
   <div class="wnote">
     <div class="wnote-i">🍷</div>
@@ -336,7 +336,7 @@ body {
     <div style="background:var(--smoke);border-radius:16px;padding:20px;border:1px solid var(--rim)">
       <div style="font-size:16px;font-weight:600;text-align:center;margin-bottom:16px">
         <span style="font-size:13px;color:var(--muted);letter-spacing:.5px">HOLA</span> <span id="cs-nombre" style="color:var(--fire);font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px"></span> 👋<br>
-        <span style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase">¿VAS AL ASADO?</span>
+        <span style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase" id="rsvp-pregunta">¿VAS AL ASADO?</span>
       </div>
       <div style="display:flex;gap:10px">
         <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:2px solid var(--fire);background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
@@ -565,6 +565,19 @@ body {
     <div id="modal-stats-content"></div>
   </div>
 </div>
+<!-- Modal Logout -->
+<div class="modal-bg" id="modal-logout">
+  <div class="modal" style="text-align:center;padding:24px">
+    <div style="font-size:48px;margin-bottom:12px">🚪</div>
+    <div style="font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;margin-bottom:8px">SALIR</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Vas a cerrar tu sesion.<br>Vas a tener que volver a ingresar tu nombre.</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
+      <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal comensales -->
 <div class="modal-bg" id="modal-comensales">
   <div class="modal">
@@ -613,6 +626,19 @@ body {
     <div id="modal-stats-content"></div>
   </div>
 </div>
+<!-- Modal Logout -->
+<div class="modal-bg" id="modal-logout">
+  <div class="modal" style="text-align:center;padding:24px">
+    <div style="font-size:48px;margin-bottom:12px">🚪</div>
+    <div style="font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;margin-bottom:8px">SALIR</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Vas a cerrar tu sesion.<br>Vas a tener que volver a ingresar tu nombre.</div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
+      <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal comensales -->
 <div class="modal-bg" id="modal-comensales">
   <div class="modal">
@@ -869,6 +895,9 @@ async function buildLogin() {
     if (data?.[0]) {
       document.getElementById('login-title').textContent = data[0].title;
       document.getElementById('login-sub').textContent   = data[0].event_date+' · '+data[0].time_range;
+      var primeraPalabra = (data[0].title||'ASADO').split(' ')[0];
+      var btnLogin = document.getElementById('login-btn');
+      if (btnLogin) btnLogin.textContent = '🔥 ENTRAR AL ' + primeraPalabra.toUpperCase();
     }
     // Cargar participantes activos para el autocomplete del login
     const {data:parts} = await sb.from('participants').select('*').eq('active',true).order('name');
@@ -893,6 +922,11 @@ async function doLogin() {
   }
   // Mostrar pantalla de confirmación
   document.getElementById('login-screen').style.display='none';
+  var pregEl = document.getElementById('rsvp-pregunta');
+  if (pregEl && S.event) {
+    var pp = (S.event.title||'ASADO').split(' ')[0].toUpperCase();
+    pregEl.textContent = 'VAS AL ' + pp + '?';
+  }
   const cs = document.getElementById('confirm-screen');
   cs.style.display='flex';
   document.getElementById('cs-nombre').textContent = part?.name || v;
@@ -917,7 +951,14 @@ function entrarApp(v) {
   subscribe();
   startAutoRefresh();
 }
-function logout(){ if(!confirm('¿Salir?')) return; localStorage.removeItem('asado_user'); location.reload(); }
+function logout(){
+  openModal('modal-logout');
+}
+function confirmarLogout(){
+  closeModal('modal-logout');
+  localStorage.removeItem('asado_user');
+  location.reload();
+}
 
 // ══ ADMIN TOGGLE ══════════════════════════════════
 let adminBarOpen = false;
@@ -1750,7 +1791,7 @@ async function rsvpCalendario(fechaISO, resp) {
   renderOverview();
 
   if (newResp) {
-    toast(newResp==='si'?'✅ Anotado! Vas al asado 🔥':'❌ Anotado, nos vemos en el próximo');
+    var pp2=(S.event?.title||'asado').split(' ')[0]; toast(newResp==='si'?'✅ Anotado! Vas al '+pp2+' 🔥':'❌ Anotado, nos vemos en el proximo');
   }
 
   // Guardar en Supabase
@@ -1822,7 +1863,7 @@ function renderOverview() {
     <div class="ov-card">
       <div class="ov-label">👤 Mi estado — ${me.toUpperCase()}</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:14px;font-weight:700">${miRsvp==='si'?'✅ VAS AL ASADO':miRsvp==='no'?'❌ NO VAS':'🤷 SIN CONFIRMAR'}</span>
+        <span style="font-size:14px;font-weight:700">${miRsvp==='si'?'✅ VAS AL '+(S.event?.title||'ASADO').split(' ')[0].toUpperCase():miRsvp==='no'?'❌ NO VAS':'🤷 SIN CONFIRMAR'}</span>
         ${miRsvp==='si'?`<button onclick="cambiarAsistencia()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase;margin-right:4px">CAMBIAR</button>`:''}
         ${miRsvp==='no'?`<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.1);color:var(--green);font-size:11px;cursor:pointer;text-transform:uppercase">VOY DESPUÉS DE TODO ✅</button>`:''}
         ${!miRsvp?`<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>`:''}
@@ -1991,6 +2032,11 @@ function updateClock() {
 
 function mostrarConfirmScreen() {
   document.getElementById('app').style.display='none';
+  var pregEl = document.getElementById('rsvp-pregunta');
+  if (pregEl && S.event) {
+    var pp = (S.event.title||'ASADO').split(' ')[0].toUpperCase();
+    pregEl.textContent = 'VAS AL ' + pp + '?';
+  }
   const cs = document.getElementById('confirm-screen');
   cs.style.display='flex';
   document.getElementById('cs-nombre').textContent = me;
@@ -2221,6 +2267,11 @@ function cambiarRsvp() {
   localStorage.removeItem(key);
   document.getElementById('user-menu').style.display='none';
   document.getElementById('app').style.display='none';
+  var pregEl = document.getElementById('rsvp-pregunta');
+  if (pregEl && S.event) {
+    var pp = (S.event.title||'ASADO').split(' ')[0].toUpperCase();
+    pregEl.textContent = 'VAS AL ' + pp + '?';
+  }
   const cs = document.getElementById('confirm-screen');
   cs.style.display='flex';
   document.getElementById('cs-nombre').textContent = me;
@@ -2297,6 +2348,17 @@ function votarOpcion(id) {
   toast(idx >= 0 ? '✗ VOTO QUITADO' : '✅ VOTO REGISTRADO');
 }
 
+function eliminarOpcionVoto(id) {
+  var ops = getOpciones();
+  ops = ops.filter(function(o){ return o.id !== id; });
+  saveOpciones(ops);
+  // Limpiar votos de esa opcion
+  var votos = getVotos();
+  Object.keys(votos).forEach(function(k){ votos[k] = (votos[k]||[]).filter(function(v){ return v !== id; }); });
+  saveVotos(votos);
+  renderVotos();
+  toast('OPCION ELIMINADA');
+}
 function agregarSugerenciaVoto() {
   const input = document.getElementById('voto-sugerencia');
   const nombre = input.value.trim().toUpperCase();
@@ -2333,16 +2395,17 @@ function renderVotos() {
     const pct = Math.round((c / maxVotos) * 100);
     const votado = misVotos.includes(op.id);
     const medalla = i === 0 && c > 0 ? '🥇' : i === 1 && c > 0 ? '🥈' : i === 2 && c > 0 ? '🥉' : '';
-    return `<div onclick="votarOpcion('${op.id}')" style="margin-bottom:9px;background:${votado?'rgba(245,197,24,.1)':'var(--smoke)'};border:2px solid ${votado?'var(--fire)':'var(--rim)'};border-radius:14px;padding:12px 14px;cursor:pointer;transition:all .15s">
+    return `<div style="margin-bottom:9px;background:${votado?'rgba(245,197,24,.1)':'var(--smoke)'};border:2px solid ${votado?'var(--fire)':'var(--rim)'};border-radius:14px;padding:12px 14px;transition:all .15s">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div onclick="votarOpcion('${op.id}')" style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer">
           <span style="font-size:20px">${op.emoji}</span>
           <span style="font-size:13px;font-weight:700;text-transform:uppercase;color:${votado?'var(--fire)':'var(--text)'}">${op.nombre}</span>
           ${medalla?`<span style="font-size:14px">${medalla}</span>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-family:'Bebas Neue',cursive;font-size:18px;color:${votado?'var(--fire)':'var(--muted)'}">${c}</span>
-          <span style="font-size:16px;color:${votado?'var(--fire)':'var(--rim)'}">${votado?'✅':'○'}</span>
+          <span onclick="votarOpcion('${op.id}')" style="font-size:16px;color:${votado?'var(--fire)':'var(--rim)'};cursor:pointer">${votado?'✅':'○'}</span>
+          ${op.id.startsWith('v_custom_')?`<span onclick="eliminarOpcionVoto('${op.id}')" style="font-size:14px;cursor:pointer;color:var(--muted);padding:2px 4px" title="Eliminar">✕</span>`:''}
         </div>
       </div>
       <div style="height:5px;background:var(--ash);border-radius:4px;overflow:hidden">
