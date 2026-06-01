@@ -1485,7 +1485,7 @@ async function addTask() {
 }
 
 async function toggleTask(id,current) {
-  const t = S.tasks.find(t=>String(t.id)===String(id));
+  if (isInvitado() && !isAdmin()) { toast('Solo los organizadores pueden modificar tareas','var(--muted)'); return; }
   if (!t) return;
   const newDone = !current;
   // Actualizar local y bloquear refetch por 2s mientras guarda
@@ -2015,6 +2015,155 @@ function enviarFelizCumple(nombre) {
   window.open(`https://wa.me/?text=${encoded}`, '_blank');
 }
 
+function renderOvHero(conf, pendientes, cumples, fechaStr) {
+  const inv = !isInvitado()||isAdmin();
+  return '<div class="ov-hero">' +
+    '<div class="ov-title">' + (S.event.title||'ASADO').toUpperCase() + '</div>' +
+    '<div class="ov-date">📍 ' + (S.event.location||'') + ' · ' + fechaStr + ' · ' + (S.event.time_range||'') + '</div>' +
+    '<div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:\'Bebas Neue\',cursive;letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>' +
+    '<div class="ov-stats" style="margin-top:14px">' +
+      '<div class="ov-stat"><div class="ov-stat-n">' + conf + '</div><div class="ov-stat-l">Van ✅</div></div>' +
+      (inv ? '<div class="ov-stat"><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas 📋</div></div>' : '') +
+      (cumples.length > 0 ? '<div class="ov-stat"><div class="ov-stat-n">🎂' + cumples.length + '</div><div class="ov-stat-l">CUMPLES</div></div>' : '') +
+    '</div></div>';
+}
+
+function renderOvMiEstado(miRsvp) {
+  let btn = '';
+  if (miRsvp==='si') btn = '<button onclick="cambiarAsistencia()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase;margin-right:4px">CAMBIAR</button>';
+  else if (miRsvp==='no') btn = '<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.1);color:var(--green);font-size:11px;cursor:pointer;text-transform:uppercase">VOY DESPUÉS DE TODO ✅</button>';
+  else btn = '<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>';
+  const estado = miRsvp==='si' ? '✅ VAS AL ' + (S.event?.title||'ASADO').split(' ')[0].toUpperCase() : miRsvp==='no' ? '❌ NO VAS' : '🤷 SIN CONFIRMAR';
+  return '<div class="ov-card"><div class="ov-label">👤 Mi estado — ' + me.toUpperCase() + '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center">' +
+    '<span style="font-size:14px;font-weight:700">' + estado + '</span>' + btn + '</div></div>';
+}
+
+function renderOvAsistencia(conf, noVan, sinResp) {
+  if (isInvitado() && !isAdmin()) return '';
+  const sinRespNames = S.participants.filter(p=>p.active&&!p.rsvp&&p.role!=='pendiente').map(p=>p.name.toUpperCase()).join(', ');
+  const footer = sinResp > 0
+    ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>' + sinRespNames + '</strong></div>' +
+      '<button onclick="openModal(\'modal-asistencia\')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>'
+    : '<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>';
+  return '<div class="ov-card"><div class="ov-label">📊 Asistencia</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">' +
+    '<div style="padding:8px;background:rgba(39,174,96,.1);border-radius:8px;border:1px solid rgba(39,174,96,.2)"><div style="font-size:22px;font-weight:700;color:var(--green)">' + conf + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Van</div></div>' +
+    '<div style="padding:8px;background:rgba(231,76,60,.1);border-radius:8px;border:1px solid rgba(231,76,60,.2)"><div style="font-size:22px;font-weight:700;color:var(--red)">' + noVan + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">No van</div></div>' +
+    '<div style="padding:8px;background:var(--ash);border-radius:8px;border:1px solid var(--rim)"><div style="font-size:22px;font-weight:700;color:var(--muted)">' + sinResp + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">PENDIENTE</div></div>' +
+    '</div>' + footer + '</div>';
+}
+
+function renderOvCumples(cumples, meses, parts, mesActual, diaActual) {
+  if (!cumples.length) return '';
+  const mesLabel = meses[parts[1]?parseInt(parts[1]):mesActual];
+  const rows = cumples.map(c => {
+    const hoyEs = c.dia === diaActual;
+    const cumpleBtn = (hoyEs && isAdmin()) ? '<button onclick="enviarFelizCumple(\'' + c.nombre + '\')" style="border:none;background:var(--fire);color:white;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">🎂 FELIZ CUMPLE</button>' : '';
+    return '<div class="ov-row"><div style="display:flex;align-items:center;gap:8px">' +
+      '<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white">' + c.nombre[0].toUpperCase() + '</div>' +
+      '<div><div style="font-size:13px;font-weight:700;text-transform:uppercase">' + c.nombre + (hoyEs?' 🎂':'') + '</div>' +
+      '<div style="font-size:11px;color:' + (hoyEs?'var(--green)':'var(--muted)') + '">' + (hoyEs?'¡HOY!':c.dia+' de '+meses[c.mes]) + '</div></div></div>' +
+      cumpleBtn + '</div>';
+  }).join('');
+  return '<div class="ov-card"><div class="ov-label">🎂 Cumpleaños de ' + mesLabel + '</div>' + rows + '</div>';
+}
+
+function renderOvTareas(pendientes) {
+  if (isInvitado() && !isAdmin()) return '';
+  if (pendientes > 0) {
+    const rows = S.tasks.filter(t=>!t.done).slice(0,5).map(t=>
+      '<div class="ov-row" style="align-items:center;gap:8px;padding:6px 0">' +
+      '<span onclick="toggleTask(' + t.id + ',false)" style="width:20px;height:20px;border-radius:5px;border:2px solid var(--rim);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;background:var(--ash)">&#9633;</span>' +
+      '<span style="flex:1;font-size:13px">' + t.name.split('\n')[0] + '</span>' +
+      '<span class="ov-muted" style="font-size:11px">' + (t.assignee||'SIN ASIGNAR').toUpperCase() + '</span></div>'
+    ).join('');
+    const mas = pendientes > 5 ? '<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px">+' + (pendientes-5) + ' más</div>' : '';
+    return '<div class="ov-card"><div class="ov-label">📋 Tareas pendientes (' + pendientes + ')</div>' + rows + mas + '</div>';
+  }
+  return '<div class="ov-card" style="text-align:center;padding:16px"><div style="font-size:24px">✅</div><div style="color:var(--green);font-weight:700;font-size:13px;margin-top:4px;text-transform:uppercase">TODAS LAS TAREAS LISTAS</div></div>';
+}
+
+function renderOvVotosStats() {
+  if (isInvitado() && !isAdmin()) return '';
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
+    '<div onclick="abrirVotosModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🗳️</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">VOTOS</div></div>' +
+    '<div onclick="abrirStatsModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🏆</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">STATS</div></div></div>';
+}
+
+function renderOvCalendario(meses) {
+  if (isInvitado() && !isAdmin()) return '';
+  const proximos = [];
+  const hoyTs = ahoraAR();
+  let y = hoyTs.getFullYear(), m = hoyTs.getMonth() + 1;
+  for (let i = 0; i < 12 && proximos.length < 4; i++) {
+    if (m % 2 === 0) {
+      let satCount = 0, sabado2 = null;
+      for (let d = 1; d <= 31; d++) {
+        const day = new Date(y, m-1, d);
+        if (day.getMonth() !== m-1) break;
+        if (day.getDay() === 6) { satCount++; if (satCount === 2) { sabado2 = day; break; } }
+      }
+      if (sabado2 && sabado2 > hoyTs) proximos.push({
+        fecha: sabado2,
+        label: sabado2.getDate() + ' de ' + meses[sabado2.getMonth()+1] + ' ' + y,
+        esEste: S.event && S.event.event_date === (String(sabado2.getDate()).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y)
+      });
+    }
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  if (!proximos.length) return '';
+  const rows = proximos.map(p => {
+    const mesAsado = p.fecha.getMonth()+1;
+    const cumplesMes = S.participants.filter(pt=>pt.active&&pt.birthday).filter(pt=>{ const [d,mo]=(pt.birthday||'').split('/').map(Number); return mo===mesAsado; });
+    const fechaISO = p.fecha.toISOString().split('T')[0];
+    const miRsvpCal = S.rsvpCal?.[fechaISO]?.[me] || null;
+    const totalVan = S.rsvpCal?.[fechaISO] ? Object.values(S.rsvpCal[fechaISO]).filter(r=>r==='si').length : 0;
+    const dot = '<div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' + (p.esEste?'var(--fire)':'var(--rim)') + '"></div>';
+    const esteTag = p.esEste ? '<span style="font-size:9px;background:var(--fire);color:white;padding:1px 5px;border-radius:8px;font-weight:700">ESTE</span>' : '';
+    const cumpleTag = cumplesMes.length ? '<div style="font-size:10px;color:var(--ember)">🎂 ' + cumplesMes.map(c=>c.name.toUpperCase()).join(', ') + '</div>' : '';
+    const vanTag = totalVan > 0 ? '<div style="font-size:10px;color:var(--green);margin-top:1px">✅ ' + totalVan + ' van</div>' : '';
+    const rsvpBtns = p.esEste ? '<div style="font-size:18px;margin-left:8px">🔥</div>'
+      : '<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">' +
+        '<button onclick="rsvpCalendario(\'' + fechaISO + '\',\'si\')" style="padding:6px 10px;border-radius:8px;border:2px solid ' + (miRsvpCal==='si'?'var(--green)':'var(--rim)') + ';background:' + (miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)') + ';color:' + (miRsvpCal==='si'?'var(--green)':'var(--muted)') + ';font-size:13px;cursor:pointer">✅</button>' +
+        '<button onclick="rsvpCalendario(\'' + fechaISO + '\',\'no\')" style="padding:6px 10px;border-radius:8px;border:2px solid ' + (miRsvpCal==='no'?'var(--red)':'var(--rim)') + ';background:' + (miRsvpCal==='no'?'rgba(231,76,60,.15)':'var(--ash)') + ';color:' + (miRsvpCal==='no'?'var(--red)':'var(--muted)') + ';font-size:13px;cursor:pointer">❌</button></div>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rim)">' +
+      '<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">' + dot +
+      '<span style="font-size:13px;font-weight:700;text-transform:uppercase;color:' + (p.esEste?'var(--fire)':'var(--text)') + '">' + p.label + '</span>' + esteTag + '</div>' +
+      cumpleTag + vanTag + '</div>' + rsvpBtns + '</div>';
+  }).join('');
+  return '<div class="ov-card"><div class="ov-label">📅 CALENDARIO DE ASADOS</div>' +
+    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">2° SÁBADO DE MES PAR · LA CALETA</div>' +
+    rows + '</div>';
+}
+
+function renderOvNavBtns() {
+  const inv = isInvitado() && !isAdmin();
+  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">' +
+    '<button class="ov-btn" onclick="showTab(\'menu\')">🍖 MENÚ</button>' +
+    (!inv ? '<button class="ov-btn" onclick="showTab(\'tareas\')">📋 TAREAS</button>' +
+      '<button class="ov-btn-sec" onclick="showTab(\'gastos\')">💰 GASTOS</button>' +
+      '<button class="ov-btn-sec" onclick="showTab(\'carne\')">🥩 CARNE</button>' : '') +
+    '</div>';
+}
+
+function renderPendientesInvCard() {
+  if (!isAdmin()) return '';
+  const inv = S.participants.filter(p=>p.role==='pendiente');
+  if (!inv.length) return '';
+  const rows = inv.map(p=>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">' +
+    '<span style="font-weight:700;font-size:14px;text-transform:uppercase">' + p.name + '</span>' +
+    '<div style="display:flex;gap:6px">' +
+    '<button onclick="aceptarInvitado(' + p.id + ',\'' + p.name.replace(/'/g,"\\'") + '\')" style="padding:5px 12px;border-radius:8px;border:none;background:var(--green);color:white;font-size:12px;font-weight:700;cursor:pointer">✅ ACEPTAR</button>' +
+    '<button onclick="rechazarInvitado(' + p.id + ')" style="padding:5px 10px;border-radius:8px;border:none;background:var(--red);color:white;font-size:12px;font-weight:700;cursor:pointer">✕</button>' +
+    '</div></div>'
+  ).join('');
+  return '<div class="ov-card" style="border-color:var(--fire);background:rgba(245,197,24,.06)">' +
+    '<div class="ov-label" style="color:var(--fire)">🔔 Invitados esperando (' + inv.length + ')</div>' +
+    rows + '</div>';
+}
+
 function renderOverview() {
   const el = document.getElementById('ov-content');
   if (!el || !S.event) return;
@@ -2052,153 +2201,15 @@ function renderOverview() {
     return {nombre:p.name,dia:d,mes:m};
   }).filter(c=>!isNaN(c.mes)&&c.mes===(parts[1]?parseInt(parts[1]):mesActual)).sort((a,b)=>a.dia-b.dia);
 
-  el.innerHTML = `
-    <div class="ov-hero">
-      <div class="ov-title">${(S.event.title||'ASADO').toUpperCase()}</div>
-      <div class="ov-date">📍 ${S.event.location||''} · ${fechaStr} · ${S.event.time_range||''}</div>
-      <div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:'Bebas Neue',cursive;letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>
-      <div class="ov-stats" style="margin-top:14px">
-        <div class="ov-stat"><div class="ov-stat-n">${conf}</div><div class="ov-stat-l">Van ✅</div></div>
-        <div class="ov-stat"><div class="ov-stat-n">${pendientes}</div><div class="ov-stat-l">Tareas 📋</div></div>
-        ${cumples.length>0?`<div class="ov-stat"><div class="ov-stat-n">🎂${cumples.length}</div><div class="ov-stat-l">CUMPLES</div></div>`:''}
-      </div>
-    </div>
-
-    <div class="ov-card">
-      <div class="ov-label">👤 Mi estado — ${me.toUpperCase()}</div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:14px;font-weight:700">${miRsvp==='si'?'✅ VAS AL '+(S.event?.title||'ASADO').split(' ')[0].toUpperCase():miRsvp==='no'?'❌ NO VAS':'🤷 SIN CONFIRMAR'}</span>
-        ${miRsvp==='si'?`<button onclick="cambiarAsistencia()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase;margin-right:4px">CAMBIAR</button>`:''}
-        ${miRsvp==='no'?`<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.1);color:var(--green);font-size:11px;cursor:pointer;text-transform:uppercase">VOY DESPUÉS DE TODO ✅</button>`:''}
-        ${!miRsvp?`<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>`:''}
-      </div>
-    </div>
-
-    ${(!isInvitado()||isAdmin())?`<div class="ov-card">
-      <div class="ov-label">📊 Asistencia</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
-        <div style="padding:8px;background:rgba(39,174,96,.1);border-radius:8px;border:1px solid rgba(39,174,96,.2)">
-          <div style="font-size:22px;font-weight:700;color:var(--green)">${conf}</div>
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Van</div>
-        </div>
-        <div style="padding:8px;background:rgba(231,76,60,.1);border-radius:8px;border:1px solid rgba(231,76,60,.2)">
-          <div style="font-size:22px;font-weight:700;color:var(--red)">${noVan}</div>
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">No van</div>
-        </div>
-        <div style="padding:8px;background:var(--ash);border-radius:8px;border:1px solid var(--rim)">
-          <div style="font-size:22px;font-weight:700;color:var(--muted)">${sinResp}</div>
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">PENDIENTE</div>
-        </div>
-      </div>
-      ${sinResp>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>${S.participants.filter(p=>p.active&&!p.rsvp&&p.role!=='pendiente').map(p=>p.name.toUpperCase()).join(', ')}</strong></div><button onclick="openModal('modal-asistencia')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>`:'<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>'}
-    </div>`:''}
-
-    ${isAdmin()?`${(()=>{ const pendientes_inv = S.participants.filter(p=>p.role==='pendiente'); return pendientes_inv.length>0?`<div class="ov-card" style="border-color:var(--fire);background:rgba(245,197,24,.06)">
-      <div class="ov-label" style="color:var(--fire)">🔔 Invitados esperando (${pendientes_inv.length})</div>
-      ${pendientes_inv.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
-        <span style="font-weight:700;font-size:14px;text-transform:uppercase">${p.name}</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="aceptarInvitado(${p.id},'${p.name.replace(/'/g,"\\'")}')" style="padding:5px 12px;border-radius:8px;border:none;background:var(--green);color:white;font-size:12px;font-weight:700;cursor:pointer">✅ ACEPTAR</button>
-          <button onclick="rechazarInvitado(${p.id})" style="padding:5px 10px;border-radius:8px;border:none;background:var(--red);color:white;font-size:12px;font-weight:700;cursor:pointer">✕</button>
-        </div>
-      </div>`).join('')}
-    </div>`:''; })()}`:''}
-
-    ${cumples.length?`<div class="ov-card">
-      <div class="ov-label">🎂 Cumpleaños de ${meses[parts[1]?parseInt(parts[1]):mesActual]}</div>
-      ${cumples.map(c=>{const hoyEs=c.dia===diaActual;return`<div class="ov-row">
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white">${c.nombre[0].toUpperCase()}</div>
-          <div>
-            <div style="font-size:13px;font-weight:700;text-transform:uppercase">${c.nombre}${hoyEs?' 🎂':''}</div>
-            <div style="font-size:11px;color:${hoyEs?'var(--green)':'var(--muted)'}">${hoyEs?'¡HOY!':c.dia+' de '+meses[c.mes]}</div>
-          </div>
-        </div>
-        ${hoyEs&&isAdmin()?`<button onclick="enviarFelizCumple('${c.nombre}')" style="border:none;background:var(--fire);color:white;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">🎂 FELIZ CUMPLE</button>`:''}
-      </div>`;}).join('')}
-    </div>`:''}
-
-    ${pendientes>0?`<div class="ov-card">
-      <div class="ov-label">📋 Tareas pendientes (${pendientes})</div>
-      ${S.tasks.filter(t=>!t.done).slice(0,5).map(t=>`<div class="ov-row" style="align-items:center;gap:8px;padding:6px 0">
-        <span onclick="toggleTask(${t.id},false)" style="width:20px;height:20px;border-radius:5px;border:2px solid var(--rim);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;background:var(--ash)">&#9633;</span>
-        <span style="flex:1;font-size:13px">${t.name.split('\n')[0]}</span>
-        <span class="ov-muted" style="font-size:11px">${(t.assignee||'SIN ASIGNAR').toUpperCase()}</span>
-      </div>`).join('')}
-      ${pendientes>5?`<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px">+${pendientes-5} más</div>`:''}
-    </div>`:`<div class="ov-card" style="text-align:center;padding:16px"><div style="font-size:24px">✅</div><div style="color:var(--green);font-weight:700;font-size:13px;margin-top:4px;text-transform:uppercase">TODAS LAS TAREAS LISTAS</div></div>`}
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"><div onclick="abrirVotosModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🗳️</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">VOTOS</div></div><div onclick="abrirStatsModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🏆</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">STATS</div></div></div>
-    <!-- Próximos asados -->
-    ${(()=>{
-      // Calcular próximos 6 asados (2do sábado de mes par)
-      const proximos = [];
-      const hoyTs = ahoraAR();
-      let y = hoyTs.getFullYear();
-      let m = hoyTs.getMonth() + 1; // 1-12
-      for (let i = 0; i < 12 && proximos.length < 4; i++) {
-        if (m % 2 === 0) { // mes par
-          // Buscar el 2do sábado
-          const firstDay = new Date(y, m-1, 1);
-          let satCount = 0, sabado2 = null;
-          for (let d = 1; d <= 31; d++) {
-            const day = new Date(y, m-1, d);
-            if (day.getMonth() !== m-1) break;
-            if (day.getDay() === 6) { // sábado
-              satCount++;
-              if (satCount === 2) { sabado2 = day; break; }
-            }
-          }
-          if (sabado2 && sabado2 > hoyTs) {
-            proximos.push({
-              fecha: sabado2,
-              label: `${sabado2.getDate()} de ${meses[sabado2.getMonth()+1]} ${y}`,
-              esEste: S.event && S.event.event_date === `${String(sabado2.getDate()).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`
-            });
-          }
-        }
-        m++;
-        if (m > 12) { m = 1; y++; }
-      }
-      if (!proximos.length) return '';
-      return `<div class="ov-card">
-        <div class="ov-label">📅 CALENDARIO DE ASADOS</div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">2° SÁBADO DE MES PAR · LA CALETA</div>
-        ${proximos.map((p,i)=>{
-          const mesAsado = p.fecha.getMonth()+1;
-          const cumplesMes = S.participants.filter(pt=>pt.active&&pt.birthday).filter(pt=>{
-            const [d,m]=(pt.birthday||'').split('/').map(Number); return m===mesAsado;
-          });
-          // Mi RSVP para este asado (guardado en localStorage por fecha)
-          const fechaISO = p.fecha.toISOString().split('T')[0];
-          const miRsvpCal = S.rsvpCal?.[fechaISO]?.[me] || null;
-          const totalVan = S.rsvpCal?.[fechaISO] ? Object.values(S.rsvpCal[fechaISO]).filter(r=>r==='si').length : 0;
-          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rim)">
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
-                <div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${p.esEste?'var(--fire)':'var(--rim)'}"></div>
-                <span style="font-size:13px;font-weight:700;text-transform:uppercase;color:${p.esEste?'var(--fire)':'var(--text)'}">${p.label}</span>
-                ${p.esEste?'<span style="font-size:9px;background:var(--fire);color:white;padding:1px 5px;border-radius:8px;font-weight:700">ESTE</span>':''}
-              </div>
-              ${cumplesMes.length?`<div style="font-size:10px;color:var(--ember)">🎂 ${cumplesMes.map(c=>c.name.toUpperCase()).join(', ')}</div>`:''}
-              ${totalVan>0?`<div style="font-size:10px;color:var(--green);margin-top:1px">✅ ${totalVan} van</div>`:''}
-            </div>
-            ${!p.esEste?`<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">
-              <button onclick="rsvpCalendario('${fechaISO}','si')" style="padding:6px 10px;border-radius:8px;border:2px solid ${miRsvpCal==='si'?'var(--green)':'var(--rim)'};background:${miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${miRsvpCal==='si'?'var(--green)':'var(--muted)'};font-size:13px;cursor:pointer">✅</button>
-              <button onclick="rsvpCalendario('${fechaISO}','no')" style="padding:6px 10px;border-radius:8px;border:2px solid ${miRsvpCal==='no'?'var(--red)':'var(--rim)'};background:${miRsvpCal==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${miRsvpCal==='no'?'var(--red)':'var(--muted)'};font-size:13px;cursor:pointer">❌</button>
-            </div>`:'<div style="font-size:18px;margin-left:8px">🔥</div>'}
-          </div>`;
-        }).join('')}
-      </div>`;
-    })()}
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-      <button class="ov-btn" onclick="showTab('menu')">🍖 MENÚ</button>
-      ${!isInvitado()||isAdmin()?`<button class="ov-btn" onclick="showTab('tareas')">📋 TAREAS</button>
-      <button class="ov-btn-sec" onclick="showTab('gastos')">💰 GASTOS</button>
-      <button class="ov-btn-sec" onclick="showTab('carne')">🥩 CARNE</button>`:''}
-
-    </div>`;
+  el.innerHTML = renderOvHero(conf, pendientes, cumples, fechaStr) +
+    renderOvMiEstado(miRsvp) +
+    renderOvAsistencia(conf, noVan, sinResp) +
+    renderPendientesInvCard() +
+    renderOvCumples(cumples, meses, parts, mesActual, diaActual) +
+    renderOvTareas(pendientes) +
+    renderOvVotosStats() +
+    renderOvCalendario(meses) +
+    renderOvNavBtns();
 }
 
 function enviarFelizCumple(nombre) {
