@@ -753,6 +753,16 @@ body {
       <input class="fi" id="new-part" placeholder="Nombre..." style="margin-bottom:0">
       <button class="btp" style="flex:none;padding:10px 14px" onclick="addParticipant()">+</button>
     </div>
+    <div class="div" style="margin-top:16px"></div>
+    <label class="fl" style="color:var(--fire)">🎟️ Lista de invitados</label>
+    <div id="invitados-list" style="margin-bottom:10px"></div>
+    <div id="inv-nombres-wrap" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">
+      <div class="frow">
+        <input class="fi inv-nombre-input" placeholder="Nombre invitado..." style="margin-bottom:0;flex:1">
+        <button class="abtn" onclick="addInvRow()" style="flex:none;padding:10px 12px">+</button>
+      </div>
+    </div>
+    <button class="btp" style="width:100%" onclick="crearInvitados()">🎟️ AGREGAR INVITADOS</button>
   </div>
 </div>
 
@@ -930,8 +940,19 @@ async function doLogin() {
     renderPendienteScreen(v);
     return;
   }
-  // Ya es invitado aceptado: entrar directo
-  if (part.role === 'invitado') { entrarApp(v); return; }
+  // Ya es invitado aceptado: verificar vencimiento
+  if (part.role === 'invitado') {
+    if (part.invite_expires) {
+      const [d,m,y] = part.invite_expires.split('/').map(Number);
+      const vence = new Date(y, m-1, d, 23, 59);
+      if (ahoraAR() > vence) {
+        toast('⏰ Tu invitación venció','var(--red)');
+        localStorage.removeItem('asado_user');
+        return;
+      }
+    }
+    entrarApp(v); return;
+  }
   // Pendiente: mostrar espera
   if (part.role === 'pendiente') {
     document.getElementById('login-screen').style.display='none';
@@ -1095,7 +1116,7 @@ async function saveEvent() {
 
 // ══ ADMIN: PARTICIPANTES ═══════════════════════════
 function renderParticipantsModal() {
-  document.getElementById('part-list').innerHTML = [...S.participants].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`
+  document.getElementById('part-list').innerHTML = [...S.participants].filter(p=>p.role!=='invitado'&&p.role!=='pendiente').sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rim)">
       <div style="display:flex;align-items:center;gap:10px">
         <div class="av${p.active?'':' n'}" style="width:32px;height:32px;font-size:13px">${p.name[0].toUpperCase()}</div>
@@ -1109,6 +1130,7 @@ function renderParticipantsModal() {
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
+  renderInvitadosList();
 }
 
 function openRenameParticipant(id, currentName) {
@@ -1174,7 +1196,7 @@ async function toggleParticipant(id, active) {
 
 // ── Gestión de invitados pendientes ───────────────────────────────────────
 async function aceptarInvitado(id, nombre) {
-  await sb.from('participants').update({role:'invitado', active:false}).eq('id',id);
+  await sb.from('participants').update({role:'invitado', active:true}).eq('id',id);
   await fetchAll();
   renderOverview();
   toast(`✅ ${nombre.toUpperCase()} aceptado como invitado`,'var(--green)');
@@ -1185,6 +1207,70 @@ async function rechazarInvitado(id) {
   await fetchAll();
   renderOverview();
   toast('❌ Invitado rechazado','var(--red)');
+}
+// ─────────────────────────────────────────────────────────────────────────
+
+// ── Lista de invitados (admin crea) ───────────────────────────────────────
+function addInvRow() {
+  const wrap = document.getElementById('inv-nombres-wrap');
+  const row = document.createElement('div');
+  row.className = 'frow';
+  row.innerHTML = `<input class="fi inv-nombre-input" placeholder="Nombre invitado..." style="margin-bottom:0;flex:1">
+    <button class="abtn red" onclick="this.parentElement.remove()" style="flex:none;padding:10px 12px">✕</button>`;
+  wrap.appendChild(row);
+}
+
+async function crearInvitados() {
+  const inputs = document.querySelectorAll('.inv-nombre-input');
+  const nombres = [...inputs].map(i=>i.value.trim()).filter(Boolean);
+  if (!nombres.length) { toast('Ingresá al menos un nombre','var(--red)'); return; }
+  const yaExisten = nombres.filter(n => S.participants.find(p=>p.name.toLowerCase()===n.toLowerCase()));
+  if (yaExisten.length) { toast(`Ya existe: ${yaExisten.join(', ')}`, 'var(--red)'); return; }
+  const vence = S.event?.event_date || null;
+  const rows = nombres.map(name => ({ name, active:true, role:'invitado', rsvp:null, invited_by:me, invite_expires:vence }));
+  const {error} = await sb.from('participants').insert(rows);
+  if (error) { toast('Error al guardar','var(--red)'); return; }
+  inputs.forEach(i=>i.value='');
+  document.querySelectorAll('.inv-nombre-input').forEach((inp,i)=>{ if(i>0) inp.parentElement.remove(); });
+  await fetchAll();
+  renderParticipantsModal();
+  renderOverview();
+  toast(`✅ ${nombres.length} invitado${nombres.length>1?'s':''} agregado${nombres.length>1?'s':''}!`,'var(--green)');
+}
+
+function renderInvitadosList() {
+  const el = document.getElementById('invitados-list');
+  if (!el) return;
+  const hoy = ahoraAR();
+  const invitados = S.participants.filter(p => p.role === 'invitado');
+  if (!invitados.length) { el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0">Sin invitados aún</div>'; return; }
+  el.innerHTML = invitados.sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p => {
+    const rsvpColor = p.rsvp==='si'?'var(--green)':p.rsvp==='no'?'var(--red)':'var(--muted)';
+    const rsvpLabel = p.rsvp==='si'?'✅ VA':p.rsvp==='no'?'❌ NO VA':'⏳ SIN RESP';
+    let vencido = false;
+    if (p.invite_expires) {
+      const [d,m,y] = p.invite_expires.split('/').map(Number);
+      vencido = hoy > new Date(y, m-1, d, 23, 59);
+    }
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim);${vencido?'opacity:.5':''}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="av" style="width:28px;height:28px;font-size:12px">${p.name[0].toUpperCase()}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;text-transform:uppercase">${p.name}${vencido?' <span style="font-size:9px;color:var(--muted)">(venció)</span>':''}</div>
+          <div style="font-size:10px;font-weight:700;color:${rsvpColor}">${rsvpLabel}</div>
+        </div>
+      </div>
+      <button onclick="quitarInvitado(${p.id})" style="background:none;border:1px solid var(--rim);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--muted);cursor:pointer">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function quitarInvitado(id) {
+  if (!confirm('¿Quitar a este invitado?')) return;
+  await sb.from('participants').delete().eq('id',id);
+  await fetchAll();
+  renderParticipantsModal();
+  renderOverview();
 }
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -1951,8 +2037,8 @@ function renderOverview() {
 
   // Stats
   const conf = allP().length;
-  const noVan = S.participants.filter(p=>p.active&&p.rsvp==='no').length;
-  const sinResp = S.participants.filter(p=>p.active&&!p.rsvp).length;
+  const noVan = S.participants.filter(p=>p.active&&p.rsvp==='no'&&p.role!=='pendiente').length;
+  const sinResp = S.participants.filter(p=>p.active&&!p.rsvp&&p.role!=='pendiente').length;
   const pendientes = S.tasks.filter(t=>!t.done).length;
   const pp = getPP();
 
@@ -2004,7 +2090,7 @@ function renderOverview() {
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase">PENDIENTE</div>
         </div>
       </div>
-      ${sinResp>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>${S.participants.filter(p=>p.active&&!p.rsvp).map(p=>p.name.toUpperCase()).join(', ')}</strong></div><button onclick="openModal('modal-asistencia')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>`:'<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>'}
+      ${sinResp>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>${S.participants.filter(p=>p.active&&!p.rsvp&&p.role!=='pendiente').map(p=>p.name.toUpperCase()).join(', ')}</strong></div><button onclick="openModal('modal-asistencia')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>`:'<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>'}
     </div>`:''}
 
     ${isAdmin()?`${(()=>{ const pendientes_inv = S.participants.filter(p=>p.role==='pendiente'); return pendientes_inv.length>0?`<div class="ov-card" style="border-color:var(--fire);background:rgba(245,197,24,.06)">
