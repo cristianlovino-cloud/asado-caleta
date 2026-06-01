@@ -839,8 +839,11 @@ let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents
 let me = localStorage.getItem('asado_user') || '';
 let tmpl = 'convocatoria';
 
-const isAdmin = () => me === ADMIN_USER;
-const allP    = () => [...new Set(S.participants.filter(p=>p.active && p.rsvp==='si').map(p=>p.name))];
+const isAdmin    = () => me === ADMIN_USER;
+const isInvitado = () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='invitado'; };
+const isPendiente= () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='pendiente'; };
+// allP incluye habituales (active+si) e invitados confirmados
+const allP = () => [...new Set(S.participants.filter(p=>(p.active && p.rsvp==='si') || (p.role==='invitado' && p.rsvp==='si')).map(p=>p.name))];
 const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
 // ══ FETCH ═════════════════════════════════════════
@@ -914,7 +917,27 @@ async function doLogin() {
   if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
   me=v; localStorage.setItem('asado_user',v);
   // Verificar rsvp desde Supabase (fuente de verdad)
-  const part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase());
+  let part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase());
+
+  // ── NUEVO: usuario desconocido → insertar como pendiente ──────────────────
+  if (!part) {
+    const {data:inserted} = await sb.from('participants').insert({
+      name: v, active: false, role: 'pendiente'
+    }).select().single();
+    if (inserted) { S.participants.push(inserted); part = inserted; }
+    // Mostrar pantalla de espera
+    document.getElementById('login-screen').style.display='none';
+    renderPendienteScreen(v);
+    return;
+  }
+  // Ya es invitado aceptado: entrar directo
+  if (part.role === 'invitado') { entrarApp(v); return; }
+  // Pendiente: mostrar espera
+  if (part.role === 'pendiente') {
+    document.getElementById('login-screen').style.display='none';
+    renderPendienteScreen(v); return;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
   const yaConfirmo = part?.rsvp === 'si' || part?.rsvp === 'no';
   if (yaConfirmo) {
     entrarApp(v);
@@ -937,6 +960,52 @@ async function doLogin() {
   }
 }
 
+// ── Pantalla de espera para invitados pendientes ───────────────────────────
+function renderPendienteScreen(nombre) {
+  let el = document.getElementById('pendiente-screen');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'pendiente-screen';
+    el.style.cssText = 'min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 22px;background:radial-gradient(ellipse at 50% 0%,rgba(245,197,24,.18) 0%,transparent 60%),var(--coal);text-align:center;max-width:min(480px,100vw);margin:0 auto;';
+    document.body.appendChild(el);
+  }
+  el.style.display='flex';
+  el.innerHTML = `
+    <div style="font-size:52px;margin-bottom:16px">⏳</div>
+    <div style="font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;color:var(--fire);margin-bottom:8px">ESPERÁ UN SEGUNDO</div>
+    <div style="font-size:15px;color:var(--text);margin-bottom:6px">Hola <strong>${nombre.toUpperCase()}</strong> 👋</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.6">Tu solicitud fue enviada.<br>Cris tiene que aceptarte para entrar al asado.</div>
+    <div style="width:48px;height:4px;border-radius:2px;background:var(--rim);margin:0 auto 28px;overflow:hidden;position:relative">
+      <div style="position:absolute;left:-100%;width:100%;height:100%;background:var(--fire);border-radius:2px;animation:slide 1.4s ease-in-out infinite" id="pend-bar"></div>
+    </div>
+    <button onclick="checkPendingStatus()" style="padding:10px 24px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px">🔄 ACTUALIZAR</button>
+    <button onclick="localStorage.removeItem('asado_user');location.reload()" style="margin-top:12px;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Cambiar nombre</button>
+  `;
+  // CSS animation inline
+  if (!document.getElementById('pend-style')) {
+    const s = document.createElement('style');
+    s.id='pend-style';
+    s.textContent='@keyframes slide{0%{left:-100%}50%{left:0}100%{left:100%}}';
+    document.head.appendChild(s);
+  }
+  // Poll cada 8 segundos
+  if (window._pendTimer) clearInterval(window._pendTimer);
+  window._pendTimer = setInterval(checkPendingStatus, 8000);
+}
+
+async function checkPendingStatus() {
+  const {data} = await sb.from('participants').select('*').ilike('name', me).single();
+  if (!data) return;
+  if (data.role === 'invitado') {
+    clearInterval(window._pendTimer);
+    const ps = document.getElementById('pendiente-screen');
+    if (ps) ps.style.display='none';
+    toast('✅ ¡Fuiste aceptado! Entrando...','var(--green)');
+    setTimeout(()=>entrarApp(me), 800);
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 function entrarApp(v) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('confirm-screen').style.display='none';
@@ -946,6 +1015,13 @@ function entrarApp(v) {
   if (isAdmin()) {
     const at = document.getElementById('admin-toggle');
     if (at) at.style.display='block';
+  }
+  // Modo invitado: ocultar tabs restringidos
+  if (isInvitado() && !isAdmin()) {
+    ['tareas','gastos','carne'].forEach(t => {
+      const el = document.querySelector(`[onclick="showTab('${t}')"]`);
+      if (el) el.style.display='none';
+    });
   }
   fetchAll().then(()=>{ if(!sbOk) renderAll(); });
   subscribe();
@@ -1096,6 +1172,22 @@ async function toggleParticipant(id, active) {
   renderParticipantsModal();
 }
 
+// ── Gestión de invitados pendientes ───────────────────────────────────────
+async function aceptarInvitado(id, nombre) {
+  await sb.from('participants').update({role:'invitado', active:false}).eq('id',id);
+  await fetchAll();
+  renderOverview();
+  toast(`✅ ${nombre.toUpperCase()} aceptado como invitado`,'var(--green)');
+}
+async function rechazarInvitado(id) {
+  if (!confirm('¿Rechazar y eliminar a este invitado?')) return;
+  await sb.from('participants').delete().eq('id',id);
+  await fetchAll();
+  renderOverview();
+  toast('❌ Invitado rechazado','var(--red)');
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 async function addParticipant() {
   const name=document.getElementById('new-part').value.trim();
   if (!name) return;
@@ -1176,6 +1268,7 @@ function renderHistory() {
 
 // ══ TABS ══════════════════════════════════════════
 function showTab(t) {
+  if (isInvitado() && !isAdmin() && ['tareas','gastos','carne'].includes(t)) return;
   document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(e=>e.classList.remove('active'));
   document.querySelector(`[onclick="showTab('${t}')"]`).classList.add('active');
@@ -1219,6 +1312,31 @@ async function addExpense() {
 function renderGastos() {
   if (!S.event) return;
   const pp=getPP(),total=getTotal(),mb=bal(me);
+
+  // ── MODO INVITADO: solo mostrar su cuota ──────────────────────────────
+  if (isInvitado() && !isAdmin()) {
+    const miDeuda = pp; // cuota proporcional (total / todos)
+    const elEl = document.getElementById('panel-gastos');
+    if (elEl) elEl.innerHTML = `
+      <div style="padding:16px">
+        <div class="ov-card" style="text-align:center;margin-bottom:12px">
+          <div class="ov-label">💰 Tu parte del asado</div>
+          <div style="font-size:42px;font-weight:700;font-family:'Bebas Neue',cursive;color:var(--fire);letter-spacing:2px">${fmt(miDeuda)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas</div>
+        </div>
+        <div class="ov-card">
+          <div class="ov-label">📋 Gastos del asado</div>
+          ${S.expenses.length===0?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
+            :S.expenses.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--rim)">
+              <div><div style="font-size:13px;font-weight:600;text-transform:uppercase">${e.description}</div><div style="font-size:11px;color:var(--muted)">${e.payer}</div></div>
+              <div style="font-size:14px;font-weight:700;color:var(--text)">${fmt(e.amount)}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    return;
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
   const comen = allP().length;
@@ -1870,7 +1988,7 @@ function renderOverview() {
       </div>
     </div>
 
-    <div class="ov-card">
+    ${(!isInvitado()||isAdmin())?`<div class="ov-card">
       <div class="ov-label">📊 Asistencia</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
         <div style="padding:8px;background:rgba(39,174,96,.1);border-radius:8px;border:1px solid rgba(39,174,96,.2)">
@@ -1887,7 +2005,18 @@ function renderOverview() {
         </div>
       </div>
       ${sinResp>0?`<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>${S.participants.filter(p=>p.active&&!p.rsvp).map(p=>p.name.toUpperCase()).join(', ')}</strong></div><button onclick="openModal('modal-asistencia')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>`:'<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>'}
-    </div>
+    </div>`:''}
+
+    ${isAdmin()?`${(()=>{ const pendientes_inv = S.participants.filter(p=>p.role==='pendiente'); return pendientes_inv.length>0?`<div class="ov-card" style="border-color:var(--fire);background:rgba(245,197,24,.06)">
+      <div class="ov-label" style="color:var(--fire)">🔔 Invitados esperando (${pendientes_inv.length})</div>
+      ${pendientes_inv.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
+        <span style="font-weight:700;font-size:14px;text-transform:uppercase">${p.name}</span>
+        <div style="display:flex;gap:6px">
+          <button onclick="aceptarInvitado(${p.id},'${p.name.replace(/'/g,"\\'")}')" style="padding:5px 12px;border-radius:8px;border:none;background:var(--green);color:white;font-size:12px;font-weight:700;cursor:pointer">✅ ACEPTAR</button>
+          <button onclick="rechazarInvitado(${p.id})" style="padding:5px 10px;border-radius:8px;border:none;background:var(--red);color:white;font-size:12px;font-weight:700;cursor:pointer">✕</button>
+        </div>
+      </div>`).join('')}
+    </div>`:''; })()}`:''}
 
     ${cumples.length?`<div class="ov-card">
       <div class="ov-label">🎂 Cumpleaños de ${meses[parts[1]?parseInt(parts[1]):mesActual]}</div>
@@ -1978,10 +2107,11 @@ function renderOverview() {
     })()}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-      <button class="ov-btn" onclick="showTab('tareas')">📋 TAREAS</button>
       <button class="ov-btn" onclick="showTab('menu')">🍖 MENÚ</button>
+      ${!isInvitado()||isAdmin()?`<button class="ov-btn" onclick="showTab('tareas')">📋 TAREAS</button>
       <button class="ov-btn-sec" onclick="showTab('gastos')">💰 GASTOS</button>
-      <button class="ov-btn-sec" onclick="showTab('carne')">🥩 CARNE</button>
+      <button class="ov-btn-sec" onclick="showTab('carne')">🥩 CARNE</button>`:''}
+
     </div>`;
 }
 
@@ -2076,6 +2206,20 @@ function renderAll() {
   renderMenu();
   renderWS();
   populateSel();
+  // Badge invitados pendientes para admin
+  if (isAdmin()) {
+    const pendCount = S.participants.filter(p=>p.role==='pendiente').length;
+    let badge = document.getElementById('admin-pend-badge');
+    if (!badge && pendCount > 0) {
+      badge = document.createElement('span');
+      badge.id = 'admin-pend-badge';
+      badge.style.cssText = 'position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border-radius:50%;font-size:10px;font-weight:700;width:16px;height:16px;display:flex;align-items:center;justify-content:center;line-height:1';
+      const at = document.getElementById('admin-toggle');
+      if (at) { at.style.position='relative'; at.appendChild(badge); }
+    }
+    if (badge) badge.textContent = pendCount > 0 ? pendCount : '';
+    if (badge) badge.style.display = pendCount > 0 ? 'flex' : 'none';
+  }
 }
 
 // ══ UTILS ═════════════════════════════════════════
