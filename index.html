@@ -1486,6 +1486,7 @@ async function addTask() {
 
 async function toggleTask(id,current) {
   if (isInvitado() && !isAdmin()) { toast('Solo los organizadores pueden modificar tareas','var(--muted)'); return; }
+  const t = S.tasks.find(t=>String(t.id)===String(id));
   if (!t) return;
   const newDone = !current;
   // Actualizar local y bloquear refetch por 2s mientras guarda
@@ -3174,7 +3175,7 @@ const SEDES_MUNDIAL = [
   { pais:'🇺🇸', ciudad:'Nueva York/Nueva Jersey', estadio:'MetLife Stadium', cap:'82.500' },
   { pais:'🇺🇸', ciudad:'Los Ángeles', estadio:'SoFi Stadium', cap:'70.240' },
   { pais:'🇺🇸', ciudad:'Dallas', estadio:'AT&T Stadium', cap:'80.000' },
-  { pais:'🇺🇸', ciudad:'San Francisco', estadio:'Levi's Stadium', cap:'68.500' },
+  { pais:'🇺🇸', ciudad:'San Francisco', estadio:"Levi's Stadium", cap:'68.500' },
   { pais:'🇺🇸', ciudad:'Miami', estadio:'Hard Rock Stadium', cap:'64.767' },
   { pais:'🇺🇸', ciudad:'Seattle', estadio:'Lumen Field', cap:'72.000' },
   { pais:'🇺🇸', ciudad:'Boston', estadio:'Gillette Stadium', cap:'65.878' },
