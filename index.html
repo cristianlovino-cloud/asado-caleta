@@ -902,6 +902,15 @@ if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
 let me = localStorage.getItem('asado_user') || '';
 let tmpl = 'convocatoria';
 
+// ── Normalización de nombres ───────────────────────────────────────────────
+// "hernan gomez" → "Hernan Gomez" | "SANDY" → "Sandy" | "raul OLIVA" → "Raul Oliva"
+function normalizarNombre(str) {
+  return str.trim()
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 const isAdmin    = () => me === ADMIN_USER;
 const isInvitado = () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='invitado'; };
 const isPendiente= () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='pendiente'; };
@@ -987,9 +996,11 @@ async function buildLogin() {
 // selectN removed - free text login
 
 async function doLogin() {
-  const v=document.getElementById('cname').value.trim();
-  if (!v) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
-  me=v; 
+  const raw = document.getElementById('cname').value.trim();
+  if (!raw) { toast('Ingresá tu nombre 👆','var(--red)'); return; }
+  const v = normalizarNombre(raw);
+  document.getElementById('cname').value = v;
+  me=v;
   localStorage.setItem('asado_user', v);
   localStorage.setItem('asado_login_ts', Date.now());
   // Verificar rsvp desde Supabase (fuente de verdad)
@@ -1289,7 +1300,7 @@ function addInvRow() {
 
 async function crearInvitados() {
   const inputs = document.querySelectorAll('.inv-nombre-input');
-  const nombres = [...inputs].map(i=>i.value.trim()).filter(Boolean);
+  const nombres = [...inputs].map(i=>normalizarNombre(i.value)).filter(Boolean);
   if (!nombres.length) { toast('Ingresá al menos un nombre','var(--red)'); return; }
   const yaExisten = nombres.filter(n => S.participants.find(p=>p.name.toLowerCase()===n.toLowerCase()));
   if (yaExisten.length) { toast(`Ya existe: ${yaExisten.join(', ')}`, 'var(--red)'); return; }
@@ -1342,7 +1353,7 @@ async function quitarInvitado(id) {
 // ─────────────────────────────────────────────────────────────────────────
 
 async function addParticipant() {
-  const name=document.getElementById('new-part').value.trim();
+  const name = normalizarNombre(document.getElementById('new-part').value);
   if (!name) return;
   const exists=S.participants.find(p=>p.name.toLowerCase()===name.toLowerCase());
   if (exists) { await sb.from('participants').update({active:true}).eq('id',exists.id); }
@@ -1481,7 +1492,7 @@ function renderGastos() {
           <div class="ov-label">📋 Gastos del asado</div>
           ${S.expenses.length===0?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
             :S.expenses.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--rim)">
-              <div><div style="font-size:13px;font-weight:600;text-transform:uppercase">${e.description}</div><div style="font-size:11px;color:var(--muted)">${e.payer}</div></div>
+              <div><div style="font-size:13px;font-weight:600;text-transform:uppercase">${e.description}</div><div style="font-size:11px;color:var(--muted)">${e.payer.toUpperCase()}</div></div>
               <div style="font-size:14px;font-weight:700;color:var(--text)">${fmt(e.amount)}</div>
             </div>`).join('')}
         </div>
@@ -1520,7 +1531,7 @@ function renderGastos() {
   const faltanPagar = allP().filter(p=>bal(p)<-0.5 && totalPagadoRender(p) < Math.abs(bal(p)) - 0.5);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
-    ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
+    ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
     : '';
 
   const el=document.getElementById('explist');
