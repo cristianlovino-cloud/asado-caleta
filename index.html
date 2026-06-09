@@ -1551,7 +1551,7 @@ function renderGastos() {
 // ══ TAREAS ════════════════════════════════════════
 async function addTask() {
   const name=document.getElementById('ftname').value.trim();
-  const assignee=document.getElementById('ftassign').value;
+  const assignee=document.getElementById('ftassign').value.trim()||null;
   const cat=document.getElementById('ftcat').value;
   const qty=parseInt(document.getElementById('ftqty').value)||null;
   if (!name) { toast('Escribí la tarea','var(--red)'); return; }
@@ -1559,6 +1559,7 @@ async function addTask() {
   document.getElementById('ftqty').value='';
   tf('ftask');
   await sb.from('tasks').insert({event_id:S.event.id,name,category:cat,assignee,done:false,qty});
+  await fetchAll();
   toast('✅ Tarea agregada!');
 }
 
