@@ -382,6 +382,7 @@ body {
     <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
     <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
+    <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
     <button class="abtn" onclick="publicarVersion()" style="border-color:rgba(91,184,232,.4);color:var(--club1)">📡 Publicar versión</button>
   </div>
@@ -766,6 +767,51 @@ body {
   </div>
 </div>
 
+<!-- Sponsor -->
+<div class="modal-bg" id="modal-sponsor">
+  <div class="modal">
+    <div class="modal-title">🏆 Sponsor <button class="modal-close" onclick="closeModal('modal-sponsor')">✕</button></div>
+
+    <!-- Preview -->
+    <div id="sp-preview" style="margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));padding:12px;display:flex;align-items:center;gap:10px">
+      <img id="sp-prev-logo" src="" style="width:48px;height:48px;border-radius:50%;object-fit:contain;border:2px solid rgba(255,255,255,.15);display:none">
+      <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0" id="sp-prev-icon">🌍</div>
+      <div>
+        <div id="sp-prev-nombre" style="font-size:13px;font-weight:800;color:#fff;text-transform:uppercase"></div>
+        <div id="sp-prev-tagline" style="font-size:11px;color:rgba(180,200,255,.7);margin-top:2px"></div>
+      </div>
+    </div>
+
+    <label class="fl">Estado</label>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--ash);border-radius:10px;padding:10px 14px;margin-bottom:10px;border:1px solid var(--rim)">
+      <span style="font-size:13px;font-weight:700" id="sp-status-label">INACTIVO</span>
+      <div onclick="toggleSponsorActive()" id="sp-toggle" style="width:44px;height:24px;border-radius:12px;background:var(--rim);cursor:pointer;position:relative;transition:background .2s">
+        <div id="sp-toggle-dot" style="width:20px;height:20px;border-radius:50%;background:white;position:absolute;top:2px;left:2px;transition:left .2s"></div>
+      </div>
+    </div>
+
+    <label class="fl">Desde</label>
+    <input class="fi" id="sp-desde" placeholder="DD/MM/YYYY" style="margin-bottom:8px">
+    <label class="fl">Hasta</label>
+    <input class="fi" id="sp-hasta" placeholder="DD/MM/YYYY" style="margin-bottom:8px">
+    <label class="fl">Nombre</label>
+    <input class="fi" id="sp-nombre" placeholder="Nombre del sponsor" style="margin-bottom:8px" oninput="spPreview()">
+    <label class="fl">Tagline</label>
+    <input class="fi" id="sp-tagline" placeholder="Slogan corto" style="margin-bottom:8px" oninput="spPreview()">
+    <label class="fl">URL (link al tocar)</label>
+    <input class="fi" id="sp-url" placeholder="https://..." style="margin-bottom:8px">
+    <label class="fl">URL del logo</label>
+    <div class="frow">
+      <input class="fi" id="sp-logo-url" placeholder="https://...jpg" style="margin-bottom:0;flex:1" oninput="spPreview()">
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btp" style="flex:1" onclick="saveSponsor()">💾 GUARDAR</button>
+      <button class="btg" style="flex:none;padding:10px 14px" onclick="closeModal('modal-sponsor')">✕</button>
+    </div>
+  </div>
+</div>
+
 <!-- Historial -->
 <div class="modal-bg" id="modal-history">
   <div class="modal">
@@ -845,7 +891,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[] };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsor:null };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -873,17 +919,28 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
     sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
     sb.from('calendar_rsvp').select('*'),
+    sb.from('sponsors').select('*').eq('active',true).limit(1),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data;
   if (mn.data) S.menu         = mn.data;
+  if (sp.data?.length) {
+    // Verificar rango de fechas
+    const hoy = ahoraAR();
+    const sp0 = sp.data[0];
+    const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
+    const desde = parseF(sp0.desde);
+    const hasta = parseF(sp0.hasta);
+    const activo = (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
+    S.sponsor = activo ? sp0 : null;
+  } else { S.sponsor = null; }
   if (cr.data) {
     S.rsvpCal = {};
     cr.data.forEach(r => {
@@ -2158,6 +2215,102 @@ function renderOvNavBtns() {
     '</div>';
 }
 
+function renderOvSponsor() {
+  if (!S.sponsor) return '';
+  const sp = S.sponsor;
+  const logo = sp.logo_url
+    ? '<img src="' + sp.logo_url + '" alt="' + sp.nombre + '" style="width:56px;height:56px;object-fit:contain;border-radius:50%;border:2px solid rgba(255,255,255,.15);flex-shrink:0">'
+    : '<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌍</div>';
+  const card =
+    '<div style="margin:0 0 10px;border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative">' +
+      '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(100,160,255,.6),transparent)"></div>' +
+      '<div style="padding:10px 14px 6px;display:flex;align-items:center;gap:4px">' +
+        '<div style="width:5px;height:5px;border-radius:50%;background:#4a90e2;animation:pulse 2s infinite"></div>' +
+        '<span style="font-size:9px;color:rgba(100,160,255,.8);font-weight:700;letter-spacing:1.5px;text-transform:uppercase">SPONSOR OFICIAL</span>' +
+      '</div>' +
+      '<div style="padding:8px 14px 14px;display:flex;align-items:center;gap:12px">' +
+        logo +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">' + sp.nombre + '</div>' +
+          (sp.tagline ? '<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">' + sp.tagline + '</div>' : '') +
+        '</div>' +
+        (sp.url ? '<a href="' + sp.url + '" target="_blank" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:1px solid rgba(100,160,255,.3);background:rgba(100,160,255,.1);color:rgba(150,190,255,.9);font-size:10px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px">VER ↗</a>' : '') +
+      '</div>' +
+    '</div>';
+  return card;
+}
+
+// ── Sponsor admin ─────────────────────────────────────────────────────────
+function openSponsorModal() {
+  const sp = S.sponsor;
+  // Cargar valores actuales (o defaults)
+  document.getElementById('sp-nombre').value   = sp?.nombre   || '';
+  document.getElementById('sp-tagline').value  = sp?.tagline  || '';
+  document.getElementById('sp-url').value      = sp?.url      || '';
+  document.getElementById('sp-logo-url').value = sp?.logo_url || '';
+  document.getElementById('sp-desde').value    = sp?.desde    || '';
+  document.getElementById('sp-hasta').value    = sp?.hasta    || '';
+  setSponsorToggle(sp?.active ?? false);
+  spPreview();
+  openModal('modal-sponsor');
+}
+
+function setSponsorToggle(active) {
+  const tog = document.getElementById('sp-toggle');
+  const dot = document.getElementById('sp-toggle-dot');
+  const lbl = document.getElementById('sp-status-label');
+  if (!tog) return;
+  tog.style.background = active ? 'var(--green)' : 'var(--rim)';
+  dot.style.left = active ? '22px' : '2px';
+  lbl.textContent = active ? 'ACTIVO' : 'INACTIVO';
+  lbl.style.color = active ? 'var(--green)' : 'var(--muted)';
+  tog.dataset.active = active ? '1' : '0';
+}
+
+function toggleSponsorActive() {
+  const tog = document.getElementById('sp-toggle');
+  setSponsorToggle(tog.dataset.active !== '1');
+}
+
+function spPreview() {
+  const nombre  = document.getElementById('sp-nombre').value.trim();
+  const tagline = document.getElementById('sp-tagline').value.trim();
+  const logoUrl = document.getElementById('sp-logo-url').value.trim();
+  document.getElementById('sp-prev-nombre').textContent  = nombre  || 'NOMBRE SPONSOR';
+  document.getElementById('sp-prev-tagline').textContent = tagline || 'Tagline...';
+  const img  = document.getElementById('sp-prev-logo');
+  const icon = document.getElementById('sp-prev-icon');
+  if (logoUrl) { img.src = logoUrl; img.style.display='block'; icon.style.display='none'; }
+  else         { img.style.display='none'; icon.style.display='flex'; }
+}
+
+async function saveSponsor() {
+  const active  = document.getElementById('sp-toggle').dataset.active === '1';
+  const nombre  = document.getElementById('sp-nombre').value.trim();
+  const tagline = document.getElementById('sp-tagline').value.trim();
+  const url     = document.getElementById('sp-url').value.trim();
+  const logoUrl = document.getElementById('sp-logo-url').value.trim();
+  const desde   = document.getElementById('sp-desde').value.trim();
+  const hasta   = document.getElementById('sp-hasta').value.trim();
+
+  if (!nombre) { toast('Ingresá un nombre','var(--red)'); return; }
+
+  const payload = { nombre, tagline, url, logo_url: logoUrl, desde, hasta, active };
+
+  // Upsert — si existe id=1 actualiza, sino inserta
+  const existing = await sb.from('sponsors').select('id').limit(1);
+  if (existing.data?.length) {
+    await sb.from('sponsors').update(payload).eq('id', existing.data[0].id);
+  } else {
+    await sb.from('sponsors').insert(payload);
+  }
+
+  await fetchAll();
+  closeModal('modal-sponsor');
+  toast('✅ Sponsor guardado!', 'var(--green)');
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 function renderPendientesInvCard() {
   if (!isAdmin()) return '';
   const inv = S.participants.filter(p=>p.role==='pendiente');
@@ -2213,6 +2366,7 @@ function renderOverview() {
   }).filter(c=>!isNaN(c.mes)&&c.mes===(parts[1]?parseInt(parts[1]):mesActual)).sort((a,b)=>a.dia-b.dia);
 
   el.innerHTML = renderOvHero(conf, pendientes, cumples, fechaStr) +
+    renderOvSponsor() +
     renderOvMiEstado(miRsvp) +
     renderOvAsistencia(conf, noVan, sinResp) +
     renderPendientesInvCard() +
