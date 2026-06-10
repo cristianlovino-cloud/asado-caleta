@@ -941,14 +941,17 @@ async function fetchAll() {
   if (tk.data) S.tasks        = tk.data;
   if (mn.data) S.menu         = mn.data;
   if (sp.data?.length) {
-    // Verificar rango de fechas
-    const hoy = ahoraAR();
     const sp0 = sp.data[0];
-    const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
-    const desde = parseF(sp0.desde);
-    const hasta = parseF(sp0.hasta);
-    const activo = (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
-    S.sponsor = activo ? sp0 : null;
+    if (!sp0.active) { S.sponsor = null; }
+    else {
+      const hoy = ahoraAR();
+      const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
+      const desde = parseF(sp0.desde);
+      const hasta = parseF(sp0.hasta);
+      // Si no tiene fechas configuradas y está activo → mostrar siempre
+      const dentroDeRango = (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
+      S.sponsor = dentroDeRango ? sp0 : null;
+    }
   } else { S.sponsor = null; }
   if (cr.data) {
     S.rsvpCal = {};
@@ -2253,9 +2256,10 @@ function renderOvSponsor() {
 }
 
 // ── Sponsor admin ─────────────────────────────────────────────────────────
-function openSponsorModal() {
-  const sp = S.sponsor;
-  // Cargar valores actuales (o defaults)
+async function openSponsorModal() {
+  // Cargar siempre desde Supabase, sin importar si está activo o no
+  const {data} = await sb.from('sponsors').select('*').limit(1);
+  const sp = data?.[0] || null;
   document.getElementById('sp-nombre').value   = sp?.nombre   || '';
   document.getElementById('sp-tagline').value  = sp?.tagline  || '';
   document.getElementById('sp-url').value      = sp?.url      || '';
@@ -2318,6 +2322,10 @@ async function saveSponsor() {
   }
 
   await fetchAll();
+  // Recargar sponsor directo sin filtro de fechas para reflejar el cambio inmediato
+  const {data:spFresh} = await sb.from('sponsors').select('*').limit(1);
+  if (spFresh?.[0]) S.sponsor = spFresh[0].active ? spFresh[0] : null;
+  renderOverview();
   closeModal('modal-sponsor');
   toast('✅ Sponsor guardado!', 'var(--green)');
 }
