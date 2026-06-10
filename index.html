@@ -46,7 +46,8 @@
 
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
-  const ADMIN_USER   = 'Cris'; // único que puede crear/archivar asados y editar config
+  const ADMIN_USER   = 'Cris';
+  const GH_TOKEN     = 'PEGAR_TOKEN_AQUI'; // Personal Access Token de GitHub
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -801,8 +802,20 @@ body {
     <label class="fl">URL (link al tocar)</label>
     <input class="fi" id="sp-url" placeholder="https://..." style="margin-bottom:8px">
     <label class="fl">URL del logo</label>
-    <div class="frow">
-      <input class="fi" id="sp-logo-url" placeholder="https://...jpg" style="margin-bottom:0;flex:1" oninput="spPreview()">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="frow">
+        <input class="fi" id="sp-logo-url" placeholder="https://...jpg" style="margin-bottom:0;flex:1" oninput="spPreview()">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;height:1px;background:var(--rim)"></div>
+        <span style="font-size:10px;color:var(--muted);text-transform:uppercase">o subir imagen</span>
+        <div style="flex:1;height:1px;background:var(--rim)"></div>
+      </div>
+      <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;border:1px dashed var(--rim);background:var(--ash);cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)">
+        <input type="file" accept="image/*" id="sp-logo-file" style="display:none" onchange="uploadLogoGH(this)">
+        📁 ELEGIR IMAGEN
+      </label>
+      <div id="sp-upload-status" style="font-size:11px;color:var(--muted);text-align:center;display:none"></div>
     </div>
 
     <div style="display:flex;gap:8px;margin-top:14px">
@@ -891,7 +904,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsor:null };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[] };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -934,25 +947,22 @@ async function fetchAll() {
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
     sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
     sb.from('calendar_rsvp').select('*'),
-    sb.from('sponsors').select('*').eq('active',true).limit(1),
+    sb.from('sponsors').select('*').eq('active',true).order('id'),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data;
   if (mn.data) S.menu         = mn.data;
   if (sp.data?.length) {
-    const sp0 = sp.data[0];
-    if (!sp0.active) { S.sponsor = null; }
-    else {
-      const hoy = ahoraAR();
-      const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
+    const hoy = ahoraAR();
+    const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
+    S.sponsors = sp.data.filter(sp0 => {
+      if (!sp0.active) return false;
       const desde = parseF(sp0.desde);
       const hasta = parseF(sp0.hasta);
-      // Si no tiene fechas configuradas y está activo → mostrar siempre
-      const dentroDeRango = (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
-      S.sponsor = dentroDeRango ? sp0 : null;
-    }
-  } else { S.sponsor = null; }
+      return (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
+    });
+  } else { S.sponsors = []; }
   if (cr.data) {
     S.rsvpCal = {};
     cr.data.forEach(r => {
@@ -2231,34 +2241,72 @@ function renderOvNavBtns() {
 }
 
 function renderOvSponsor() {
-  if (!S.sponsor) return '';
-  const sp = S.sponsor;
-  const logo = sp.logo_url
-    ? '<img src="' + sp.logo_url + '" alt="' + sp.nombre + '" style="width:56px;height:56px;object-fit:contain;border-radius:50%;border:2px solid rgba(255,255,255,.15);flex-shrink:0">'
-    : '<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌍</div>';
-  const card =
-    '<div style="margin:0 0 10px;border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative">' +
-      '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(100,160,255,.6),transparent)"></div>' +
-      '<div style="padding:10px 14px 6px;display:flex;align-items:center;gap:4px">' +
-        '<div style="width:5px;height:5px;border-radius:50%;background:#4a90e2;animation:pulse 2s infinite"></div>' +
-        '<span style="font-size:9px;color:rgba(100,160,255,.8);font-weight:700;letter-spacing:1.5px;text-transform:uppercase">SPONSOR OFICIAL</span>' +
-      '</div>' +
-      '<div style="padding:8px 14px 14px;display:flex;align-items:center;gap:12px">' +
-        logo +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">' + sp.nombre + '</div>' +
-          (sp.tagline ? '<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">' + sp.tagline + '</div>' : '') +
-        '</div>' +
-        (sp.url ? '<a href="' + sp.url + '" target="_blank" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:1px solid rgba(100,160,255,.3);background:rgba(100,160,255,.1);color:rgba(150,190,255,.9);font-size:10px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px">VER ↗</a>' : '') +
-      '</div>' +
+  if (!S.sponsors?.length) return '';
+  if (S.sponsors.length === 1) {
+    // Un solo sponsor — card simple
+    return renderSpCard(S.sponsors[0]);
+  }
+  // Carrusel
+  const cards = S.sponsors.map((sp,i) =>
+    '<div class="sp-slide" style="min-width:100%;transition:transform .4s ease;display:' + (i===0?'block':'none') + '" data-sp-idx="' + i + '">' +
+    renderSpCard(sp) + '</div>'
+  ).join('');
+  const dots = S.sponsors.map((_,i) =>
+    '<div class="sp-dot" data-idx="' + i + '" onclick="goSpSlide(' + i + ')" style="width:6px;height:6px;border-radius:50%;background:' + (i===0?'var(--fire)':'var(--rim)') + ';cursor:pointer;transition:background .3s"></div>'
+  ).join('');
+  return '<div id="sp-carousel" style="position:relative;overflow:hidden;margin-bottom:10px">' +
+    cards +
+    '<div style="display:flex;justify-content:center;gap:6px;padding:6px 0 2px">' + dots + '</div>' +
     '</div>';
-  return card;
+}
+
+function renderSpCard(sp) {
+  const logo = sp.logo_url
+    ? '<img src="' + sp.logo_url + '" alt="' + sp.nombre + '" style="width:56px;height:56px;object-fit:contain;border-radius:50%;border:2px solid rgba(255,255,255,.15);flex-shrink:0" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' +
+      '<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:none;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌍</div>'
+    : '<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌍</div>';
+  return '<div style="border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative">' +
+    '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(100,160,255,.6),transparent)"></div>' +
+    '<div style="padding:10px 14px 6px;display:flex;align-items:center;gap:4px">' +
+      '<div style="width:5px;height:5px;border-radius:50%;background:#4a90e2;animation:pulse 2s infinite"></div>' +
+      '<span style="font-size:9px;color:rgba(100,160,255,.8);font-weight:700;letter-spacing:1.5px;text-transform:uppercase">SPONSOR OFICIAL</span>' +
+    '</div>' +
+    '<div style="padding:8px 14px 14px;display:flex;align-items:center;gap:12px">' +
+      logo +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">' + sp.nombre + '</div>' +
+        (sp.tagline ? '<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">' + sp.tagline + '</div>' : '') +
+      '</div>' +
+      (sp.url ? '<a href="' + sp.url + '" target="_blank" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:1px solid rgba(100,160,255,.3);background:rgba(100,160,255,.1);color:rgba(150,190,255,.9);font-size:10px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px">VER ↗</a>' : '') +
+    '</div>' +
+  '</div>';
+}
+
+let _spIdx = 0;
+let _spTimer = null;
+
+function goSpSlide(idx) {
+  const slides = document.querySelectorAll('.sp-slide');
+  const dots   = document.querySelectorAll('.sp-dot');
+  if (!slides.length) return;
+  slides.forEach((s,i) => s.style.display = i===idx ? 'block' : 'none');
+  dots.forEach((d,i) => d.style.background = i===idx ? 'var(--fire)' : 'var(--rim)');
+  _spIdx = idx;
+}
+
+function startSpCarousel() {
+  if (_spTimer) clearInterval(_spTimer);
+  if (!S.sponsors?.length || S.sponsors.length < 2) return;
+  _spTimer = setInterval(() => {
+    const next = (_spIdx + 1) % S.sponsors.length;
+    goSpSlide(next);
+  }, 3000);
 }
 
 // ── Sponsor admin ─────────────────────────────────────────────────────────
 async function openSponsorModal() {
   // Cargar siempre desde Supabase, sin importar si está activo o no
-  const {data} = await sb.from('sponsors').select('*').limit(1);
+  const {data} = await sb.from('sponsors').select('*').order('id');
   const sp = data?.[0] || null;
   document.getElementById('sp-nombre').value   = sp?.nombre   || '';
   document.getElementById('sp-tagline').value  = sp?.tagline  || '';
@@ -2300,6 +2348,59 @@ function spPreview() {
   else         { img.style.display='none'; icon.style.display='flex'; }
 }
 
+async function uploadLogoGH(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const token = GH_TOKEN;
+  if (!token || token === 'PEGAR_TOKEN_AQUI') {
+    toast('Configurá el token de GitHub en el código','var(--red)');
+    return;
+  }
+  const statusEl = document.getElementById('sp-upload-status');
+  statusEl.style.display='block';
+  statusEl.style.color='var(--muted)';
+  statusEl.textContent='⏳ Subiendo imagen...';
+
+  try {
+    // Leer archivo como base64
+    const base64 = await new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    const fileName = 'sponsors/' + Date.now() + '_' + file.name.replace(/\s/g,'_');
+    const apiUrl = 'https://api.github.com/repos/cristianlovino-cloud/asado-caleta/contents/' + fileName;
+
+    // Verificar si ya existe
+    let sha = null;
+    const check = await fetch(apiUrl, { headers:{ Authorization:'token '+token } });
+    if (check.ok) { const d = await check.json(); sha = d.sha; }
+
+    const body = { message:'Upload sponsor logo', content:base64 };
+    if (sha) body.sha = sha;
+
+    const resp = await fetch(apiUrl, {
+      method:'PUT',
+      headers:{ Authorization:'token '+token, 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!resp.ok) throw new Error('Error ' + resp.status);
+    const data = await resp.json();
+    const rawUrl = data.content.download_url;
+
+    document.getElementById('sp-logo-url').value = rawUrl;
+    spPreview();
+    statusEl.style.color='var(--green)';
+    statusEl.textContent='✅ Imagen subida!';
+  } catch(e) {
+    statusEl.style.color='var(--red)';
+    statusEl.textContent='❌ Error al subir: ' + e.message;
+  }
+}
+
 async function saveSponsor() {
   const active  = document.getElementById('sp-toggle').dataset.active === '1';
   const nombre  = document.getElementById('sp-nombre').value.trim();
@@ -2323,8 +2424,8 @@ async function saveSponsor() {
 
   await fetchAll();
   // Recargar sponsor directo sin filtro de fechas para reflejar el cambio inmediato
-  const {data:spFresh} = await sb.from('sponsors').select('*').limit(1);
-  if (spFresh?.[0]) S.sponsor = spFresh[0].active ? spFresh[0] : null;
+  const {data:spFresh} = await sb.from('sponsors').select('*').eq('active',true).order('id');
+  if (spFresh) S.sponsors = spFresh;
   renderOverview();
   closeModal('modal-sponsor');
   toast('✅ Sponsor guardado!', 'var(--green)');
@@ -2395,6 +2496,7 @@ function renderOverview() {
     renderOvVotosStats() +
     renderOvCalendario(meses) +
     renderOvNavBtns();
+  startSpCarousel();
 }
 
 function enviarFelizCumple(nombre) {
@@ -2480,6 +2582,7 @@ setTimeout(()=>hideSplash(), 6000);
 function renderAll() {
   hideSplash();
   renderOverview();
+  startSpCarousel();
   startClock();
   renderCumples();
   renderHeader();
