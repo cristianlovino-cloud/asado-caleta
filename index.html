@@ -3237,15 +3237,15 @@ async function renderCuentas() {
   const pp     = numP > 0 ? total / numP : 0;
 
   // Balance por persona considerando pagos
+  const acreedores = allP().filter(p => bal(p) > 0.5);
+  const deudores   = allP().filter(p => bal(p) < -0.5);
+
   const pagadoPor  = name => payments.filter(p => p.payer.toLowerCase()  === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
   const cobradoPor = name => {
     const cobrado = payments.filter(p => p.receiver.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
     const devuelto = payments.filter(p => p.payer.toLowerCase() === name.toLowerCase() && acreedores.map(x=>x.toLowerCase()).includes(p.receiver.toLowerCase())).reduce((a,p) => a + p.amount, 0);
     return cobrado - devuelto;
   };
-
-  const acreedores = allP().filter(p => bal(p) > 0.5);
-  const deudores   = allP().filter(p => bal(p) < -0.5);
 
   // Deudores: cuánto pagaron vs cuánto deben
   const deudaRestante = p => Math.max(0, Math.abs(bal(p)) - pagadoPor(p));
