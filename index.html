@@ -927,7 +927,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[] };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{} };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -951,7 +951,12 @@ const isAdmin    = () => me === ADMIN_USER;
 const isInvitado = () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='invitado'; };
 const isPendiente= () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='pendiente'; };
 // allP incluye habituales (active+si) e invitados confirmados
-const allP = () => [...new Set(S.participants.filter(p=>(p.active && p.rsvp==='si') || (p.role==='invitado' && p.rsvp==='si')).map(p=>p.name))];
+// ── RSVP helpers (por evento) ─────────────────────────────────────────────
+const getRsvp  = name => S.rsvp[name.toLowerCase()]?.rsvp || null;
+const getRsvpAt= name => S.rsvp[name.toLowerCase()]?.rsvp_at || null;
+// ─────────────────────────────────────────────────────────────────────────
+
+const allP = () => [...new Set(S.participants.filter(p=>(p.active && getRsvp(p.name)==='si') || (p.role==='invitado' && getRsvp(p.name)==='si')).map(p=>p.name))];
 const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
 
 // ══ FETCH ═════════════════════════════════════════
@@ -964,18 +969,23 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr,sp] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp,rv] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
     sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
     sb.from('calendar_rsvp').select('*'),
     sb.from('sponsors').select('*').eq('active',true).order('id'),
+    sb.from('rsvp').select('*').eq('event_id',eid),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data;
   if (mn.data) S.menu         = mn.data;
+  // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
+  S.rsvp = {};
+  if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, id: r.id}; });
+
   if (sp.data?.length) {
     const hoy = ahoraAR();
     const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
@@ -1072,7 +1082,7 @@ async function doLogin() {
     renderPendienteScreen(v); return;
   }
   // ─────────────────────────────────────────────────────────────────────────
-  const yaConfirmo = part?.rsvp === 'si' || part?.rsvp === 'no';
+  const yaConfirmo = getRsvp(me) === 'si' || getRsvp(me) === 'no';
   if (yaConfirmo) {
     entrarApp(v);
     return;
@@ -1359,8 +1369,8 @@ function renderInvitadosList() {
   const invitados = S.participants.filter(p => p.role === 'invitado');
   if (!invitados.length) { el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0">Sin invitados aún</div>'; return; }
   el.innerHTML = invitados.sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p => {
-    const rsvpColor = p.rsvp==='si'?'var(--green)':p.rsvp==='no'?'var(--red)':'var(--muted)';
-    const rsvpLabel = p.rsvp==='si'?'✅ VA':p.rsvp==='no'?'❌ NO VA':'⏳ SIN RESP';
+    const rsvpColor = getRsvp(p.name)==='si'?'var(--green)':getRsvp(p.name)==='no'?'var(--red)':'var(--muted)';
+    const rsvpLabel = getRsvp(p.name)==='si'?'✅ VA':getRsvp(p.name)==='no'?'❌ NO VA':'⏳ SIN RESP';
     let vencido = false;
     if (p.invite_expires) {
       const [d,m,y] = p.invite_expires.split('/').map(Number);
@@ -1413,6 +1423,7 @@ async function createNewAsado() {
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
   // Archivar actual
   await sb.from('events').update({archived:true}).eq('id',S.event.id);
+  // El rsvp ya está en tabla separada por event_id, no hay que resetear nada
   // Crear nuevo
   const {data} = await sb.from('events').insert({title,event_date:date,time_range:time,location:loc,creator:me}).select().single();
   if (data) {
@@ -2163,7 +2174,7 @@ function renderOvMiEstado(miRsvp) {
 
 function renderOvAsistencia(conf, noVan, sinResp) {
   if (isInvitado() && !isAdmin()) return '';
-  const sinRespNames = S.participants.filter(p=>p.active&&!p.rsvp&&p.role!=='pendiente').map(p=>p.name.toUpperCase()).join(', ');
+  const sinRespNames = S.participants.filter(p=>p.active&&!getRsvp(p.name)&&p.role!=='pendiente').map(p=>p.name.toUpperCase()).join(', ');
   const footer = sinResp > 0
     ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>' + sinRespNames + '</strong></div>' +
       '<button onclick="openModal(\'modal-asistencia\')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>'
@@ -2500,14 +2511,14 @@ function renderOverview() {
 
   // Stats
   const conf = allP().length;
-  const noVan = S.participants.filter(p=>p.active&&p.rsvp==='no'&&p.role!=='pendiente').length;
-  const sinResp = S.participants.filter(p=>p.active&&!p.rsvp&&p.role!=='pendiente').length;
+  const noVan = S.participants.filter(p=>p.active&&getRsvp(p.name)==='no'&&p.role!=='pendiente').length;
+  const sinResp = S.participants.filter(p=>p.active&&!getRsvp(p.name)&&p.role!=='pendiente').length;
   const pendientes = S.tasks.filter(t=>!t.done).length;
   const pp = getPP();
 
   // Mi estado
   const miPart = S.participants.find(p=>p.name.toLowerCase()===me.toLowerCase());
-  const miRsvp = miPart?.rsvp;
+  const miRsvp = getRsvp(me);
 
   // Cumpleaños del mes
   const cumples = S.participants.filter(p=>p.active&&p.birthday).map(p=>{
@@ -2591,13 +2602,12 @@ function mostrarConfirmScreen() {
 }
 
 async function cambiarAsistencia() {
-  const part = S.participants.find(p=>p.name.toLowerCase()===me.toLowerCase());
-  if (!part) return;
-  const nuevoRsvp = part.rsvp === 'si' ? 'no' : 'si';
-  await sb.from('participants').update({rsvp: nuevoRsvp, rsvp_at: new Date().toISOString()}).ilike('name', me);
-  localStorage.setItem('rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase(), nuevoRsvp);
+  if (!S.event) return;
+  const actual = getRsvp(me);
+  const nuevoRsvp = actual === 'si' ? 'no' : 'si';
+  await upsertRsvp(me, nuevoRsvp);
   await fetchAll();
-  toast(nuevoRsvp==='si'?'✅ ¡Nos vemos en el asado!':'😔 Anotado, la próxima crack');
+  renderAll();
 }
 
 function hideSplash() {
@@ -2664,8 +2674,8 @@ function autocompleteNombre(val) {
     const letra = p.name[0].toUpperCase();
     const nombre = p.name.toUpperCase();
     const isAdmin = p.name === ADMIN_USER;
-    const rsvpBadge = p.rsvp==='si' ? '<span style="font-size:10px;background:rgba(39,174,96,.15);color:#27ae60;border-radius:20px;padding:2px 8px;font-weight:700">✅ VA</span>'
-                    : p.rsvp==='no' ? '<span style="font-size:10px;background:rgba(231,76,60,.12);color:#e74c3c;border-radius:20px;padding:2px 8px;font-weight:700">❌ NO VA</span>'
+    const rsvpBadge = getRsvp(p.name)==='si' ? '<span style="font-size:10px;background:rgba(39,174,96,.15);color:#27ae60;border-radius:20px;padding:2px 8px;font-weight:700">✅ VA</span>'
+                    : getRsvp(p.name)==='no' ? '<span style="font-size:10px;background:rgba(231,76,60,.12);color:#e74c3c;border-radius:20px;padding:2px 8px;font-weight:700">❌ NO VA</span>'
                     : '<span style="font-size:10px;background:rgba(0,0,0,.06);color:#999;border-radius:20px;padding:2px 8px">SIN RESPONDER</span>';
     return `<div onclick="elegirNombre('${p.name}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);transition:background .15s;active:background:rgba(245,197,24,.05)">
       <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:white;flex-shrink:0">${letra}</div>
@@ -2686,29 +2696,41 @@ function elegirNombre(nombre) {
 
 // ══ CONFIRMACIÓN ASISTENCIA ════════════════════════
 async function confirmarAsistencia(resp) {
-  const key = 'rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase();
-  localStorage.setItem(key, resp);
-  if (sbOk) {
-    try {
-      await sb.from('participants').update({
-        rsvp: resp,
-        rsvp_at: new Date().toISOString()
-      }).ilike('name', me);
-    } catch(e) {}
-  }
+  await upsertRsvp(me, resp);
   toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
   entrarApp(me);
   setTimeout(()=>showTab('overview'), 300);
+}
+
+async function upsertRsvp(name, resp) {
+  if (!S.event) return;
+  const existing = S.rsvp[name.toLowerCase()];
+  if (existing?.id) {
+    await sb.from('rsvp').update({rsvp: resp, rsvp_at: new Date().toISOString()}).eq('id', existing.id);
+  } else {
+    await sb.from('rsvp').insert({event_id: S.event.id, participant_name: name, rsvp: resp, rsvp_at: new Date().toISOString()});
+  }
+  S.rsvp[name.toLowerCase()] = {rsvp: resp, rsvp_at: new Date().toISOString()};
 }
 
 // ══ ASISTENCIA ADMIN ═══════════════════════════════
 function renderAsistencia() {
   const el = document.getElementById('asistencia-list');
   if (!el) return;
+
+  // Si el evento está archivado, mostrar aviso
+  if (S.event?.archived) {
+    el.innerHTML = '<div style="padding:20px;text-align:center">' +
+      '<div style="font-size:32px;margin-bottom:10px">📦</div>' +
+      '<div style="font-weight:700;font-size:14px;text-transform:uppercase;margin-bottom:6px">Asado archivado</div>' +
+      '<div style="font-size:12px;color:var(--muted);line-height:1.6">La asistencia que ves pertenece al asado activo actual.<br>Los asados pasados no guardan asistencia histórica.</div>' +
+      '</div>';
+    return;
+  }
   const todos = S.participants.filter(p=>p.active);
-  const confirmados = todos.filter(p=>p.rsvp==='si');
-  const noVan = todos.filter(p=>p.rsvp==='no');
-  const sinResp = todos.filter(p=>!p.rsvp);
+  const confirmados = todos.filter(p=>getRsvp(p.name)==='si');
+  const noVan = todos.filter(p=>getRsvp(p.name)==='no');
+  const sinResp = todos.filter(p=>!getRsvp(p.name));
   
   const fmtRsvpAt = (iso) => {
     if (!iso) return '';
@@ -2732,8 +2754,8 @@ function renderAsistencia() {
       </div>
     </div>`+
     [...todos].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
-      const r = p.rsvp;
-      const cuando = p.rsvp_at ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(p.rsvp_at)}</div>` : '';
+      const r = getRsvp(p.name);
+      const cuando = getRsvpAt(p.name) ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(getRsvpAt(p.name))}</div>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
         <div>
           <span style="font-weight:500;text-transform:uppercase">${p.name}</span>
@@ -2787,7 +2809,8 @@ async function ejecutarFusion() {
 async function clearRsvpAdmin(nombre) {
   if (!sbOk) return;
   try {
-    await sb.from('participants').update({ rsvp: null, rsvp_at: null }).ilike('name', nombre);
+    const existing = S.rsvp[nombre.toLowerCase()];
+    if (existing?.id) await sb.from('rsvp').delete().eq('id', existing.id);
     await fetchAll();
     renderAsistencia();
     toast('✅ Respuesta de '+nombre+' borrada');
@@ -2797,10 +2820,7 @@ async function clearRsvpAdmin(nombre) {
 async function setRsvpAdmin(nombre, resp) {
   if (!sbOk) return;
   try {
-    await sb.from('participants').update({
-      rsvp: resp,
-      rsvp_at: new Date().toISOString()
-    }).ilike('name', nombre);
+    await upsertRsvp(nombre, resp);
     await fetchAll();
     renderAsistencia();
   } catch(e) {}
@@ -2995,7 +3015,7 @@ async function renderStats() {
   const stats = S.allEvents.map(ev => {
     const gastos = gastosPorEvento[ev.id] || [];
     const total = gastos.reduce((a,e)=>a+parseFloat(e.amount),0);
-    const confirmados = parAll.data?.filter(p=>p.active&&p.rsvp==='si').length || 0;
+    const confirmados = parAll.data?.filter(p=>p.active&&getRsvp(p.name)==='si').length || 0;
     const pagadores = [...new Set(gastos.map(e=>e.payer))];
     // El que más gastó
     const pagosPorPer = {};
