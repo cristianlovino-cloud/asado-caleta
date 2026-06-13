@@ -1543,22 +1543,29 @@ async function renderGastos() {
   document.getElementById('sc').textContent  = allP().length;
   if(isAdmin()) document.getElementById('comen-edit').style.display='inline';
   const sm=document.getElementById('sm');
-  sm.textContent=(mb>=0?'+':'-')+fmt(mb);
-  sm.className='sv '+(mb>=0?'cgr':'cr');
+  const miPago = pagadoPorGastos(me);
+  const miSaldado = mb < -0.5 && miPago >= Math.abs(mb) - 0.5;
+  const mbDisplay = miSaldado ? 0 : mb;
+  sm.textContent = miSaldado ? '✅ $0' : (mbDisplay>=0?'+':'-')+fmt(mbDisplay);
+  sm.className='sv '+(mbDisplay>=0||miSaldado?'cgr':'cr');
 
   document.getElementById('ballist').innerHTML = allP().map(p=>{
     const b=bal(p), im=p===me;
     const yaPago = pagadoPorGastos(p);
     const saldado = b < -0.5 && yaPago >= Math.abs(b) - 0.5;
+    // Para acreedores: mostrar lo que aún falta cobrar
+    const cobradoP = payments.filter(x => x.receiver.toLowerCase()===p.toLowerCase()).reduce((a,x)=>a+x.amount,0);
+    const pendienteCobrar = b > 0.5 ? Math.max(0, b - cobradoP) : 0;
+    const acrCobrado = b > 0.5 && pendienteCobrar <= 0.5;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
         <div><div class="pname">${p.toUpperCase()}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
-        <div class="psub">Pagó: ${fmt(paid(p))}${saldado?' · <span style="color:var(--green)">✅ Saldado</span>':''}</div></div>
+        <div class="psub">Pagó: ${fmt(paid(p))}${saldado?' · <span style="color:var(--green)">✅ Saldado</span>':acrCobrado?' · <span style="color:var(--green)">✅ Cobrado</span>':''}</div></div>
       </div>
       <div>
-        <div class="bval ${saldado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':b>=0?'+':'-'}${saldado?'':fmt(b)}</div>
-        <div class="blbl">${saldado?'saldado':b>=0?'a cobrar':'debe pagar'}</div>
+        <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':acrCobrado?'✅':b>=0?'+':'-'}${saldado||acrCobrado?'':b>0.5?fmt(pendienteCobrar):fmt(b)}</div>
+        <div class="blbl">${saldado?'saldado':acrCobrado?'cobrado':b>=0?'a cobrar':'debe pagar'}</div>
       </div>
     </div>`;
   }).join('');
