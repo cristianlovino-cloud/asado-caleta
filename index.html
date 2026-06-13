@@ -1553,16 +1553,19 @@ async function _doRenderGastos() {
   sm.className='sv '+(mb>=0?'cgr':'cr');
 
   document.getElementById('ballist').innerHTML = allP().map(p=>{
-    const b=bal(p),im=p===me;
+    const b=bal(p), im=p===me;
+    const yaPago = pagadoPorGastos(p);
+    const deuda = Math.abs(b);
+    const saldado = b < -0.5 && yaPago >= deuda - 0.5;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
         <div><div class="pname">${p.toUpperCase()}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}</div>
-        <div class="psub">Pagó: ${fmt(paid(p))}</div></div>
+        <div class="psub">Pagó: ${fmt(paid(p))}${saldado?' · <span style="color:var(--green)">✅ Saldado</span>':''}</div></div>
       </div>
       <div>
-        <div class="bval ${b>=0?'cgr':'cr'}">${b>=0?'+':'-'}${fmt(b)}</div>
-        <div class="blbl">${b>=0?'a cobrar':'debe pagar'}</div>
+        <div class="bval ${saldado?'cgr':b>=0?'cgr':'cr'}">${saldado?'+$0':b>=0?'+':'-'}${saldado?'':fmt(b)}</div>
+        <div class="blbl">${saldado?'saldado':b>=0?'a cobrar':'debe pagar'}</div>
       </div>
     </div>`;
   }).join('');
