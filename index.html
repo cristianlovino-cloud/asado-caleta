@@ -927,7 +927,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{} };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[] };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -969,7 +969,7 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr,sp,rv] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
@@ -977,11 +977,22 @@ async function fetchAll() {
     sb.from('calendar_rsvp').select('*'),
     sb.from('sponsors').select('*').eq('active',true).order('id'),
     sb.from('rsvp').select('*').eq('event_id',eid),
+    sb.from('votos').select('*').eq('event_id',eid),
+    sb.from('votos_opciones').select('*').eq('event_id',eid).order('orden'),
+    sb.from('categorias').select('*').order('orden'),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data;
   if (mn.data) S.menu         = mn.data;
+  // Categorias
+  if (ca.data?.length) S.cats = ca.data;
+  else S.cats = [];
+
+  // Votos
+  if (vt.data) S.votos = vt.data;
+  if (vo.data) S.votosOpciones = vo.data;
+
   // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
   S.rsvp = {};
   if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, id: r.id}; });
@@ -1167,7 +1178,10 @@ function entrarApp(v) {
       if (el) el.style.display='none';
     });
   }
-  fetchAll().then(()=>{ if(!sbOk) renderAll(); });
+  fetchAll().then(()=>{ 
+    if(!sbOk) renderAll(); 
+    else initCats();
+  });
   subscribe();
   startAutoRefresh();
 }
@@ -1712,15 +1726,21 @@ function renderTasks() {
 const DEFAULT_CATS = ['🥩 CARNES','🥗 VERDURAS','🧀 FIAMBRES','🍺 BEBIDAS','🔥 INSUMOS','🍰 POSTRES','🛒 OTROS'];
 
 function getCats() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('asado_cats') || 'null');
-    if (!saved) return DEFAULT_CATS;
-    // Migrar categorías viejas a mayúsculas
-    const migrated = saved.map(c => c.replace(/([A-Za-záéíóúüñÁÉÍÓÚÜÑ ]+)$/, m => m.toUpperCase()));
-    return migrated;
-  } catch { return DEFAULT_CATS; }
+  if (S.cats?.length) return S.cats.map(c => c.emoji + ' ' + c.nombre);
+  return DEFAULT_CATS;
 }
-function saveCats(cats) { localStorage.setItem('asado_cats', JSON.stringify(cats)); }
+
+async function initCats() {
+  // Si no hay cats en Supabase, insertar las default
+  if (S.cats.length === 0) {
+    const rows = DEFAULT_CATS.map((c,i) => {
+      const [emoji, ...rest] = c.split(' ');
+      return { emoji, nombre: rest.join(' '), orden: i };
+    });
+    const {data} = await sb.from('categorias').insert(rows).select();
+    if (data) { S.cats = data; renderCatSelects(); }
+  }
+}
 
 function renderCatSelects() {
   const cats = getCats();
@@ -1731,36 +1751,35 @@ function renderCatSelects() {
   });
 }
 
-// openModal defined above
-
 function renderCategoriesModal() {
-  const cats = getCats();
-  document.getElementById('cats-list').innerHTML = cats.map((c,i)=>`
+  const cats = S.cats;
+  const defaultNames = DEFAULT_CATS.map(c => c.split(' ').slice(1).join(' '));
+  document.getElementById('cats-list').innerHTML = cats.map((c)=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rim)">
-      <span style="font-size:14px">${c}</span>
-      ${DEFAULT_CATS.includes(c)?'':
-        `<button onclick="deleteCategory(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">🗑</button>`}
+      <span style="font-size:14px">${c.emoji} ${c.nombre}</span>
+      ${defaultNames.includes(c.nombre)?'':
+        `<button onclick="deleteCategory(${c.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">🗑</button>`}
     </div>`).join('');
 }
 
-function addCategory() {
+async function addCategory() {
   const emoji = document.getElementById('new-cat-emoji').value.trim() || '📦';
-  const name  = document.getElementById('new-cat-name').value.trim();
+  const name  = document.getElementById('new-cat-name').value.trim().toUpperCase();
   if (!name) return;
-  const cats = getCats();
-  const full = `${emoji} ${name}`;
-  if (!cats.includes(full)) { cats.push(full); saveCats(cats); }
-  document.getElementById('new-cat-emoji').value='';
-  document.getElementById('new-cat-name').value='';
-  renderCategoriesModal();
-  renderCatSelects();
-  toast('✅ Categoría agregada!');
+  const {data} = await sb.from('categorias').insert({emoji, nombre: name, orden: S.cats.length}).select().single();
+  if (data) {
+    S.cats.push(data);
+    document.getElementById('new-cat-emoji').value='';
+    document.getElementById('new-cat-name').value='';
+    renderCategoriesModal();
+    renderCatSelects();
+    toast('✅ Categoría agregada!');
+  }
 }
 
-function deleteCategory(idx) {
-  const cats = getCats();
-  cats.splice(idx, 1);
-  saveCats(cats);
+async function deleteCategory(id) {
+  await sb.from('categorias').delete().eq('id', id);
+  S.cats = S.cats.filter(c => c.id !== id);
   renderCategoriesModal();
   renderCatSelects();
 }
@@ -2902,95 +2921,151 @@ const OPCIONES_VOTOS_DEFAULT = [
   {id:'v_costilla',emoji:'🦴',nombre:'COSTILLA'},
 ];
 
-function getVotos() {
-  try { return JSON.parse(localStorage.getItem('asado_votos_'+(S.event?.id||0))||'{}'); } catch { return {}; }
-}
-function saveVotos(v) { localStorage.setItem('asado_votos_'+(S.event?.id||0), JSON.stringify(v)); }
+// ══ VOTOS — Supabase ══════════════════════════════════════════════════════
+
+const OPCIONES_DEFAULT = [
+  {id:'tira',    emoji:'🥩', nombre:'TIRA DE ASADO'},
+  {id:'vacio',   emoji:'🥩', nombre:'VACÍO'},
+  {id:'chorizo', emoji:'🌭', nombre:'CHORIZOS'},
+  {id:'molleja', emoji:'🫀', nombre:'MOLLEJAS'},
+  {id:'provol',  emoji:'🧀', nombre:'PROVOLETA'},
+  {id:'morcilla',emoji:'⚫', nombre:'MORCILLAS'},
+  {id:'pollo',   emoji:'🍗', nombre:'POLLO'},
+  {id:'costilla',emoji:'🦴', nombre:'COSTILLA'},
+];
+
 function getOpciones() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('asado_votos_opciones_'+(S.event?.id||0))||'null');
-    return saved || OPCIONES_VOTOS_DEFAULT;
-  } catch { return OPCIONES_VOTOS_DEFAULT; }
-}
-function saveOpciones(op) { localStorage.setItem('asado_votos_opciones_'+(S.event?.id||0), JSON.stringify(op)); }
-
-function votarOpcion(id) {
-  const votos = getVotos();
-  const misVotos = votos[me] || [];
-  const idx = misVotos.indexOf(id);
-  if (idx >= 0) misVotos.splice(idx, 1);
-  else { if (misVotos.length >= 3) { toast('MÁXIMO 3 VOTOS 👆','var(--ember)'); return; } misVotos.push(id); }
-  votos[me] = misVotos;
-  saveVotos(votos);
-  renderVotos();
-  toast(idx >= 0 ? '✗ VOTO QUITADO' : '✅ VOTO REGISTRADO');
+  if (S.votosOpciones?.length) return S.votosOpciones;
+  return OPCIONES_DEFAULT;
 }
 
-function eliminarOpcionVoto(id) {
-  var ops = getOpciones();
-  ops = ops.filter(function(o){ return o.id !== id; });
-  saveOpciones(ops);
-  // Limpiar votos de esa opcion
-  var votos = getVotos();
-  Object.keys(votos).forEach(function(k){ votos[k] = (votos[k]||[]).filter(function(v){ return v !== id; }); });
-  saveVotos(votos);
-  renderVotos();
-  toast('OPCION ELIMINADA');
+function getMisVotos() {
+  return S.votos.filter(v => v.participant_name.toLowerCase() === me.toLowerCase()).map(v => v.opcion_id);
 }
-function agregarSugerenciaVoto() {
-  const input = document.getElementById('voto-sugerencia');
-  const nombre = input.value.trim().toUpperCase();
-  if (!nombre) { toast('ESCRIBÍ UNA OPCIÓN','var(--red)'); return; }
-  const opciones = getOpciones();
-  const id = 'v_custom_'+Date.now();
-  const emojis = ['🔥','🥩','🍖','🌿'];
-  opciones.push({id, emoji: emojis[Math.floor(Math.random()*emojis.length)], nombre});
-  saveOpciones(opciones);
-  input.value = '';
+
+async function votarOpcion(opcionId) {
+  if (!S.event) return;
+  const misVotos = getMisVotos();
+  const yaVote = misVotos.includes(opcionId);
+  if (yaVote) {
+    // Quitar voto
+    const voto = S.votos.find(v => v.participant_name.toLowerCase()===me.toLowerCase() && v.opcion_id===opcionId);
+    if (voto) {
+      await sb.from('votos').delete().eq('id', voto.id);
+      S.votos = S.votos.filter(v => v.id !== voto.id);
+    }
+    toast('✗ VOTO QUITADO', 'var(--muted)');
+  } else {
+    if (misVotos.length >= 3) { toast('MÁXIMO 3 VOTOS 👆','var(--ember)'); return; }
+    const {data} = await sb.from('votos').insert({
+      event_id: S.event.id,
+      participant_name: me,
+      opcion_id: opcionId
+    }).select().single();
+    if (data) S.votos.push(data);
+    toast('✅ VOTO REGISTRADO', 'var(--green)');
+  }
   renderVotos();
-  toast('✅ OPCIÓN AGREGADA');
+}
+
+async function agregarOpcionVoto(nombre, emoji) {
+  if (!S.event || !nombre) return;
+  const op = { event_id: S.event.id, nombre: nombre.toUpperCase(), emoji: emoji||'🔥', orden: S.votosOpciones.length };
+  const {data} = await sb.from('votos_opciones').insert(op).select().single();
+  if (data) { S.votosOpciones.push(data); renderVotos(); toast('✅ OPCIÓN AGREGADA'); }
+}
+
+async function eliminarOpcionVoto(opcionId) {
+  if (!confirm('¿Eliminar esta opción y sus votos?')) return;
+  await sb.from('votos').delete().eq('event_id', S.event.id).eq('opcion_id', opcionId);
+  await sb.from('votos_opciones').delete().eq('id', opcionId);
+  S.votos = S.votos.filter(v => v.opcion_id !== opcionId);
+  S.votosOpciones = S.votosOpciones.filter(o => o.id !== opcionId);
+  renderVotos();
+  toast('OPCIÓN ELIMINADA');
+}
+
+async function editarOpcionVoto(opcionId, nombre, emoji) {
+  await sb.from('votos_opciones').update({nombre: nombre.toUpperCase(), emoji}).eq('id', opcionId);
+  const op = S.votosOpciones.find(o => o.id === opcionId);
+  if (op) { op.nombre = nombre.toUpperCase(); op.emoji = emoji; }
+  renderVotos();
+  toast('✅ OPCIÓN ACTUALIZADA');
+}
+
+// Inicializar opciones del evento si no existen
+async function initVotosOpciones() {
+  if (!S.event || S.votosOpciones.length > 0) return;
+  const rows = OPCIONES_DEFAULT.map((op,i) => ({event_id: S.event.id, nombre: op.nombre, emoji: op.emoji, orden: i}));
+  const {data} = await sb.from('votos_opciones').insert(rows).select();
+  if (data) S.votosOpciones = data;
 }
 
 function renderVotos() {
   const el = document.getElementById('votos-list');
   if (!el) return;
-  const votos = getVotos();
   const opciones = getOpciones();
-  const misVotos = votos[me] || [];
+  const misVotos = getMisVotos();
 
-  // Contar votos por opción
+  // Contar votos por opcion
   const conteo = {};
   opciones.forEach(op => conteo[op.id] = 0);
-  Object.values(votos).forEach(mv => mv.forEach(id => { if (conteo[id] !== undefined) conteo[id]++; }));
+  S.votos.forEach(v => { if (conteo[v.opcion_id] !== undefined) conteo[v.opcion_id]++; });
 
-  // Ordenar por votos desc
   const sorted = [...opciones].sort((a,b) => (conteo[b.id]||0) - (conteo[a.id]||0));
   const maxVotos = Math.max(1, ...Object.values(conteo));
-  const totalVotantes = Object.keys(votos).length;
+  const totalVotantes = [...new Set(S.votos.map(v=>v.participant_name))].length;
 
   el.innerHTML = sorted.map((op, i) => {
     const c = conteo[op.id] || 0;
     const pct = Math.round((c / maxVotos) * 100);
     const votado = misVotos.includes(op.id);
-    const medalla = i === 0 && c > 0 ? '🥇' : i === 1 && c > 0 ? '🥈' : i === 2 && c > 0 ? '🥉' : '';
+    const medalla = i===0&&c>0?'🥇':i===1&&c>0?'🥈':i===2&&c>0?'🥉':'';
+    const editBtn = isAdmin() ? `<span onclick="abrirEditOpcion(${op.id},'${op.nombre}','${op.emoji}')" style="font-size:13px;cursor:pointer;color:var(--muted);padding:2px 4px">✏️</span>
+      <span onclick="eliminarOpcionVoto(${op.id})" style="font-size:13px;cursor:pointer;color:var(--muted);padding:2px 4px">✕</span>` : '';
     return `<div style="margin-bottom:9px;background:${votado?'rgba(245,197,24,.1)':'var(--smoke)'};border:2px solid ${votado?'var(--fire)':'var(--rim)'};border-radius:14px;padding:12px 14px;transition:all .15s">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
-        <div onclick="votarOpcion('${op.id}')" style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer">
+        <div onclick="votarOpcion(${op.id})" style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer">
           <span style="font-size:20px">${op.emoji}</span>
           <span style="font-size:13px;font-weight:700;text-transform:uppercase;color:${votado?'var(--fire)':'var(--text)'}">${op.nombre}</span>
           ${medalla?`<span style="font-size:14px">${medalla}</span>`:''}
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:4px">
           <span style="font-family:'Bebas Neue',cursive;font-size:18px;color:${votado?'var(--fire)':'var(--muted)'}">${c}</span>
-          <span onclick="votarOpcion('${op.id}')" style="font-size:16px;color:${votado?'var(--fire)':'var(--rim)'};cursor:pointer">${votado?'✅':'○'}</span>
-          ${op.id.startsWith('v_custom_')?`<span onclick="eliminarOpcionVoto('${op.id}')" style="font-size:14px;cursor:pointer;color:var(--muted);padding:2px 4px" title="Eliminar">✕</span>`:''}
+          <span onclick="votarOpcion(${op.id})" style="font-size:16px;color:${votado?'var(--fire)':'var(--rim)'};cursor:pointer">${votado?'✅':'○'}</span>
+          ${editBtn}
         </div>
       </div>
       <div style="height:5px;background:var(--ash);border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${votado?'var(--fire)':'linear-gradient(90deg,var(--club1),var(--club2))'};border-radius:4px;transition:width .4s"></div>
       </div>
     </div>`;
-  }).join('') + `<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:.5px">${totalVotantes} PERSONA${totalVotantes!==1?'S':''} VOTARON · PODÉS VOTAR HASTA 3 OPCIONES</div>`;
+  }).join('') +
+  `<div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:.5px">${totalVotantes} PERSONA${totalVotantes!==1?'S':''} VOTARON · PODÉS VOTAR HASTA 3 OPCIONES</div>` +
+  (isAdmin() ? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rim)">
+    <div class="sh" style="margin-bottom:8px">➕ AGREGAR OPCIÓN</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <input class="fi" id="nueva-opcion-emoji" placeholder="🔥" style="width:50px;flex:none;margin-bottom:0;text-align:center">
+      <input class="fi" id="nueva-opcion-nombre" placeholder="Nueva opción..." style="margin-bottom:0;flex:1;text-transform:uppercase">
+    </div>
+    <button class="btp" style="width:100%" onclick="agregarOpcionVoto(document.getElementById('nueva-opcion-nombre').value, document.getElementById('nueva-opcion-emoji').value||'🔥')">AGREGAR</button>
+  </div>` : '');
+}
+
+function abrirEditOpcion(id, nombre, emoji) {
+  const nuevoNombre = prompt('Nombre:', nombre);
+  if (!nuevoNombre) return;
+  const nuevoEmoji = prompt('Emoji:', emoji) || emoji;
+  editarOpcionVoto(id, nuevoNombre, nuevoEmoji);
+}
+
+function abrirVotosModal() {
+  if (S.votosOpciones.length === 0) {
+    initVotosOpciones().then(() => { openModal('modal-votos'); renderVotos(); });
+  } else {
+    openModal('modal-votos');
+    renderVotos();
+  }
 }
 
 // ══ STATS ═════════════════════════════════════════
@@ -3097,53 +3172,7 @@ function abrirVotosModal() {
   el.innerHTML = '<div id="votos-list-modal"></div><div style="height:1px;background:var(--rim);margin:14px 0"></div><div class="sh">Sugerir opcion</div><div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;padding:12px"><input class="fi" id="voto-sug-modal" placeholder="EJ: ENTRAÑA..." style="text-transform:uppercase;margin-bottom:8px"><button class="btp" style="width:100%" onclick="agregarSugModal()">SUGERIR</button></div>';
   renderVotosModal();
 }
-function agregarSugModal() {
-  var input = document.getElementById('voto-sug-modal');
-  var nombre = (input ? input.value : '').trim().toUpperCase();
-  if (!nombre) { toast('ESCRIBI UNA OPCION','var(--red)'); return; }
-  var ops = getOpciones();
-  ops.push({id:'vc_'+Date.now(), emoji:'🔥', nombre:nombre});
-  saveOpciones(ops);
-  input.value = '';
-  renderVotosModal();
-  toast('OPCION AGREGADA');
-}
-function renderVotosModal() {
-  var el = document.getElementById('votos-list-modal');
-  if (!el) return;
-  var votos = getVotos();
-  var ops = getOpciones();
-  var mis = votos[me] || [];
-  var cnt = {};
-  ops.forEach(function(op){ cnt[op.id] = 0; });
-  Object.values(votos).forEach(function(mv){ mv.forEach(function(id){ if (cnt[id] !== undefined) cnt[id]++; }); });
-  var sorted = ops.slice().sort(function(a,b){ return (cnt[b.id]||0)-(cnt[a.id]||0); });
-  var maxV = Math.max(1, Math.max.apply(null, Object.values(cnt)));
-  var html = '';
-  sorted.forEach(function(op, i) {
-    var c2 = cnt[op.id]||0;
-    var pct = Math.round((c2/maxV)*100);
-    var votado = mis.indexOf(op.id) >= 0;
-    var medal = i===0&&c2>0?'🥇':i===1&&c2>0?'🥈':i===2&&c2>0?'🥉':'';
-    html += '<div onclick="votarModal(\'' + op.id + '\')" style="margin-bottom:9px;background:' + (votado?'rgba(245,197,24,.1)':'var(--smoke)') + ';border:2px solid ' + (votado?'var(--fire)':'var(--rim)') + ';border-radius:14px;padding:12px 14px;cursor:pointer">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">';
-    html += '<div style="display:flex;align-items:center;gap:8px"><span>' + op.emoji + '</span>';
-    html += '<span style="font-size:13px;font-weight:700;text-transform:uppercase;color:' + (votado?'var(--fire)':'var(--text)') + '">' + op.nombre + ' ' + medal + '</span></div>';
-    html += '<span style="font-size:16px">' + (votado?'✅':'○') + '</span></div>';
-    html += '<div style="height:5px;background:var(--ash);border-radius:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (votado?'var(--fire)':'var(--club1)') + ';border-radius:4px"></div></div></div>';
-  });
-  el.innerHTML = html;
-}
-function votarModal(id) {
-  var votos = getVotos();
-  var mis = votos[me] || [];
-  var idx = mis.indexOf(id);
-  if (idx >= 0) { mis.splice(idx,1); } else { if (mis.length >= 3) { toast('MAXIMO 3 VOTOS','var(--ember)'); return; } mis.push(id); }
-  votos[me] = mis;
-  saveVotos(votos);
-  renderVotosModal();
-  toast(idx>=0?'VOTO QUITADO':'VOTO REGISTRADO');
-}
+
 async function abrirStatsModal() {
   openModal('modal-stats');
   var el = document.getElementById('modal-stats-content');
