@@ -1477,6 +1477,7 @@ function showTab(t) {
   if (t==='carne') calcularCarne();
   if (t==='votos') renderVotos();
   if (t==='stats') renderStats();
+  if (t==='gastos') fetchAll().then(()=>renderGastos());
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
 // Todos los participantes activos (no solo confirmados) para asignar tareas
@@ -3205,10 +3206,9 @@ function abrirModalPago(payerName, amount, receiverName) {
   recSel.innerHTML = acreedores.map(p =>
     '<option value="' + p + '"' + (p === receiverName ? ' selected' : '') + '>' + p.toUpperCase() + '</option>'
   ).join('');
-  // Populate payer select
+  // Populate payer select - todos los participantes pueden pagar
   const payerSel = document.getElementById('mp-payer');
-  const deudores = allP().filter(p => bal(p) < -0.5);
-  payerSel.innerHTML = deudores.map(p =>
+  payerSel.innerHTML = allP().sort((a,b)=>a.localeCompare(b,'es')).map(p =>
     '<option value="' + p + '"' + (p === payerName ? ' selected' : '') + '>' + p.toUpperCase() + '</option>'
   ).join('');
   if (amount) document.getElementById('mp-amount').value = Math.round(amount);
