@@ -1512,11 +1512,21 @@ async function addExpense() {
 
 function renderGastos() {
   if (!S.event) return;
+  // Si no hay expenses cargados, intentar fetchAll primero
+  if (S.expenses.length === 0) {
+    fetchAll().then(() => _doRenderGastos());
+    return;
+  }
+  _doRenderGastos();
+}
+
+function _doRenderGastos() {
+  if (!S.event) return;
   const pp=getPP(),total=getTotal(),mb=bal(me);
 
   // ── MODO INVITADO: solo mostrar su cuota ──────────────────────────────
   if (isInvitado() && !isAdmin()) {
-    const miDeuda = pp; // cuota proporcional (total / todos)
+    const miDeuda = pp;
     const elEl = document.getElementById('panel-gastos');
     if (elEl) elEl.innerHTML = `
       <div style="padding:16px">
@@ -1572,7 +1582,7 @@ function renderGastos() {
     : '';
 
   const el=document.getElementById('explist');
-  el.innerHTML=S.expenses.length===0
+  if (el) el.innerHTML=S.expenses.length===0
     ?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
     :[...S.expenses].reverse().map(e=>`
       <div class="er">
