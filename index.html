@@ -1510,43 +1510,37 @@ async function addExpense() {
     .then(()=>fetchAll());
 }
 
-function renderGastos() {
+async function renderGastos() {
   if (!S.event) return;
-  fetchAll().then(() => _doRenderGastos());
-}
-
-async function _doRenderGastos() {
-  if (!S.event) return;
+  await fetchAll();
+  const payments = await fetchPayments();
+  const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
   const pp=getPP(),total=getTotal(),mb=bal(me);
 
-  // ── MODO INVITADO: solo mostrar su cuota ──────────────────────────────
+  // ── MODO INVITADO ──────────────────────────────────────────────────────
   if (isInvitado() && !isAdmin()) {
-    const miDeuda = pp;
     const elEl = document.getElementById('panel-gastos');
-    if (elEl) elEl.innerHTML = `
-      <div style="padding:16px">
-        <div class="ov-card" style="text-align:center;margin-bottom:12px">
-          <div class="ov-label">💰 Tu parte del asado</div>
-          <div style="font-size:42px;font-weight:700;font-family:'Bebas Neue',cursive;color:var(--fire);letter-spacing:2px">${fmt(miDeuda)}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas</div>
-        </div>
-        <div class="ov-card">
-          <div class="ov-label">📋 Gastos del asado</div>
-          ${S.expenses.length===0?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
-            :S.expenses.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--rim)">
-              <div><div style="font-size:13px;font-weight:600;text-transform:uppercase">${e.description}</div><div style="font-size:11px;color:var(--muted)">${e.payer.toUpperCase()}</div></div>
-              <div style="font-size:14px;font-weight:700;color:var(--text)">${fmt(e.amount)}</div>
-            </div>`).join('')}
-        </div>
-      </div>`;
+    if (elEl) elEl.innerHTML = `<div style="padding:16px">
+      <div class="ov-card" style="text-align:center;margin-bottom:12px">
+        <div class="ov-label">💰 Tu parte del asado</div>
+        <div style="font-size:42px;font-weight:700;font-family:'Bebas Neue',cursive;color:var(--fire);letter-spacing:2px">${fmt(pp)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas</div>
+      </div>
+      <div class="ov-card">
+        <div class="ov-label">📋 Gastos del asado</div>
+        ${S.expenses.length===0?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
+          :S.expenses.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--rim)">
+            <div><div style="font-size:13px;font-weight:600;text-transform:uppercase">${e.description}</div><div style="font-size:11px;color:var(--muted)">${e.payer.toUpperCase()}</div></div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${fmt(e.amount)}</div>
+          </div>`).join('')}
+      </div></div>`;
     return;
   }
   // ─────────────────────────────────────────────────────────────────────
 
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
-  const comen = allP().length;
-  document.getElementById('sc').textContent  = comen;
+  document.getElementById('sc').textContent  = allP().length;
   if(isAdmin()) document.getElementById('comen-edit').style.display='inline';
   const sm=document.getElementById('sm');
   sm.textContent=(mb>=0?'+':'-')+fmt(mb);
@@ -1555,8 +1549,7 @@ async function _doRenderGastos() {
   document.getElementById('ballist').innerHTML = allP().map(p=>{
     const b=bal(p), im=p===me;
     const yaPago = pagadoPorGastos(p);
-    const deuda = Math.abs(b);
-    const saldado = b < -0.5 && yaPago >= deuda - 0.5;
+    const saldado = b < -0.5 && yaPago >= Math.abs(b) - 0.5;
     return `<div class="pr${im?' me':''}">
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
@@ -1564,14 +1557,12 @@ async function _doRenderGastos() {
         <div class="psub">Pagó: ${fmt(paid(p))}${saldado?' · <span style="color:var(--green)">✅ Saldado</span>':''}</div></div>
       </div>
       <div>
-        <div class="bval ${saldado?'cgr':b>=0?'cgr':'cr'}">${saldado?'+$0':b>=0?'+':'-'}${saldado?'':fmt(b)}</div>
+        <div class="bval ${saldado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':b>=0?'+':'-'}${saldado?'':fmt(b)}</div>
         <div class="blbl">${saldado?'saldado':b>=0?'a cobrar':'debe pagar'}</div>
       </div>
     </div>`;
   }).join('');
 
-  const payments = await fetchPayments();
-  const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
   const faltanPagar = allP().filter(p => bal(p) < -0.5 && pagadoPorGastos(p) < Math.abs(bal(p)) - 0.5);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
