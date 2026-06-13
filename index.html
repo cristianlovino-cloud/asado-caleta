@@ -1512,12 +1512,7 @@ async function addExpense() {
 
 function renderGastos() {
   if (!S.event) return;
-  // Si no hay expenses cargados, intentar fetchAll primero
-  if (S.expenses.length === 0) {
-    fetchAll().then(() => _doRenderGastos());
-    return;
-  }
-  _doRenderGastos();
+  fetchAll().then(() => _doRenderGastos());
 }
 
 function _doRenderGastos() {
