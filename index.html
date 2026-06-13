@@ -1515,7 +1515,7 @@ function renderGastos() {
   fetchAll().then(() => _doRenderGastos());
 }
 
-function _doRenderGastos() {
+async function _doRenderGastos() {
   if (!S.event) return;
   const pp=getPP(),total=getTotal(),mb=bal(me);
 
@@ -1567,7 +1567,9 @@ function _doRenderGastos() {
     </div>`;
   }).join('');
 
-  const faltanPagar = allP().filter(p=>bal(p)<-0.5);
+  const payments = await fetchPayments();
+  const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
+  const faltanPagar = allP().filter(p => bal(p) < -0.5 && pagadoPorGastos(p) < Math.abs(bal(p)) - 0.5);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
