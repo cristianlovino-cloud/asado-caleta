@@ -1567,10 +1567,7 @@ function _doRenderGastos() {
     </div>`;
   }).join('');
 
-  const cobrosActuales = getCobros();
-  const getPagosRender = p => { const v=cobrosActuales[p.toLowerCase()]; if(!v) return []; return Array.isArray(v)?v:[v]; };
-  const totalPagadoRender = p => getPagosRender(p).reduce((a,x)=>a+parseFloat(x.monto),0);
-  const faltanPagar = allP().filter(p=>bal(p)<-0.5 && totalPagadoRender(p) < Math.abs(bal(p)) - 0.5);
+  const faltanPagar = allP().filter(p=>bal(p)<-0.5);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
@@ -3241,7 +3238,11 @@ async function renderCuentas() {
 
   // Balance por persona considerando pagos
   const pagadoPor  = name => payments.filter(p => p.payer.toLowerCase()  === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
-  const cobradoPor = name => payments.filter(p => p.receiver.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
+  const cobradoPor = name => {
+    const cobrado = payments.filter(p => p.receiver.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
+    const devuelto = payments.filter(p => p.payer.toLowerCase() === name.toLowerCase() && acreedores.map(x=>x.toLowerCase()).includes(p.receiver.toLowerCase())).reduce((a,p) => a + p.amount, 0);
+    return cobrado - devuelto;
+  };
 
   const acreedores = allP().filter(p => bal(p) > 0.5);
   const deudores   = allP().filter(p => bal(p) < -0.5);
