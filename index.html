@@ -25,7 +25,7 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.4.0';
+  const APP_VERSION = '2.5.0';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // ── Publicar versión (admin) ─────────────
@@ -384,6 +384,7 @@ body {
     <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
+    <button class="abtn red" onclick="forceLogoutAll()">🔐 CERRAR SESIONES</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
     <button class="abtn" onclick="publicarVersion()" style="border-color:rgba(91,184,232,.4);color:var(--club1)">📡 Publicar versión</button>
   </div>
@@ -969,7 +970,7 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
@@ -980,6 +981,7 @@ async function fetchAll() {
     sb.from('votos').select('*').eq('event_id',eid),
     sb.from('votos_opciones').select('*').eq('event_id',eid).order('orden'),
     sb.from('categorias').select('*').order('orden'),
+    sb.from('app_config').select('*'),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
@@ -987,6 +989,18 @@ async function fetchAll() {
   if (mn.data) S.menu         = mn.data;
   // Categorias
   if (ca.data?.length) S.cats = ca.data;
+
+  // Force logout check
+  if (cfg.data) {
+    const flTs = parseInt(cfg.data.find(r=>r.key==='force_logout_ts')?.value || '0');
+    const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
+    if (flTs > 0 && myLoginTs < flTs && me !== ADMIN_USER) {
+      localStorage.removeItem('asado_user');
+      localStorage.removeItem('asado_login_ts');
+      location.reload();
+      return;
+    }
+  }
   else S.cats = [];
 
   // Votos
@@ -2679,6 +2693,13 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 });
 
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
+async function forceLogoutAll() {
+  if (!confirm('¿Cerrar sesión a TODOS los usuarios? (vos no te ves afectado)')) return;
+  const ts = Date.now().toString();
+  await sb.from('app_config').update({value: ts}).eq('key', 'force_logout_ts');
+  toast('✅ Sesiones cerradas — todos deberán loguearse de nuevo', 'var(--green)');
+}
+
 function startAutoRefresh() {
   setInterval(() => {
     // Chequear expiración de sesión 24hs
