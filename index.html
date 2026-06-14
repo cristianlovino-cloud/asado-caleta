@@ -2680,7 +2680,17 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
 function startAutoRefresh() {
-  setInterval(() => fetchAll(), 30000);
+  setInterval(() => {
+    // Chequear expiración de sesión 24hs
+    const ts = parseInt(localStorage.getItem('asado_login_ts') || '0');
+    if (ts && (Date.now() - ts) > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem('asado_user');
+      localStorage.removeItem('asado_login_ts');
+      location.reload();
+      return;
+    }
+    fetchAll();
+  }, 30000);
 }
 
 // ══ AUTOCOMPLETE NOMBRE ═══════════════════════════
