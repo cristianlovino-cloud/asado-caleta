@@ -2488,85 +2488,28 @@ function spPreview() {
 async function uploadLogoGH(input) {
   const file = input.files[0];
   if (!file) return;
-  const token = GH_TOKEN;
-  if (!token || token === 'PEGAR_TOKEN_AQUI') {
-    toast('Configurá el token de GitHub en el código','var(--red)');
-    return;
-  }
   const statusEl = document.getElementById('sp-upload-status');
   statusEl.style.display='block';
   statusEl.style.color='var(--muted)';
   statusEl.textContent='⏳ Subiendo imagen...';
-
   try {
-    // Leer archivo como base64
-    const base64 = await new Promise((res,rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-
-    const fileName = 'sponsors/' + Date.now() + '_' + file.name.replace(/\s/g,'_');
-    const apiUrl = 'https://api.github.com/repos/cristianlovino-cloud/asado-caleta/contents/' + fileName;
-
-    // Verificar si ya existe
-    let sha = null;
-    const check = await fetch(apiUrl, { headers:{ Authorization:'token '+token } });
-    if (check.ok) { const d = await check.json(); sha = d.sha; }
-
-    const body = { message:'Upload sponsor logo', content:base64 };
-    if (sha) body.sha = sha;
-
-    const resp = await fetch(apiUrl, {
-      method:'PUT',
-      headers:{ Authorization:'token '+token, 'Content-Type':'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    if (!resp.ok) throw new Error('Error ' + resp.status);
-    const data = await resp.json();
-    const rawUrl = data.content.download_url;
-
-    document.getElementById('sp-logo-url').value = rawUrl;
+    const fileName = Date.now() + '_' + file.name.replace(/\s/g,'_');
+    const { data, error } = await sb.storage
+      .from('Sponsors')
+      .upload(fileName, file, { cacheControl:'3600', upsert:true, contentType: file.type });
+    if (error) throw new Error(error.message);
+    const { data: urlData } = sb.storage.from('Sponsors').getPublicUrl(fileName);
+    const publicUrl = urlData.publicUrl;
+    document.getElementById('sp-logo-url').value = publicUrl;
     spPreview();
     statusEl.style.color='var(--green)';
     statusEl.textContent='✅ Imagen subida!';
   } catch(e) {
     statusEl.style.color='var(--red)';
-    statusEl.textContent='❌ Error al subir: ' + e.message;
+    statusEl.textContent='❌ Error: ' + e.message;
   }
 }
 
-async function saveSponsor() {
-  const active  = document.getElementById('sp-toggle').dataset.active === '1';
-  const nombre  = document.getElementById('sp-nombre').value.trim();
-  const tagline = document.getElementById('sp-tagline').value.trim();
-  const url     = document.getElementById('sp-url').value.trim();
-  const logoUrl = document.getElementById('sp-logo-url').value.trim();
-  const desde   = document.getElementById('sp-desde').value.trim();
-  const hasta   = document.getElementById('sp-hasta').value.trim();
-
-  if (!nombre) { toast('Ingresá un nombre','var(--red)'); return; }
-
-  const payload = { nombre, tagline, url, logo_url: logoUrl, desde, hasta, active };
-
-  // Upsert — si existe id=1 actualiza, sino inserta
-  const existing = await sb.from('sponsors').select('id').limit(1);
-  if (existing.data?.length) {
-    await sb.from('sponsors').update(payload).eq('id', existing.data[0].id);
-  } else {
-    await sb.from('sponsors').insert(payload);
-  }
-
-  await fetchAll();
-  // Recargar sponsor directo sin filtro de fechas para reflejar el cambio inmediato
-  const {data:spFresh} = await sb.from('sponsors').select('*').eq('active',true).order('id');
-  if (spFresh) S.sponsors = spFresh;
-  renderOverview();
-  closeModal('modal-sponsor');
-  toast('✅ Sponsor guardado!', 'var(--green)');
-}
 // ─────────────────────────────────────────────────────────────────────────
 
 // ── Clima ─────────────────────────────────────────────────────────────────
@@ -2577,7 +2520,7 @@ async function fetchClima() {
   const descEl = document.getElementById('ov-weather-desc');
   if (!tempEl) return;
   try {
-    const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Cordoba,AR&appid=${OWM_KEY}&units=metric&lang=es`);
+    const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Rosario,AR&appid=${OWM_KEY}&units=metric&lang=es`);
     const d = await r.json();
     if (d.cod !== 200) throw new Error('API error');
     const temp = Math.round(d.main.temp) + '°C';
@@ -2588,12 +2531,12 @@ async function fetchClima() {
   } catch(e) {
     // Fallback a wttr.in
     try {
-      const r = await fetch('https://wttr.in/Cordoba,Argentina?format=j1');
+      const r = await fetch('https://wttr.in/Rosario,Argentina?format=j1');
       const d = await r.json();
       const cur = d.current_condition?.[0];
       if (cur) {
         tempEl.textContent = getWeatherEmoji(parseInt(cur.weatherCode)) + ' ' + cur.temp_C + '°C';
-        descEl.textContent = 'CÓRDOBA';
+        descEl.textContent = 'ROSARIO';
       }
     } catch { tempEl.textContent = '🌡️'; descEl.textContent = 'CLIMA'; }
   }
