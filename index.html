@@ -795,56 +795,49 @@ body {
 <!-- Sponsor -->
 <div class="modal-bg" id="modal-sponsor">
   <div class="modal">
-    <div class="modal-title">🏆 Sponsor <button class="modal-close" onclick="closeModal('modal-sponsor')">✕</button></div>
+    <div class="modal-title">🏆 Sponsors <button class="modal-close" onclick="closeModal('modal-sponsor')">✕</button></div>
 
-    <!-- Preview -->
-    <div id="sp-preview" style="margin-bottom:14px;border-radius:12px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));padding:12px;display:flex;align-items:center;gap:10px">
-      <img id="sp-prev-logo" src="" style="width:48px;height:48px;border-radius:50%;object-fit:contain;border:2px solid rgba(255,255,255,.15);display:none">
-      <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0" id="sp-prev-icon">🌍</div>
-      <div>
-        <div id="sp-prev-nombre" style="font-size:13px;font-weight:800;color:#fff;text-transform:uppercase"></div>
-        <div id="sp-prev-tagline" style="font-size:11px;color:rgba(180,200,255,.7);margin-top:2px"></div>
-      </div>
-    </div>
+    <!-- Lista de sponsors -->
+    <div id="sp-list" style="margin-bottom:12px"></div>
 
-    <label class="fl">Estado</label>
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--ash);border-radius:10px;padding:10px 14px;margin-bottom:10px;border:1px solid var(--rim)">
-      <span style="font-size:13px;font-weight:700" id="sp-status-label">INACTIVO</span>
-      <div onclick="toggleSponsorActive()" id="sp-toggle" style="width:44px;height:24px;border-radius:12px;background:var(--rim);cursor:pointer;position:relative;transition:background .2s">
-        <div id="sp-toggle-dot" style="width:20px;height:20px;border-radius:50%;background:white;position:absolute;top:2px;left:2px;transition:left .2s"></div>
-      </div>
-    </div>
+    <!-- Formulario nuevo/editar -->
+    <div id="sp-form" style="border-top:1px solid var(--rim);padding-top:12px">
+      <div class="sh" id="sp-form-title" style="margin-bottom:10px">➕ NUEVO SPONSOR</div>
+      <input type="hidden" id="sp-edit-id">
 
-    <label class="fl">Desde</label>
-    <input class="fi" id="sp-desde" placeholder="DD/MM/YYYY" style="margin-bottom:8px">
-    <label class="fl">Hasta</label>
-    <input class="fi" id="sp-hasta" placeholder="DD/MM/YYYY" style="margin-bottom:8px">
-    <label class="fl">Nombre</label>
-    <input class="fi" id="sp-nombre" placeholder="Nombre del sponsor" style="margin-bottom:8px" oninput="spPreview()">
-    <label class="fl">Tagline</label>
-    <input class="fi" id="sp-tagline" placeholder="Slogan corto" style="margin-bottom:8px" oninput="spPreview()">
-    <label class="fl">URL (link al tocar)</label>
-    <input class="fi" id="sp-url" placeholder="https://..." style="margin-bottom:8px">
-    <label class="fl">URL del logo</label>
-    <div style="display:flex;flex-direction:column;gap:6px">
-      <div class="frow">
-        <input class="fi" id="sp-logo-url" placeholder="https://...jpg" style="margin-bottom:0;flex:1" oninput="spPreview()">
+      <!-- Preview -->
+      <div id="sp-preview" style="margin-bottom:12px;border-radius:12px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));padding:12px;display:flex;align-items:center;gap:10px">
+        <img id="sp-prev-logo" src="" style="width:48px;height:48px;border-radius:50%;object-fit:contain;border:2px solid rgba(255,255,255,.15);display:none">
+        <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0" id="sp-prev-icon">🌍</div>
+        <div>
+          <div id="sp-prev-nombre" style="font-size:13px;font-weight:800;color:#fff;text-transform:uppercase">NOMBRE SPONSOR</div>
+          <div id="sp-prev-tagline" style="font-size:11px;color:rgba(180,200,255,.7);margin-top:2px">Tagline...</div>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="flex:1;height:1px;background:var(--rim)"></div>
-        <span style="font-size:10px;color:var(--muted);text-transform:uppercase">o subir imagen</span>
-        <div style="flex:1;height:1px;background:var(--rim)"></div>
-      </div>
-      <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;border:1px dashed var(--rim);background:var(--ash);cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)">
-        <input type="file" accept="image/*" id="sp-logo-file" style="display:none" onchange="uploadLogoGH(this)">
-        📁 ELEGIR IMAGEN
-      </label>
-      <div id="sp-upload-status" style="font-size:11px;color:var(--muted);text-align:center;display:none"></div>
-    </div>
 
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btp" style="flex:1" onclick="saveSponsor()">💾 GUARDAR</button>
-      <button class="btg" style="flex:none;padding:10px 14px" onclick="closeModal('modal-sponsor')">✕</button>
+      <label class="fl">Nombre</label>
+      <input class="fi" id="sp-nombre" placeholder="Nombre del sponsor" style="margin-bottom:8px" oninput="spPreview()">
+      <label class="fl">Tagline</label>
+      <input class="fi" id="sp-tagline" placeholder="Slogan corto" style="margin-bottom:8px" oninput="spPreview()">
+      <label class="fl">Desde</label>
+      <input class="fi" id="sp-desde" placeholder="DD/MM/YYYY" style="margin-bottom:8px">
+      <label class="fl">Hasta</label>
+      <input class="fi" id="sp-hasta" placeholder="DD/MM/YYYY" style="margin-bottom:8px">
+      <label class="fl">URL (link al tocar)</label>
+      <input class="fi" id="sp-url" placeholder="https://..." style="margin-bottom:8px">
+      <label class="fl">URL del logo</label>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <input class="fi" id="sp-logo-url" placeholder="https://...jpg" style="margin-bottom:0" oninput="spPreview()">
+        <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;border:1px dashed var(--rim);background:var(--ash);cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)">
+          <input type="file" accept="image/*" id="sp-logo-file" style="display:none" onchange="uploadLogoGH(this)">
+          📁 ELEGIR IMAGEN
+        </label>
+        <div id="sp-upload-status" style="font-size:11px;color:var(--muted);text-align:center;display:none"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btp" style="flex:1" onclick="saveSponsor()">💾 GUARDAR</button>
+        <button class="btg" style="flex:none;padding:10px 14px" onclick="cancelEditSponsor()">✕</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2191,7 +2184,9 @@ function renderOvHero(conf, pendientes, cumples, fechaStr) {
     '<div class="ov-stats" style="margin-top:14px">' +
       '<div class="ov-stat"><div class="ov-stat-n">' + conf + '</div><div class="ov-stat-l">Van ✅</div></div>' +
       (inv ? '<div class="ov-stat"><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas 📋</div></div>' : '') +
-      (cumples.length > 0 ? '<div class="ov-stat"><div class="ov-stat-n">🎂' + cumples.length + '</div><div class="ov-stat-l">CUMPLES</div></div>' : '') +
+      (cumples.length > 0
+        ? '<div class="ov-stat"><div class="ov-stat-n">🎂' + cumples.length + '</div><div class="ov-stat-l">CUMPLES</div></div>'
+        : '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-n" id="ov-weather-temp">🌡️</div><div class="ov-stat-l" id="ov-weather-desc">CLIMA</div></div>') +
     '</div></div>';
 }
 
@@ -2377,38 +2372,106 @@ function startSpCarousel() {
   }, 3000);
 }
 
-// ── Sponsor admin ─────────────────────────────────────────────────────────
+// ── Sponsor admin (multi) ─────────────────────────────────────────────────
 async function openSponsorModal() {
-  // Cargar siempre desde Supabase, sin importar si está activo o no
   const {data} = await sb.from('sponsors').select('*').order('id');
-  const sp = data?.[0] || null;
-  document.getElementById('sp-nombre').value   = sp?.nombre   || '';
-  document.getElementById('sp-tagline').value  = sp?.tagline  || '';
-  document.getElementById('sp-url').value      = sp?.url      || '';
-  document.getElementById('sp-logo-url').value = sp?.logo_url || '';
-  document.getElementById('sp-desde').value    = sp?.desde    || '';
-  document.getElementById('sp-hasta').value    = sp?.hasta    || '';
-  setSponsorToggle(sp?.active ?? false);
-  spPreview();
+  renderSpList(data || []);
+  cancelEditSponsor();
   openModal('modal-sponsor');
 }
 
-function setSponsorToggle(active) {
-  const tog = document.getElementById('sp-toggle');
-  const dot = document.getElementById('sp-toggle-dot');
-  const lbl = document.getElementById('sp-status-label');
-  if (!tog) return;
-  tog.style.background = active ? 'var(--green)' : 'var(--rim)';
-  dot.style.left = active ? '22px' : '2px';
-  lbl.textContent = active ? 'ACTIVO' : 'INACTIVO';
-  lbl.style.color = active ? 'var(--green)' : 'var(--muted)';
-  tog.dataset.active = active ? '1' : '0';
+function renderSpList(sponsors) {
+  const el = document.getElementById('sp-list');
+  if (!sponsors.length) { el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0">Sin sponsors aún</div>'; return; }
+  el.innerHTML = sponsors.map(sp => {
+    const hoy = ahoraAR();
+    const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
+    const activo = sp.active && (!parseF(sp.desde)||hoy>=parseF(sp.desde)) && (!parseF(sp.hasta)||hoy<=parseF(sp.hasta));
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--rim)">' +
+      (sp.logo_url ? '<img src="'+sp.logo_url+'" style="width:36px;height:36px;border-radius:50%;object-fit:contain;flex-shrink:0">' : '<div style="width:36px;height:36px;border-radius:50%;background:#1a3a6e;display:flex;align-items:center;justify-content:center;font-size:16px">🌍</div>') +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + sp.nombre + '</div>' +
+        '<div style="font-size:10px;color:'+(activo?'var(--green)':'var(--muted)')+'">'+
+          (activo ? '🟢 ACTIVO' : sp.active ? '⏰ FUERA DE RANGO' : '⚫ INACTIVO') +
+          (sp.desde||sp.hasta ? ' · '+(sp.desde||'?')+' → '+(sp.hasta||'?') : '') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button onclick="toggleSpActive('+sp.id+','+sp.active+')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);font-size:11px;cursor:pointer;color:var(--muted)">'+(sp.active?'OFF':'ON')+'</button>' +
+        '<button onclick="editSponsor('+sp.id+')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);font-size:11px;cursor:pointer;color:var(--muted)">✏️</button>' +
+        '<button onclick="deleteSponsor('+sp.id+')" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.15);font-size:11px;cursor:pointer;color:var(--red)">✕</button>' +
+      '</div></div>';
+  }).join('');
 }
 
-function toggleSponsorActive() {
-  const tog = document.getElementById('sp-toggle');
-  setSponsorToggle(tog.dataset.active !== '1');
+async function editSponsor(id) {
+  const {data} = await sb.from('sponsors').select('*').eq('id',id).single();
+  if (!data) return;
+  document.getElementById('sp-edit-id').value = id;
+  document.getElementById('sp-nombre').value   = data.nombre   || '';
+  document.getElementById('sp-tagline').value  = data.tagline  || '';
+  document.getElementById('sp-url').value      = data.url      || '';
+  document.getElementById('sp-logo-url').value = data.logo_url || '';
+  document.getElementById('sp-desde').value    = data.desde    || '';
+  document.getElementById('sp-hasta').value    = data.hasta    || '';
+  document.getElementById('sp-form-title').textContent = '✏️ EDITAR SPONSOR';
+  spPreview();
 }
+
+function cancelEditSponsor() {
+  document.getElementById('sp-edit-id').value = '';
+  document.getElementById('sp-nombre').value = '';
+  document.getElementById('sp-tagline').value = '';
+  document.getElementById('sp-url').value = '';
+  document.getElementById('sp-logo-url').value = '';
+  document.getElementById('sp-desde').value = '';
+  document.getElementById('sp-hasta').value = '';
+  document.getElementById('sp-form-title').textContent = '➕ NUEVO SPONSOR';
+  spPreview();
+}
+
+async function toggleSpActive(id, current) {
+  await sb.from('sponsors').update({active: !current}).eq('id', id);
+  await fetchAll();
+  const {data} = await sb.from('sponsors').select('*').order('id');
+  renderSpList(data || []);
+  toast((current ? '⚫ Sponsor desactivado' : '🟢 Sponsor activado'));
+}
+
+async function deleteSponsor(id) {
+  if (!confirm('¿Eliminar este sponsor?')) return;
+  await sb.from('sponsors').delete().eq('id', id);
+  await fetchAll();
+  const {data} = await sb.from('sponsors').select('*').order('id');
+  renderSpList(data || []);
+  toast('Sponsor eliminado');
+}
+
+async function saveSponsor() {
+  const id      = document.getElementById('sp-edit-id').value;
+  const nombre  = document.getElementById('sp-nombre').value.trim();
+  const tagline = document.getElementById('sp-tagline').value.trim();
+  const url     = document.getElementById('sp-url').value.trim();
+  const logoUrl = document.getElementById('sp-logo-url').value.trim();
+  const desde   = document.getElementById('sp-desde').value.trim();
+  const hasta   = document.getElementById('sp-hasta').value.trim();
+  if (!nombre) { toast('Ingresá un nombre','var(--red)'); return; }
+  const payload = { nombre, tagline, url, logo_url: logoUrl, desde, hasta, active: true };
+  if (id) {
+    await sb.from('sponsors').update(payload).eq('id', id);
+  } else {
+    await sb.from('sponsors').insert(payload);
+  }
+  await fetchAll();
+  const {data} = await sb.from('sponsors').select('*').order('id');
+  renderSpList(data || []);
+  cancelEditSponsor();
+  renderOverview();
+  toast('✅ Sponsor guardado!', 'var(--green)');
+}
+
+function setSponsorToggle(active) {}
+function toggleSponsorActive() {}
 
 function spPreview() {
   const nombre  = document.getElementById('sp-nombre').value.trim();
@@ -2506,6 +2569,48 @@ async function saveSponsor() {
 }
 // ─────────────────────────────────────────────────────────────────────────
 
+// ── Clima ─────────────────────────────────────────────────────────────────
+const OWM_KEY = 'dca1273e552261517c913e476ab37656';
+
+async function fetchClima() {
+  const tempEl = document.getElementById('ov-weather-temp');
+  const descEl = document.getElementById('ov-weather-desc');
+  if (!tempEl) return;
+  try {
+    const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Cordoba,AR&appid=${OWM_KEY}&units=metric&lang=es`);
+    const d = await r.json();
+    if (d.cod !== 200) throw new Error('API error');
+    const temp = Math.round(d.main.temp) + '°C';
+    const desc = d.weather[0].description;
+    const emoji = getWeatherEmoji(d.weather[0].id);
+    tempEl.textContent = emoji + ' ' + temp;
+    descEl.textContent = desc.toUpperCase().substring(0, 10);
+  } catch(e) {
+    // Fallback a wttr.in
+    try {
+      const r = await fetch('https://wttr.in/Cordoba,Argentina?format=j1');
+      const d = await r.json();
+      const cur = d.current_condition?.[0];
+      if (cur) {
+        tempEl.textContent = getWeatherEmoji(parseInt(cur.weatherCode)) + ' ' + cur.temp_C + '°C';
+        descEl.textContent = 'CÓRDOBA';
+      }
+    } catch { tempEl.textContent = '🌡️'; descEl.textContent = 'CLIMA'; }
+  }
+}
+
+function getWeatherEmoji(id) {
+  if (id === 800) return '☀️';
+  if (id <= 804 && id > 800) return id <= 801 ? '🌤️' : id <= 802 ? '⛅' : '🌥️';
+  if (id >= 200 && id < 300) return '⛈️';
+  if (id >= 300 && id < 400) return '🌦️';
+  if (id >= 500 && id < 600) return id < 502 ? '🌧️' : '🌧️';
+  if (id >= 600 && id < 700) return '🌨️';
+  if (id >= 700 && id < 800) return '🌫️';
+  return '🌡️';
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 function renderPendientesInvCard() {
   if (!isAdmin()) return '';
   const inv = S.participants.filter(p=>p.role==='pendiente');
@@ -2571,6 +2676,7 @@ function renderOverview() {
     renderOvCalendario(meses) +
     renderOvNavBtns();
   startSpCarousel();
+  fetchClima();
 }
 
 function enviarFelizCumple(nombre) {
