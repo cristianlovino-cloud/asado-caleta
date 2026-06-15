@@ -444,7 +444,10 @@ body {
         <div id="cumples-list"></div>
       </div>
     </div>
-    <button class="bta" onclick="tf('ftask')">+ NUEVA TAREA</button>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="bta" style="flex:1;margin-bottom:0" onclick="tf('ftask')">+ NUEVA TAREA</button>
+      <button class="bta" style="flex:1;margin-bottom:0;background:linear-gradient(135deg,rgba(46,134,222,.3),rgba(46,134,222,.15));border-color:rgba(46,134,222,.4)" onclick="openBiblioteca()">📚 BIBLIOTECA</button>
+    </div>
     <div class="fw" id="ftask">
       <label class="fl">Ítem a comprar</label>
       <input class="fi" id="ftname" placeholder="ej: carne, pan, carbón...">
@@ -454,7 +457,8 @@ body {
         <div style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);font-size:12px">▼</div>
       </div>
       <label class="fl">Categoría</label>
-      <select class="fsel" id="ftcat"></select>
+      <input type="hidden" id="ftcat" value="">
+      <div id="ftcat-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
       <label class="fl">Cantidad <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(opcional, ej: 2 bolsas)</span></label>
       <div class="frow" style="align-items:center;gap:8px;margin-bottom:8px">
         <button type="button" onclick="stepQty(-1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:18px;cursor:pointer;flex-shrink:0">−</button>
@@ -1678,6 +1682,131 @@ async function renderGastos() {
 }
 
 // ══ TAREAS ════════════════════════════════════════
+
+// ══ BIBLIOTECA DE TAREAS ══════════════════════════════════════════════════
+
+let _bibSeleccionadas = new Set(); // ids seleccionados para cargar
+
+async function openBiblioteca() {
+  _bibSeleccionadas = new Set();
+  await renderBiblioteca();
+  openModal('modal-biblioteca');
+}
+
+async function renderBiblioteca() {
+  const el = document.getElementById('biblioteca-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div>';
+  const {data} = await sb.from('task_templates').select('*').eq('active', true).order('categoria').order('nombre');
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Sin plantillas aún.<br>Agregá tareas a la biblioteca.</div>';
+    return;
+  }
+  // Agrupar por categoría
+  const grupos = {};
+  data.forEach(t => {
+    const cat = t.categoria || 'Otros';
+    if (!grupos[cat]) grupos[cat] = [];
+    grupos[cat].push(t);
+  });
+  let html = '';
+  Object.entries(grupos).forEach(([cat, items]) => {
+    html += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:10px 0 6px">' + cat + '</div>';
+    items.forEach(t => {
+      const sel = _bibSeleccionadas.has(t.id);
+      html += '<div id="bibitem-' + t.id + '" onclick="toggleBibItem(' + t.id + ')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;cursor:pointer;border:1.5px solid ' + (sel ? 'var(--fire)' : 'var(--rim)') + ';background:' + (sel ? 'rgba(245,197,24,.08)' : 'var(--card)') + '">'
+        + '<div style="font-size:20px">' + (t.emoji || '📋') + '</div>'
+        + '<div style="flex:1;min-width:0">'
+        + '<div style="font-size:13px;font-weight:600">' + t.nombre + '</div>'
+        + (t.asignado_def ? '<div style="font-size:11px;color:var(--muted)">→ ' + t.asignado_def + '</div>' : '')
+        + '</div>'
+        + '<div style="display:flex;gap:6px;flex-shrink:0">'
+        + (sel ? '<span style="color:var(--fire);font-size:18px">✓</span>' : '<span style="color:var(--muted);font-size:18px">○</span>')
+        + (isAdmin() ? '<button onclick="event.stopPropagation();editarBiblioteca(' + t.id + ')" style="padding:3px 7px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">✏️</button>' : '')
+        + (isAdmin() ? '<button onclick="event.stopPropagation();eliminarBiblioteca(' + t.id + ')" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(231,76,60,.15);color:var(--red);font-size:11px;cursor:pointer">✕</button>' : '')
+        + '</div>'
+        + '</div>';
+    });
+  });
+  el.innerHTML = html;
+}
+
+function toggleBibItem(id) {
+  if (_bibSeleccionadas.has(id)) _bibSeleccionadas.delete(id);
+  else _bibSeleccionadas.add(id);
+  renderBiblioteca();
+}
+
+async function cargarSeleccionadas() {
+  if (!_bibSeleccionadas.size) { toast('Seleccioná al menos una tarea','var(--red)'); return; }
+  if (!S.event) { toast('No hay evento activo','var(--red)'); return; }
+  const {data: templates} = await sb.from('task_templates').select('*').in('id', [..._bibSeleccionadas]);
+  if (!templates?.length) return;
+  const rows = templates.map(t => ({
+    event_id: S.event.id,
+    name: t.nombre,
+    category: t.categoria || '',
+    assignee: t.asignado_def || null,
+    done: false,
+    is_template: true
+  }));
+  await sb.from('tasks').insert(rows);
+  closeModal('modal-biblioteca');
+  await fetchAll();
+  toast('✅ ' + rows.length + ' tarea' + (rows.length !== 1 ? 's' : '') + ' agregada' + (rows.length !== 1 ? 's' : '') + '!', 'var(--green)');
+}
+
+function openNuevaBiblioteca() {
+  document.getElementById('nbib-edit-id').value = '';
+  document.getElementById('nbib-nombre').value = '';
+  document.getElementById('nbib-emoji').value = '';
+  document.getElementById('nbib-cat').value = getCats()[0] || '';
+  renderCatPicker('nbib-cat-picker', 'nbib-cat', getCats()[0] || '');
+  const sel = document.getElementById('nbib-assignee');
+  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}">${p}</option>`).join('');
+  closeModal('modal-biblioteca');
+  openModal('modal-nueva-bib');
+}
+
+async function editarBiblioteca(id) {
+  const {data: t} = await sb.from('task_templates').select('*').eq('id', id).single();
+  if (!t) return;
+  document.getElementById('nbib-edit-id').value = id;
+  document.getElementById('nbib-nombre').value = t.nombre;
+  document.getElementById('nbib-emoji').value = t.emoji || '';
+  document.getElementById('nbib-cat').value = t.categoria || '';
+  renderCatPicker('nbib-cat-picker', 'nbib-cat', t.categoria || '');
+  const sel = document.getElementById('nbib-assignee');
+  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===t.asignado_def?' selected':''}>${p}</option>`).join('');
+  closeModal('modal-biblioteca');
+  openModal('modal-nueva-bib');
+}
+
+async function guardarBiblioteca() {
+  const editId = document.getElementById('nbib-edit-id').value;
+  const nombre = document.getElementById('nbib-nombre').value.trim();
+  const emoji = document.getElementById('nbib-emoji').value.trim() || '📋';
+  const categoria = document.getElementById('nbib-cat').value;
+  const asignado_def = document.getElementById('nbib-assignee').value || null;
+  if (!nombre) { toast('Ingresá un nombre','var(--red)'); return; }
+  const payload = { nombre, emoji, categoria, asignado_def, active: true };
+  if (editId) {
+    await sb.from('task_templates').update(payload).eq('id', editId);
+  } else {
+    await sb.from('task_templates').insert(payload);
+  }
+  closeModal('modal-nueva-bib');
+  await openBiblioteca();
+  toast('✅ Plantilla guardada!', 'var(--green)');
+}
+
+async function eliminarBiblioteca(id) {
+  if (!confirm('¿Eliminar esta plantilla?')) return;
+  await sb.from('task_templates').delete().eq('id', id);
+  await renderBiblioteca();
+  toast('Plantilla eliminada');
+}
+
 async function addTask() {
   const name=document.getElementById('ftname').value.trim();
   const assignee=document.getElementById('ftassign').value.trim()||null;
@@ -1807,7 +1936,12 @@ async function initCats() {
 function renderCatSelects() {
   const cats = getCats();
   const opts = cats.map(c=>`<option>${c}</option>`).join('');
-  ['ftcat','edit-task-cat'].forEach(id=>{
+  // Inicializar picker custom de ftcat
+  const ftcatHidden = document.getElementById('ftcat');
+  if (ftcatHidden && !ftcatHidden.value) ftcatHidden.value = cats[0] || '';
+  renderCatPicker('ftcat-picker', 'ftcat', ftcatHidden?.value || cats[0] || '');
+  // Select legacy edit-task-cat (ya reemplazado por picker)
+  ['ftcat_legacy'].forEach(id=>{
     const el = document.getElementById(id);
     if (el) { const prev=el.value; el.innerHTML=opts; el.value=prev||cats[0]; }
   });
@@ -4363,5 +4497,44 @@ const F1_COLORES = {
       });
     }
   </script>
+
+<!-- Modal Biblioteca de Tareas -->
+<div class="modal-bg" id="modal-biblioteca">
+  <div class="modal" style="max-height:85vh;display:flex;flex-direction:column">
+    <div class="modal-title">📚 Biblioteca de Tareas
+      <button class="modal-close" onclick="closeModal('modal-biblioteca')">✕</button>
+    </div>
+    <div style="padding:0 0 10px;flex-shrink:0">
+      <button class="btp" style="width:100%;margin-bottom:0" onclick="openNuevaBiblioteca()">+ AGREGAR A BIBLIOTECA</button>
+    </div>
+    <div id="biblioteca-list" style="overflow-y:auto;flex:1"></div>
+    <div style="padding-top:10px;border-top:1px solid var(--rim);flex-shrink:0">
+      <button class="btp" style="width:100%" onclick="cargarSeleccionadas()">✅ CARGAR SELECCIONADAS AL ASADO</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nueva Tarea Biblioteca -->
+<div class="modal-bg" id="modal-nueva-bib">
+  <div class="modal">
+    <div class="modal-title">📝 Nueva Plantilla
+      <button class="modal-close" onclick="closeModal('modal-nueva-bib')">✕</button>
+    </div>
+    <input type="hidden" id="nbib-edit-id">
+    <label class="fl">Nombre</label>
+    <input class="fi" id="nbib-nombre" placeholder="ej: Carbón x2 bolsas">
+    <label class="fl">Emoji</label>
+    <input class="fi" id="nbib-emoji" placeholder="📋" style="max-width:80px">
+    <label class="fl">Categoría</label>
+    <input type="hidden" id="nbib-cat" value="">
+    <div id="nbib-cat-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <label class="fl">Asignado por defecto</label>
+    <select class="fsel" id="nbib-assignee"></select>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btp" style="flex:1" onclick="guardarBiblioteca()">💾 GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-nueva-bib')">✕</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
