@@ -666,37 +666,6 @@ body {
   </div>
 </div>
 
-<!-- Modal Nueva Votacion -->
-<div class="modal-bg" id="modal-nueva-votacion">
-  <div class="modal">
-    <div class="modal-title">🗳️ Votación <button class="modal-close" onclick="closeModal('modal-nueva-votacion')">✕</button></div>
-    <input type="hidden" id="nv-edit-id">
-    <label class="fl">Título</label>
-    <input class="fi" id="nv-titulo" placeholder="¿Qué comemos? / ¿Cuándo nos juntamos?">
-    <label class="fl">Tipo</label>
-    <select class="fsel" id="nv-tipo" style="margin-bottom:8px">
-      <option value="menu">🍽️ Menú</option>
-      <option value="fecha">📅 Fecha</option>
-      <option value="otro">💬 Otro</option>
-    </select>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <div><label class="fl">Desde</label><input class="fi" id="nv-desde" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
-      <div><label class="fl">Hasta</label><input class="fi" id="nv-hasta" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
-    </div>
-    <label class="fl">Opciones</label>
-    <div id="nv-opciones-list" style="margin-bottom:8px"></div>
-    <div style="display:flex;gap:6px;margin-bottom:12px">
-      <input class="fi" id="nv-nueva-op-emoji" placeholder="🔥" style="max-width:54px;text-align:center;margin-bottom:0">
-      <input class="fi" id="nv-nueva-op-nombre" placeholder="Nueva opción..." style="margin-bottom:0;flex:1">
-      <button onclick="nvAgregarOpcion()" style="padding:9px 12px;border-radius:8px;border:none;background:var(--fire);color:white;font-size:13px;font-weight:700;cursor:pointer">+</button>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btp" style="flex:1" onclick="nvGuardar()">💾 GUARDAR</button>
-      <button class="btg" onclick="closeModal('modal-nueva-votacion')">✕</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal comensales -->
 <div class="modal-bg" id="modal-comensales">
   <div class="modal">
@@ -3397,25 +3366,33 @@ async function nvGuardar() {
   if (!titulo) { toast('Ingresá un título', 'var(--red)'); return; }
   if (!_nvOpciones.length) { toast('Agregá al menos una opción', 'var(--red)'); return; }
 
-  let vacId = editId ? parseInt(editId) : null;
+  try {
+    let vacId = editId ? parseInt(editId) : null;
 
-  if (vacId) {
-    await sb.from('votaciones').update({ titulo, tipo, desde, hasta, activa: true }).eq('id', vacId);
-    // Borrar opciones viejas y reinsertar
-    await sb.from('votacion_opciones').delete().eq('votacion_id', vacId);
-  } else {
-    const { data } = await sb.from('votaciones').insert({ titulo, tipo, desde, hasta, activa: true }).select().single();
-    vacId = data.id;
+    if (vacId) {
+      const { error: updErr } = await sb.from('votaciones').update({ titulo, tipo, desde, hasta, activa: true }).eq('id', vacId);
+      if (updErr) throw new Error('update votacion: ' + updErr.message);
+      const { error: delErr } = await sb.from('votacion_opciones').delete().eq('votacion_id', vacId);
+      if (delErr) throw new Error('delete opciones: ' + delErr.message);
+    } else {
+      const { data, error: insErr } = await sb.from('votaciones').insert({ titulo, tipo, desde, hasta, activa: true }).select().single();
+      if (insErr) throw new Error('insert votacion: ' + insErr.message);
+      if (!data) throw new Error('insert no devolvió datos');
+      vacId = data.id;
+    }
+
+    const ops = _nvOpciones.map((op, i) => ({ votacion_id: vacId, nombre: op.nombre, emoji: op.emoji, orden: i }));
+    const { error: opsErr } = await sb.from('votacion_opciones').insert(ops);
+    if (opsErr) throw new Error('insert opciones: ' + opsErr.message);
+
+    await fetchAll();
+    renderAll();
+    closeModal('modal-nueva-votacion');
+    toast('✅ Votación guardada!', 'var(--green)');
+  } catch(e) {
+    toast('❌ ' + e.message, 'var(--red)');
+    console.error('nvGuardar error:', e);
   }
-
-  // Insertar opciones
-  const ops = _nvOpciones.map((op, i) => ({ votacion_id: vacId, nombre: op.nombre, emoji: op.emoji, orden: i }));
-  await sb.from('votacion_opciones').insert(ops);
-
-  await fetchAll();
-  renderAll();
-  closeModal('modal-nueva-votacion');
-  toast('✅ Votación guardada!', 'var(--green)');
 }
 
 async function editarVotacion(id) {
