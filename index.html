@@ -899,7 +899,8 @@ body {
     <label class="fl">Asignar a</label>
     <select class="fsel" id="edit-task-assignee"></select>
     <label class="fl">Categoría</label>
-    <select class="fsel" id="edit-task-cat"></select>
+    <input type="hidden" id="edit-task-cat" value="">
+    <div id="edit-task-cat-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <div style="background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.2);border-radius:8px;padding:10px 12px;margin-bottom:10px">
       <label style="font-size:12px;color:var(--ember);font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer">
         <input type="checkbox" id="edit-task-template" style="width:16px;height:16px;accent-color:var(--fire)">
@@ -1853,6 +1854,25 @@ function stepQty(delta) {
 }
 
 // ══ EDITAR TAREAS (admin) ════════════════════════
+function renderCatPicker(pickerId, hiddenId, selected) {
+  const el = document.getElementById(pickerId);
+  if (!el) return;
+  const cats = getCats();
+  el.innerHTML = cats.map(c => {
+    const active = c === selected;
+    const border = active ? 'var(--fire)' : 'var(--rim)';
+    const bg = active ? 'rgba(245,197,24,.15)' : 'var(--ash)';
+    const color = active ? 'var(--fire)' : 'var(--muted)';
+    const weight = active ? '700' : '400';
+    return `<button type="button" onclick="selectCatPicker('${pickerId}','${hiddenId}',this.dataset.cat)" data-cat="${c}" style="padding:6px 12px;border-radius:20px;border:1.5px solid ${border};background:${bg};color:${color};font-size:12px;font-weight:${weight};cursor:pointer">${c}</button>`;
+  }).join('');
+}
+
+function selectCatPicker(pickerId, hiddenId, value) {
+  document.getElementById(hiddenId).value = value;
+  renderCatPicker(pickerId, hiddenId, value);
+}
+
 function openEditTask(id) {
   const t = S.tasks.find(x=>x.id===id);
   if (!t) return;
@@ -1862,10 +1882,9 @@ function openEditTask(id) {
   // assignee select
   const sel = document.getElementById('edit-task-assignee');
   sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase(),'es')).map(p=>`<option value="${p}"${p.toLowerCase()===t.assignee?.toLowerCase()?' selected':''}>${p.charAt(0).toUpperCase()+p.slice(1)}</option>`).join('');
-  // category select - rellenar con getCats() para que esté actualizado
-  const catsEl = document.getElementById('edit-task-cat');
-  const catsData = getCats();
-  catsEl.innerHTML = catsData.map(c=>`<option value="${c}"${c===t.category?' selected':''}>${c}</option>`).join('');
+  // Picker custom de categoría
+  document.getElementById('edit-task-cat').value = t.category || '';
+  renderCatPicker('edit-task-cat-picker', 'edit-task-cat', t.category || '');
   openModal('modal-edit-task');
 }
 
