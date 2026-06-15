@@ -2316,12 +2316,13 @@ function renderOvSponsor() {
     return renderSpCard(S.sponsors[0]);
   }
   // Carrusel
+  const curIdx = _spIdx % S.sponsors.length;
   const cards = S.sponsors.map((sp,i) =>
-    '<div class="sp-slide" style="min-width:100%;transition:transform .4s ease;display:' + (i===0?'block':'none') + '" data-sp-idx="' + i + '">' +
+    '<div class="sp-slide" style="min-width:100%;transition:transform .4s ease;display:' + (i===curIdx?'block':'none') + '" data-sp-idx="' + i + '">' +
     renderSpCard(sp) + '</div>'
   ).join('');
   const dots = S.sponsors.map((_,i) =>
-    '<div class="sp-dot" data-idx="' + i + '" onclick="goSpSlide(' + i + ')" style="width:6px;height:6px;border-radius:50%;background:' + (i===0?'var(--fire)':'var(--rim)') + ';cursor:pointer;transition:background .3s"></div>'
+    '<div class="sp-dot" data-idx="' + i + '" onclick="goSpSlide(' + i + ')" style="width:6px;height:6px;border-radius:50%;background:' + (i===curIdx?'var(--fire)':'var(--rim)') + ';cursor:pointer;transition:background .3s"></div>'
   ).join('');
   return '<div id="sp-carousel" style="position:relative;overflow:hidden;margin-bottom:10px">' +
     cards +
