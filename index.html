@@ -2806,23 +2806,8 @@ async function fetchClima() {
   const tempEl = document.getElementById('ov-weather-temp');
   const descEl = document.getElementById('ov-weather-desc');
   if (!tempEl) return;
-
-  // Intentar geolocalización del dispositivo
-  const fetchByCoords = async (lat, lon, cityName) => {
-    const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric&lang=es`);
-    const d = await r.json();
-    if (d.cod !== 200) throw new Error('API error');
-    const temp = Math.round(d.main.temp) + '°C';
-    const desc = d.weather[0].description;
-    const emoji = getWeatherEmoji(d.weather[0].id);
-    const city = (d.name || cityName || 'LOCAL').toUpperCase().substring(0, 10);
-    _climaCache = { temp: emoji + ' ' + temp, desc: city };
-    tempEl.textContent = _climaCache.temp;
-    descEl.textContent = _climaCache.desc;
-  };
-
-  const fetchByCity = async (city) => {
-    const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city},AR&appid=${OWM_KEY}&units=metric&lang=es`);
+  try {
+    const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Rosario,AR&appid=${OWM_KEY}&units=metric&lang=es`);
     const d = await r.json();
     if (d.cod !== 200) throw new Error('API error');
     const temp = Math.round(d.main.temp) + '°C';
@@ -2831,27 +2816,6 @@ async function fetchClima() {
     _climaCache = { temp: emoji + ' ' + temp, desc: desc.toUpperCase().substring(0, 10) };
     tempEl.textContent = _climaCache.temp;
     descEl.textContent = _climaCache.desc;
-  };
-
-  try {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          try {
-            await fetchByCoords(pos.coords.latitude, pos.coords.longitude);
-          } catch {
-            await fetchByCity('Rosario');
-          }
-        },
-        async () => {
-          // Usuario rechazó o error — usar Rosario
-          try { await fetchByCity('Rosario'); } catch {}
-        },
-        { timeout: 5000, maximumAge: 300000 }
-      );
-    } else {
-      await fetchByCity('Rosario');
-    }
   } catch(e) {
     try {
       const r = await fetch('https://wttr.in/Rosario,Argentina?format=j1');
