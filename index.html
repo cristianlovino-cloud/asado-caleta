@@ -975,7 +975,7 @@ function normalizarNombre(str) {
 }
 // ─────────────────────────────────────────────────────────────────────────
 
-const isAdmin    = () => me === ADMIN_USER;
+const isAdmin    = () => me?.toLowerCase() === ADMIN_USER?.toLowerCase();
 const isInvitado = () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='invitado'; };
 const isPendiente= () => { const p = S.participants.find(x=>x.name.toLowerCase()===me.toLowerCase()); return p?.role==='pendiente'; };
 // allP incluye habituales (active+si) e invitados confirmados
@@ -1064,7 +1064,7 @@ async function fetchAll() {
   }
   // Chequear RSVP — fuente de verdad Supabase, nada local
   // Admin nunca ve la pantalla de confirmación
-  const _esAdmin = me === ADMIN_USER;
+  const _esAdmin = me?.toLowerCase() === ADMIN_USER?.toLowerCase();
   const _part = S.participants.find(p => p.name.toLowerCase() === me.toLowerCase());
   const _esInvitado = _part?.role === 'invitado';
   const _esPendiente = _part?.role === 'pendiente';
