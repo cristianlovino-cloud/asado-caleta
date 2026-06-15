@@ -25,7 +25,7 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.5.0';
+  const APP_VERSION = '2.17';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // ── Publicar versión (admin) ─────────────
@@ -953,6 +953,16 @@ if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
   localStorage.removeItem('asado_login_ts');
 }
 // ─────────────────────────────────────────────────────────────────────────
+// Auto-login desde ?user= (viene de Mesa de Galanes)
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const userParam = params.get('user');
+  if (userParam && userParam.trim()) {
+    const v = userParam.trim().replace(/\b\w/g, c => c.toUpperCase());
+    localStorage.setItem('asado_user', v);
+    localStorage.setItem('asado_login_ts', Date.now());
+  }
+})();
 let me = localStorage.getItem('asado_user') || '';
 let tmpl = 'convocatoria';
 
