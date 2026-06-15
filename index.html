@@ -345,7 +345,7 @@ body {
       </div>
     </div>
     <div style="text-align:center;margin-top:16px">
-      <span onclick="entrarApp(me)" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Entrar sin confirmar</span>
+      <span id="cs-sin-confirmar" onclick="entrarApp(me)" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">Entrar sin confirmar</span>
     </div>
   </div>
 </div>
@@ -1022,8 +1022,6 @@ async function fetchAll() {
 
   // Force logout check
   if (cfg.data) {
-    const owmRow = cfg.data.find(r => r.key === 'owm_key');
-    if (owmRow?.value) OWM_KEY = owmRow.value;
     const flTs = parseInt(cfg.data.find(r=>r.key==='force_logout_ts')?.value || '0');
     const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
     if (flTs > 0 && myLoginTs < flTs && me !== ADMIN_USER) {
@@ -2610,7 +2608,7 @@ async function uploadLogoGH(input) {
 // ─────────────────────────────────────────────────────────────────────────
 
 // ── Clima ─────────────────────────────────────────────────────────────────
-let OWM_KEY = ''; // cargada desde Supabase app_config
+const OWM_KEY = 'dca1273e552261517c913e476ab37656';
 
 // Cache clima para evitar parpadeo
 let _climaCache = { temp: '🌡️', desc: 'CLIMA' };
@@ -2795,6 +2793,26 @@ function updateClock() {
 }
 
 function mostrarConfirmScreen() {
+  // Si hay votación activa, mostrar botón IR A VOTAR
+  const hoy = ahoraAR();
+  const hayVot = S.votaciones.some(v => {
+    if (!v.activa) return false;
+    const desde = parseecha(v.desde), hasta = parseecha(v.hasta);
+    return (!desde||hoy>=desde)&&(!hasta||hoy<=hasta);
+  });
+  const csExtra = document.getElementById('cs-votar-btn');
+  if (csExtra) csExtra.remove();
+  if (hayVot) {
+    const sinConf = document.getElementById('cs-sin-confirmar');
+    if (sinConf) {
+      const btn = document.createElement('button');
+      btn.id = 'cs-votar-btn';
+      btn.innerHTML = '🗳️ IR A VOTAR →';
+      btn.style.cssText = 'display:block;margin:8px auto 0;padding:10px 24px;border-radius:10px;border:2px solid rgba(245,197,24,.5);background:rgba(245,197,24,.1);color:#F5C518;font-size:13px;font-weight:700;cursor:pointer';
+      btn.onclick = () => { entrarApp(me); setTimeout(() => showTab('votos'), 400); };
+      sinConf.parentNode.insertBefore(btn, sinConf.nextSibling);
+    }
+  }
   document.getElementById('app').style.display='none';
   var pregEl = document.getElementById('rsvp-pregunta');
   if (pregEl && S.event) {
