@@ -1693,23 +1693,29 @@ let _bibSeleccionadas = new Set(); // ids seleccionados para cargar
 
 async function restablecerTareas() {
   if (!S.event) { toast('No hay evento activo','var(--red)'); return; }
-  if (!confirm('¿Restablecer tareas? Esto cargará TODAS las plantillas de la biblioteca al asado actual.')) return;
-  const {data: templates} = await sb.from('task_templates').select('*').eq('active', true).order('categoria').order('nombre');
-  if (!templates?.length) { toast('La biblioteca está vacía — agregá plantillas primero','var(--muted)'); return; }
-  // Eliminar tareas actuales del evento
+  // Primero migrar tareas actuales a biblioteca si no están
+  const {data: actuales} = await sb.from('tasks').select('*').eq('event_id', S.event.id);
+  if (actuales?.length) {
+    const {data: existentes} = await sb.from('task_templates').select('nombre');
+    const nombresExistentes = new Set((existentes||[]).map(t => t.nombre.toLowerCase()));
+    const nuevas = actuales.filter(t => !nombresExistentes.has(t.name.toLowerCase()));
+    if (nuevas.length) {
+      const rows = nuevas.map((t,i) => ({
+        nombre: t.name,
+        categoria: t.category || '',
+        emoji: '📋',
+        asignado_def: t.assignee || null,
+        orden: i,
+        active: true
+      }));
+      await sb.from('task_templates').insert(rows);
+      toast('📚 ' + rows.length + ' tarea' + (rows.length!==1?'s':'') + ' migrada' + (rows.length!==1?'s':'') + ' a biblioteca', 'var(--muted)');
+    }
+  }
+  if (!confirm('¿Borrar todas las tareas del asado actual? Podés volver a cargarlas desde Biblioteca.')) return;
   await sb.from('tasks').delete().eq('event_id', S.event.id);
-  // Insertar todas las plantillas
-  const rows = templates.map(t => ({
-    event_id: S.event.id,
-    name: t.nombre,
-    category: t.categoria || '',
-    assignee: t.asignado_def || null,
-    done: false,
-    is_template: true
-  }));
-  await sb.from('tasks').insert(rows);
   await fetchAll();
-  toast('✅ ' + rows.length + ' tareas restablecidas!', 'var(--green)');
+  toast('🗑️ Tareas borradas — usá Biblioteca para cargar las del próximo asado', 'var(--muted)');
 }
 
 async function openBiblioteca() {
