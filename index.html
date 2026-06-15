@@ -1235,7 +1235,7 @@ async function checkPendingStatus() {
 }
 // ──────────────────────────────────────────────────────────────────────────
 
-function entrarApp(v) {
+function entrarApp(v, afterLoad) {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('confirm-screen').style.display='none';
   document.getElementById('app').style.display='block';
@@ -1255,6 +1255,7 @@ function entrarApp(v) {
   fetchAll().then(()=>{ 
     if(!sbOk) renderAll(); 
     else initCats();
+    if (afterLoad) afterLoad();
   });
   subscribe();
   startAutoRefresh();
@@ -2809,7 +2810,7 @@ function mostrarConfirmScreen() {
       btn.id = 'cs-votar-btn';
       btn.innerHTML = '🗳️ IR A VOTAR →';
       btn.style.cssText = 'display:block;margin:8px auto 0;padding:10px 24px;border-radius:10px;border:2px solid rgba(245,197,24,.5);background:rgba(245,197,24,.1);color:#F5C518;font-size:13px;font-weight:700;cursor:pointer';
-      btn.onclick = () => { entrarApp(me); setTimeout(() => showTab('votos'), 400); };
+      btn.onclick = () => { entrarApp(me, () => showTab('votos')); };
       sinConf.parentNode.insertBefore(btn, sinConf.nextSibling);
     }
   }
