@@ -275,7 +275,7 @@ body {
 .ov-title{font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:2px;margin-bottom:2px}
 .ov-date{font-size:12px;opacity:.85;margin-bottom:14px}
 .ov-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.ov-stat{background:rgba(255,255,255,.15);border-radius:10px;padding:10px 8px;text-align:center}
+.ov-stat{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 8px;text-align:center;backdrop-filter:blur(4px)}
 .ov-stat-n{font-family:'Bebas Neue',cursive;font-size:26px;line-height:1}
 .ov-stat-l{font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .ov-card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--rim)}
@@ -2183,10 +2183,10 @@ function renderOvHero(conf, pendientes, cumples, fechaStr) {
     '<div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:\'Bebas Neue\',cursive;letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>' +
     '<div class="ov-stats" style="margin-top:14px">' +
       '<div class="ov-stat"><div class="ov-stat-n">' + conf + '</div><div class="ov-stat-l">Van ✅</div></div>' +
-      (inv ? '<div class="ov-stat"><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas 📋</div></div>' : '') +
-      (cumples.length > 0
+      (inv ? (cumples.length > 0
         ? '<div class="ov-stat"><div class="ov-stat-n">🎂' + cumples.length + '</div><div class="ov-stat-l">CUMPLES</div></div>'
-        : '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-n" id="ov-weather-temp">'+ _climaCache.temp +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>') +
+        : '<div class="ov-stat"><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas 📋</div></div>') : '') +
+      '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-n" id="ov-weather-temp">'+ _climaCache.temp +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>' +
     '</div></div>';
 }
 
