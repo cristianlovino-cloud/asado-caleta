@@ -2672,8 +2672,30 @@ function renderOverview() {
     return {nombre:p.name,dia:d,mes:m};
   }).filter(c=>!isNaN(c.mes)&&c.mes===(parts[1]?parseInt(parts[1]):mesActual)).sort((a,b)=>a.dia-b.dia);
 
+  // Card votación pendiente para no-admin
+  const vacPendiente = !isAdmin() && S.votaciones.find(v => {
+    if (!v.activa) return false;
+    const desde = parseecha(v.desde); const hasta = parseecha(v.hasta);
+    const hoy = ahoraAR();
+    if ((!desde || hoy >= desde) && (!hasta || hoy <= hasta)) {
+      return !misVotosEnVac(v.id).length;
+    }
+    return false;
+  });
+  const vacCard = vacPendiente
+    ? '<div onclick="showTab(\'votos\')" style="background:linear-gradient(135deg,rgba(245,197,24,.15),rgba(245,197,24,.05));border:2px solid rgba(245,197,24,.4);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px">' +
+        '<div style="font-size:32px">🗳️</div>' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:14px;text-transform:uppercase;color:var(--fire)">¡Votación activa!</div>' +
+          '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + vacPendiente.titulo + ' · Todavía no votaste</div>' +
+        '</div>' +
+        '<div style="margin-left:auto;font-size:20px">→</div>' +
+      '</div>'
+    : '';
+
   el.innerHTML = renderOvHero(conf, pendientes, cumples, fechaStr) +
     renderOvSponsor() +
+    vacCard +
     renderOvMiEstado(miRsvp) +
     renderOvAsistencia(conf, noVan, sinResp) +
     renderPendientesInvCard() +
@@ -3222,49 +3244,106 @@ function renderVacCard(vac, abierta) {
   const yaVote = misVotos.length > 0;
   const totalVotos = S.votacion_votos.filter(v => v.votacion_id === vac.id).length;
   const tipoEmoji = vac.tipo === 'menu' ? '🍽️' : vac.tipo === 'fecha' ? '📅' : '💬';
+  const verResultados = isAdmin() || !abierta;
 
-  // Ordenar por votos para resultados
+  // Días para cerrar
+  let cierraHtml = '';
+  if (abierta && vac.hasta) {
+    const hasta = parseecha(vac.hasta);
+    const hoy = ahoraAR();
+    const diasR = hasta ? Math.ceil((hasta - hoy) / 86400000) : null;
+    if (diasR !== null) {
+      cierraHtml = diasR <= 0 ? ' · <span style="color:var(--red)">cierra hoy</span>'
+        : diasR === 1 ? ' · <span style="color:var(--ember)">cierra mañana</span>'
+        : ' · <span style="color:var(--muted)">cierra en ' + diasR + ' días</span>';
+    }
+  }
+
+  // Participantes que no votaron (solo admin)
+  let faltanHtml = '';
+  if (isAdmin() && abierta) {
+    const queVotaron = new Set(S.votacion_votos.filter(v => v.votacion_id === vac.id).map(v => v.participant_name.toLowerCase()));
+    const activos = S.participants.filter(p => p.active && p.role !== 'pendiente');
+    const faltan = activos.filter(p => !queVotaron.has(p.name.toLowerCase()));
+    if (faltan.length) {
+      faltanHtml = '<div style="padding:8px 12px;background:rgba(231,76,60,.06);border-top:1px solid var(--rim)">' +
+        '<div style="font-size:10px;color:var(--red);font-weight:700;text-transform:uppercase;margin-bottom:4px">⏳ Faltan votar (' + faltan.length + ')</div>' +
+        '<div style="font-size:11px;color:var(--muted)">' + faltan.map(p => p.name).join(', ') + '</div>' +
+      '</div>';
+    } else {
+      faltanHtml = '<div style="padding:8px 12px;text-align:center;font-size:11px;color:var(--green);border-top:1px solid var(--rim)">✅ Todos votaron</div>';
+    }
+  }
+
+  // Botón WS para admin
+  const wsBtn = isAdmin() && abierta
+    ? '<button onclick="compartirVotacionWS(' + vac.id + ')" style="padding:4px 9px;border-radius:6px;border:1px solid #25D366;background:rgba(37,211,102,.1);color:#25D366;font-size:11px;font-weight:700;cursor:pointer">📲 WS</button>'
+    : '';
+
+  // Ordenar por votos
   const optsConVotos = opts.map(o => ({
     ...o,
     votos: contarVotos(o.id),
     mio: misVotos.some(v => v.opcion_id === o.id)
   })).sort((a,b) => b.votos - a.votos);
-
   const maxVotos = optsConVotos.length ? optsConVotos[0].votos : 0;
 
-  // ¿Puede ver resultados? Admin siempre, usuarios solo cuando cerrada
-  const verResultados = isAdmin() || !abierta;
-
-  const hasta = vac.hasta ? ' · hasta ' + vac.hasta : '';
+  // Gráfico de torta SVG (solo admin y votación abierta con votos)
+  let tortaHtml = '';
+  if (isAdmin() && abierta && totalVotos > 0 && optsConVotos.length > 1) {
+    const colors = ['#F5C518','#27AE60','#2E86DE','#E74C3C','#9B59B6','#E67E22'];
+    let startAngle = -Math.PI / 2;
+    const cx = 50, cy = 50, r = 40;
+    let slices = '';
+    optsConVotos.forEach((op, i) => {
+      if (!op.votos) return;
+      const angle = (op.votos / totalVotos) * 2 * Math.PI;
+      const x1 = cx + r * Math.cos(startAngle);
+      const y1 = cy + r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(startAngle + angle);
+      const y2 = cy + r * Math.sin(startAngle + angle);
+      const large = angle > Math.PI ? 1 : 0;
+      slices += '<path d="M' + cx + ',' + cy + ' L' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' A' + r + ',' + r + ' 0 ' + large + ',1 ' + x2.toFixed(1) + ',' + y2.toFixed(1) + ' Z" fill="' + (colors[i % colors.length]) + '" stroke="var(--smoke)" stroke-width="1"/>';
+      startAngle += angle;
+    });
+    const leyenda = optsConVotos.filter(op => op.votos > 0).map((op, i) =>
+      '<div style="display:flex;align-items:center;gap:5px;font-size:10px">' +
+        '<div style="width:10px;height:10px;border-radius:2px;background:' + colors[i % colors.length] + ';flex-shrink:0"></div>' +
+        '<span style="text-transform:uppercase;color:var(--text)">' + op.emoji + ' ' + op.nombre + '</span>' +
+        '<span style="color:var(--muted);margin-left:auto">' + Math.round(op.votos/totalVotos*100) + '%</span>' +
+      '</div>'
+    ).join('');
+    tortaHtml = '<div style="padding:10px 12px;border-top:1px solid var(--rim);display:flex;align-items:center;gap:12px">' +
+      '<svg width="80" height="80" viewBox="0 0 100 100">' + slices + '</svg>' +
+      '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' + leyenda + '</div>' +
+    '</div>';
+  }
 
   let optsHtml = optsConVotos.map(op => {
     const pct = totalVotos > 0 ? Math.round(op.votos / totalVotos * 100) : 0;
-    const esGanador = abierta ? false : op.votos === maxVotos && op.votos > 0;
-
+    const esGanador = !abierta && op.votos === maxVotos && op.votos > 0;
     let btn = '';
     if (abierta) {
       if (op.mio) {
         btn = '<button onclick="quitarVotoVac(' + vac.id + ',' + op.id + ')" style="padding:5px 10px;border-radius:7px;border:2px solid var(--fire);background:rgba(245,197,24,.15);color:var(--fire);font-size:11px;font-weight:700;cursor:pointer">✓ MI VOTO</button>';
       } else if (!yaVote) {
-        btn = '<button onclick="votarVac(' + vac.id + ',' + op.id + ')" style="padding:5px 10px;border-radius:7px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">VOTAR</button>';
+        btn = '<button onclick="votarVac(' + vac.id + ',' + op.id + ')" style="padding:8px 14px;border-radius:7px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer">VOTAR</button>';
       } else {
         btn = '<span style="font-size:11px;color:var(--muted)">—</span>';
       }
     }
+    const barHtml = verResultados
+      ? '<div style="margin-top:4px;height:5px;border-radius:3px;background:var(--rim);overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (esGanador ? 'var(--fire)' : 'var(--green)') + ';transition:width .4s"></div></div>' : '';
+    const votosLabel = verResultados
+      ? '<span style="font-size:10px;color:var(--muted);margin-left:6px">' + op.votos + (esGanador ? ' 🏆' : '') + '</span>' : '';
 
-    const barHtml = verResultados ?
-      '<div style="margin-top:4px;height:4px;border-radius:2px;background:var(--rim);overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (esGanador ? 'var(--fire)' : 'var(--green)') + ';transition:width .4s"></div></div>' : '';
-
-    const votosLabel = verResultados ? '<span style="font-size:10px;color:var(--muted);margin-left:6px">' + op.votos + ' voto' + (op.votos !== 1 ? 's' : '') + (esGanador ? ' 🏆' : '') + '</span>' : '';
-
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--rim);' + (op.mio ? 'background:rgba(245,197,24,.05)' : '') + '">' +
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--rim);' + (op.mio ? 'background:rgba(245,197,24,.05)' : '') + '">' +
       '<div style="flex:1;min-width:0">' +
         '<div style="display:flex;align-items:center;gap:6px">' +
-          '<span style="font-size:18px">' + op.emoji + '</span>' +
+          '<span style="font-size:20px">' + op.emoji + '</span>' +
           '<span style="font-size:13px;font-weight:600;text-transform:uppercase">' + op.nombre + '</span>' +
           votosLabel +
-        '</div>' +
-        barHtml +
+        '</div>' + barHtml +
       '</div>' +
       '<div style="margin-left:10px;flex-shrink:0">' + btn + '</div>' +
     '</div>';
@@ -3275,20 +3354,34 @@ function renderVacCard(vac, abierta) {
 
   return '<div class="card" style="margin-bottom:12px;overflow:hidden">' +
     '<div style="padding:10px 12px;border-bottom:1px solid var(--rim);display:flex;align-items:center;justify-content:space-between">' +
-      '<div>' +
+      '<div style="flex:1;min-width:0">' +
         '<div style="font-size:14px;font-weight:700;text-transform:uppercase">' + tipoEmoji + ' ' + vac.titulo + '</div>' +
-        '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + totalVotos + ' voto' + (totalVotos !== 1 ? 's' : '') + hasta + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + totalVotos + ' voto' + (totalVotos !== 1 ? 's' : '') + cierraHtml + '</div>' +
       '</div>' +
-      '<div style="display:flex;align-items:center;gap:6px">' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+        wsBtn +
         '<span style="font-size:10px;color:' + badgeColor + ';font-weight:700">' + badgeTxt + '</span>' +
         (isAdmin() ? '<button onclick="editarVotacion(' + vac.id + ')" style="padding:3px 7px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">✏️</button>' : '') +
       '</div>' +
     '</div>' +
     optsHtml +
-    (!abierta && !verResultados ? '<div style="padding:10px 12px;text-align:center;font-size:12px;color:var(--muted)">Resultados disponibles cuando cierre la votación</div>' : '') +
+    tortaHtml +
+    faltanHtml +
+    (!abierta && !verResultados ? '<div style="padding:10px 12px;text-align:center;font-size:12px;color:var(--muted)">Resultados cuando cierre la votación</div>' : '') +
     (abierta && yaVote ? '<div style="padding:8px 12px;text-align:center;font-size:11px;color:var(--green)">✅ Ya votaste</div>' : '') +
-    (abierta && !yaVote && opts.length ? '<div style="padding:8px 12px;text-align:center;font-size:11px;color:var(--muted)">Elegí una opción 👆</div>' : '') +
+    (abierta && !yaVote && opts.length ? '<div style="padding:8px 12px;text-align:center;font-size:11px;color:var(--ember);font-weight:600">👆 Elegí tu opción</div>' : '') +
   '</div>';
+}
+
+// ── Compartir votación por WS ─────────────────────────────────────────────
+function compartirVotacionWS(vacId) {
+  const vac  = S.votaciones.find(v => v.id === vacId);
+  const opts = S.votacion_opciones.filter(o => o.votacion_id === vacId);
+  if (!vac) return;
+  const lista = opts.map(o => '   ' + o.emoji + ' ' + o.nombre).join('\n');
+  const hasta = vac.hasta ? '\n⏰ Votá hasta el *' + vac.hasta + '*' : '';
+  const msg = '🗳️ *VOTACIÓN — ' + vac.titulo.toUpperCase() + '*' + hasta + '\n\n' + lista + '\n\n👆 Entrá a la app y votá!\n📲 https://cristianlovino-cloud.github.io/asado-caleta/';
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
 }
 
 // ── Votar / quitar voto ────────────────────────────────────────────────────
