@@ -1131,7 +1131,13 @@ async function doLogin() {
     renderPendienteScreen(v); return;
   }
   // ─────────────────────────────────────────────────────────────────────────
-  const yaConfirmo = getRsvp(me) === 'si' || getRsvp(me) === 'no';
+  // Verificar rsvp directo en Supabase (S.rsvp puede estar vacío si fetchAll no terminó)
+  let yaConfirmo = getRsvp(me) === 'si' || getRsvp(me) === 'no';
+  if (!yaConfirmo && S.event) {
+    const {data: rsvpCheck} = await sb.from('rsvp')
+      .select('rsvp').eq('event_id', S.event.id).ilike('participant_name', v).single();
+    if (rsvpCheck?.rsvp === 'si' || rsvpCheck?.rsvp === 'no') yaConfirmo = true;
+  }
   if (yaConfirmo) {
     entrarApp(v);
     return;
