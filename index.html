@@ -452,10 +452,8 @@ body {
       <label class="fl">Ítem a comprar</label>
       <input class="fi" id="ftname" placeholder="ej: carne, pan, carbón...">
       <label class="fl">Asignar a</label>
-      <div style="position:relative">
-        <select class="fsel" id="ftassign" style="appearance:none;-webkit-appearance:none"></select>
-        <div style="position:absolute;right:11px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);font-size:12px">▼</div>
-      </div>
+      <input type="hidden" id="ftassign" value="">
+      <div id="ftassign-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
       <label class="fl">Categoría</label>
       <input type="hidden" id="ftcat" value="">
       <div id="ftcat-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
@@ -901,7 +899,8 @@ body {
     <label class="fl">Nombre</label>
     <input class="fi" id="edit-task-name" placeholder="Nombre de la tarea...">
     <label class="fl">Asignar a</label>
-    <select class="fsel" id="edit-task-assignee"></select>
+    <input type="hidden" id="edit-task-assignee" value="">
+    <div id="edit-task-assignee-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <label class="fl">Categoría</label>
     <input type="hidden" id="edit-task-cat" value="">
     <div id="edit-task-cat-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
@@ -1575,7 +1574,9 @@ const allPActive = () => S.participants.filter(p=>p.active).map(p=>p.name);
 
 function populateSel() {
   const o='<option value="">Sin asignar</option>'+allPActive().slice().sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase(),'es')).map(p=>`<option value="${p}">${p.charAt(0).toUpperCase()+p.slice(1)}</option>`).join('');
-  document.getElementById('ftassign').innerHTML=o;
+  // ftassign picker
+  const ftassignHidden = document.getElementById('ftassign');
+  if (ftassignHidden !== null) renderPersonPicker('ftassign-picker', 'ftassign', ftassignHidden.value || '');
   renderCatSelects();
 }
 
@@ -1762,8 +1763,8 @@ function openNuevaBiblioteca() {
   document.getElementById('nbib-emoji').value = '';
   document.getElementById('nbib-cat').value = getCats()[0] || '';
   renderCatPicker('nbib-cat-picker', 'nbib-cat', getCats()[0] || '');
-  const sel = document.getElementById('nbib-assignee');
-  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}">${p}</option>`).join('');
+  document.getElementById('nbib-assignee').value = '';
+  renderPersonPicker('nbib-assignee-picker', 'nbib-assignee', '');
   closeModal('modal-biblioteca');
   openModal('modal-nueva-bib');
 }
@@ -1776,8 +1777,9 @@ async function editarBiblioteca(id) {
   document.getElementById('nbib-emoji').value = t.emoji || '';
   document.getElementById('nbib-cat').value = t.categoria || '';
   renderCatPicker('nbib-cat-picker', 'nbib-cat', t.categoria || '');
-  const sel = document.getElementById('nbib-assignee');
-  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===t.asignado_def?' selected':''}>${p}</option>`).join('');
+  const assigneeDefVal = t.asignado_def || '';
+  document.getElementById('nbib-assignee').value = assigneeDefVal;
+  renderPersonPicker('nbib-assignee-picker', 'nbib-assignee', assigneeDefVal);
   closeModal('modal-biblioteca');
   openModal('modal-nueva-bib');
 }
@@ -1988,6 +1990,23 @@ function stepQty(delta) {
 }
 
 // ══ EDITAR TAREAS (admin) ════════════════════════
+function renderPersonPicker(pickerId, hiddenId, selected, includeEmpty=true) {
+  const el = document.getElementById(pickerId);
+  if (!el) return;
+  const people = allPActive().sort((a,b)=>a.localeCompare(b,'es'));
+  const all = includeEmpty ? ['', ...people] : people;
+  el.innerHTML = all.map(p => {
+    const active = p === selected;
+    const label = p || 'Sin asignar';
+    return `<button type="button" onclick="selectPersonPicker('${pickerId}','${hiddenId}',this.dataset.val)" data-val="${p}" style="padding:5px 11px;border-radius:20px;border:1.5px solid ${active ? 'var(--fire)' : 'var(--rim)'};background:${active ? 'rgba(245,197,24,.15)' : 'var(--ash)'};color:${active ? 'var(--fire)' : 'var(--muted)'};font-size:12px;font-weight:${active ? '700' : '400'};cursor:pointer">${label}</button>`;
+  }).join('');
+}
+
+function selectPersonPicker(pickerId, hiddenId, value) {
+  document.getElementById(hiddenId).value = value;
+  renderPersonPicker(pickerId, hiddenId, value);
+}
+
 function renderCatPicker(pickerId, hiddenId, selected) {
   const el = document.getElementById(pickerId);
   if (!el) return;
@@ -2013,9 +2032,10 @@ function openEditTask(id) {
   document.getElementById('edit-task-id').value   = id;
   document.getElementById('edit-task-name').value = t.name;
   document.getElementById('edit-task-template').checked = t.is_template || false;
-  // assignee select
-  const sel = document.getElementById('edit-task-assignee');
-  sel.innerHTML = '<option value="">Sin asignar</option>' + allPActive().sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase(),'es')).map(p=>`<option value="${p}"${p.toLowerCase()===t.assignee?.toLowerCase()?' selected':''}>${p.charAt(0).toUpperCase()+p.slice(1)}</option>`).join('');
+  // assignee picker
+  const assigneeVal = t.assignee || '';
+  document.getElementById('edit-task-assignee').value = assigneeVal;
+  renderPersonPicker('edit-task-assignee-picker', 'edit-task-assignee', assigneeVal);
   // Picker custom de categoría
   document.getElementById('edit-task-cat').value = t.category || '';
   renderCatPicker('edit-task-cat-picker', 'edit-task-cat', t.category || '');
@@ -4529,7 +4549,8 @@ const F1_COLORES = {
     <input type="hidden" id="nbib-cat" value="">
     <div id="nbib-cat-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <label class="fl">Asignado por defecto</label>
-    <select class="fsel" id="nbib-assignee"></select>
+    <input type="hidden" id="nbib-assignee" value="">
+    <div id="nbib-assignee-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" style="flex:1" onclick="guardarBiblioteca()">💾 GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-nueva-bib')">✕</button>
