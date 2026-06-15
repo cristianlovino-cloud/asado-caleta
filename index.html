@@ -385,6 +385,7 @@ body {
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
     <button class="abtn" onclick="openVotacionesAdmin()" style="border-color:rgba(39,174,96,.4);color:var(--green)">🗳️ Votaciones</button>
+    <button class="abtn" onclick="restablecerTareas()" style="border-color:rgba(46,134,222,.4);color:#2e86de">🔄 Restablecer Tareas</button>
     <button class="abtn red" onclick="forceLogoutAll()">🔐 CERRAR SESIONES</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
     <button class="abtn" onclick="publicarVersion()" style="border-color:rgba(91,184,232,.4);color:var(--club1)">📡 Publicar versión</button>
@@ -1690,6 +1691,27 @@ async function renderGastos() {
 
 let _bibSeleccionadas = new Set(); // ids seleccionados para cargar
 
+async function restablecerTareas() {
+  if (!S.event) { toast('No hay evento activo','var(--red)'); return; }
+  if (!confirm('¿Restablecer tareas? Esto cargará TODAS las plantillas de la biblioteca al asado actual.')) return;
+  const {data: templates} = await sb.from('task_templates').select('*').eq('active', true).order('categoria').order('nombre');
+  if (!templates?.length) { toast('La biblioteca está vacía — agregá plantillas primero','var(--muted)'); return; }
+  // Eliminar tareas actuales del evento
+  await sb.from('tasks').delete().eq('event_id', S.event.id);
+  // Insertar todas las plantillas
+  const rows = templates.map(t => ({
+    event_id: S.event.id,
+    name: t.nombre,
+    category: t.categoria || '',
+    assignee: t.asignado_def || null,
+    done: false,
+    is_template: true
+  }));
+  await sb.from('tasks').insert(rows);
+  await fetchAll();
+  toast('✅ ' + rows.length + ' tareas restablecidas!', 'var(--green)');
+}
+
 async function openBiblioteca() {
   _bibSeleccionadas = new Set();
   await renderBiblioteca();
@@ -2345,7 +2367,7 @@ function renderCumples() {
       const mes = parseInt(parts[1]);
       return { id: p.id, nombre: p.name, dia, mes };
     })
-    .filter(c => !isNaN(c.mes) && c.mes === mesActual)
+    .filter(c => !isNaN(c.mes) && c.mes === mesActual && c.dia >= diaActual)
     .sort((a,b) => a.dia - b.dia);
   if (!cumples.length) {
     banner.style.display = 'none';
