@@ -384,6 +384,7 @@ body {
     <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
+    <button class="abtn" onclick="openVotacionesAdmin()" style="border-color:rgba(39,174,96,.4);color:var(--green)">🗳️ Votaciones</button>
     <button class="abtn red" onclick="forceLogoutAll()">🔐 CERRAR SESIONES</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
     <button class="abtn" onclick="publicarVersion()" style="border-color:rgba(91,184,232,.4);color:var(--club1)">📡 Publicar versión</button>
@@ -523,6 +524,7 @@ body {
       <div class="tbt"        onclick="setTmpl(this,'recordatorio')">⏰ Recordatorio</div>
       <div class="tbt"        onclick="setTmpl(this,'cuentas')"     >💰 Cuentas</div>
       <div class="tbt"        onclick="setTmpl(this,'cierre')"      >🙌 Cierre</div>
+      <div class="tbt"        onclick="setTmpl(this,'votacion')"   >🗳️ Votación</div>
     </div>
     <div class="card" style="padding:0;margin-bottom:9px">
       <div class="wsprev" id="wsprev"></div>
@@ -535,16 +537,7 @@ body {
 
   <!-- VOTOS -->
   <div class="panel" id="panel-votos">
-    <div class="sh">🗳️ Votá el menú</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">¿Qué querés comer en el próximo asado?</div>
-    <div id="votos-list"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
-    <div class="div"></div>
-    <div class="sh">➕ SUGERIR OPCIÓN</div>
-    <div style="background:var(--smoke);border:1px solid var(--rim);border-radius:12px;padding:12px">
-      <label class="fl">Plato / corte</label>
-      <input class="fi" id="voto-sugerencia" placeholder="EJ: ENTRAÑA, MOLLEJAS..." style="text-transform:uppercase">
-      <button class="btp" style="width:100%" onclick="agregarSugerenciaVoto()">SUGERIR</button>
-    </div>
+    <div id="votaciones-container"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
   </div>
 
   <!-- STATS -->
@@ -577,6 +570,37 @@ body {
     <div style="display:flex;gap:10px">
       <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
       <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nueva Votacion -->
+<div class="modal-bg" id="modal-nueva-votacion">
+  <div class="modal">
+    <div class="modal-title">🗳️ Votación <button class="modal-close" onclick="closeModal('modal-nueva-votacion')">✕</button></div>
+    <input type="hidden" id="nv-edit-id">
+    <label class="fl">Título</label>
+    <input class="fi" id="nv-titulo" placeholder="¿Qué comemos? / ¿Cuándo nos juntamos?">
+    <label class="fl">Tipo</label>
+    <select class="fsel" id="nv-tipo" style="margin-bottom:8px">
+      <option value="menu">🍽️ Menú</option>
+      <option value="fecha">📅 Fecha</option>
+      <option value="otro">💬 Otro</option>
+    </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label class="fl">Desde</label><input class="fi" id="nv-desde" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
+      <div><label class="fl">Hasta</label><input class="fi" id="nv-hasta" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
+    </div>
+    <label class="fl">Opciones</label>
+    <div id="nv-opciones-list" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <input class="fi" id="nv-nueva-op-emoji" placeholder="🔥" style="max-width:54px;text-align:center;margin-bottom:0">
+      <input class="fi" id="nv-nueva-op-nombre" placeholder="Nueva opción..." style="margin-bottom:0;flex:1">
+      <button onclick="nvAgregarOpcion()" style="padding:9px 12px;border-radius:8px;border:none;background:var(--fire);color:white;font-size:13px;font-weight:700;cursor:pointer">+</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btp" style="flex:1" onclick="nvGuardar()">💾 GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-nueva-votacion')">✕</button>
     </div>
   </div>
 </div>
@@ -638,6 +662,37 @@ body {
     <div style="display:flex;gap:10px">
       <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
       <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nueva Votacion -->
+<div class="modal-bg" id="modal-nueva-votacion">
+  <div class="modal">
+    <div class="modal-title">🗳️ Votación <button class="modal-close" onclick="closeModal('modal-nueva-votacion')">✕</button></div>
+    <input type="hidden" id="nv-edit-id">
+    <label class="fl">Título</label>
+    <input class="fi" id="nv-titulo" placeholder="¿Qué comemos? / ¿Cuándo nos juntamos?">
+    <label class="fl">Tipo</label>
+    <select class="fsel" id="nv-tipo" style="margin-bottom:8px">
+      <option value="menu">🍽️ Menú</option>
+      <option value="fecha">📅 Fecha</option>
+      <option value="otro">💬 Otro</option>
+    </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div><label class="fl">Desde</label><input class="fi" id="nv-desde" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
+      <div><label class="fl">Hasta</label><input class="fi" id="nv-hasta" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
+    </div>
+    <label class="fl">Opciones</label>
+    <div id="nv-opciones-list" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <input class="fi" id="nv-nueva-op-emoji" placeholder="🔥" style="max-width:54px;text-align:center;margin-bottom:0">
+      <input class="fi" id="nv-nueva-op-nombre" placeholder="Nueva opción..." style="margin-bottom:0;flex:1">
+      <button onclick="nvAgregarOpcion()" style="padding:9px 12px;border-radius:8px;border:none;background:var(--fire);color:white;font-size:13px;font-weight:700;cursor:pointer">+</button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btp" style="flex:1" onclick="nvGuardar()">💾 GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-nueva-votacion')">✕</button>
     </div>
   </div>
 </div>
@@ -921,7 +976,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[] };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[], votaciones:[], votacion_opciones:[], votacion_votos:[] };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -963,7 +1018,7 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg,vac,vaco,vacv] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
@@ -975,6 +1030,9 @@ async function fetchAll() {
     sb.from('votos_opciones').select('*').eq('event_id',eid).order('orden'),
     sb.from('categorias').select('*').order('orden'),
     sb.from('app_config').select('*'),
+    sb.from('votaciones').select('*').order('id'),
+    sb.from('votacion_opciones').select('*').order('orden'),
+    sb.from('votacion_votos').select('*'),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
@@ -996,9 +1054,13 @@ async function fetchAll() {
   }
   else S.cats = [];
 
-  // Votos
+  // Votos legacy
   if (vt.data) S.votos = vt.data;
   if (vo.data) S.votosOpciones = vo.data;
+  // Votaciones nuevas
+  if (vac.data)  S.votaciones         = vac.data;
+  if (vaco.data) S.votacion_opciones  = vaco.data;
+  if (vacv.data) S.votacion_votos     = vacv.data;
 
   // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
   S.rsvp = {};
@@ -1506,6 +1568,7 @@ function showTab(t) {
   document.querySelector(`[onclick="showTab('${t}')"]`).classList.add('active');
   document.getElementById(`panel-${t}`).classList.add('active');
   if (t==='ws') { setTimeout(()=>renderWS(), 50); }
+  if (t==='votos') { renderVotaciones(); }
   if (t==='carne') calcularCarne();
   if (t==='votos') renderVotos();
   if (t==='stats') renderStats();
@@ -2069,7 +2132,21 @@ Pagan por CBU/CVU o efectivo 💵`,
 Qué asadazo 🔥🥩
 Gracias por la buena onda y los vinos de altura 🍷
 
-¡Hasta la próxima! #AsadoEnLaCaleta`
+¡Hasta la próxima! #AsadoEnLaCaleta`,
+
+    votacion: (function() {
+      const vac = S.votaciones.find(v => v.activa);
+      if (!vac) return '🗳️ No hay votación activa.';
+      const opts = S.votacion_opciones.filter(o => o.votacion_id === vac.id);
+      const lista = opts.map((o,i) => `   ${o.emoji} ${o.nombre}`).join('\n') || '   (sin opciones)';
+      const hasta = vac.hasta ? `\n⏰ Votá hasta el *${vac.hasta}*` : '';
+      return `🗳️ *VOTACIÓN — ${vac.titulo.toUpperCase()}*${hasta}
+
+${lista}
+
+👆 Entrá a la app y votá tu opción favorita!
+📲 https://cristianlovino-cloud.github.io/asado-caleta/`;
+    })()
   })[type];
 }
 
@@ -2720,6 +2797,7 @@ function renderAll() {
   renderTasks();
   renderMenu();
   renderWS();
+  renderVotaciones();
   populateSel();
   // Badge invitados pendientes para admin
   if (isAdmin()) {
@@ -3088,6 +3166,296 @@ async function initVotosOpciones() {
   const rows = OPCIONES_DEFAULT.map((op,i) => ({event_id: S.event.id, nombre: op.nombre, emoji: op.emoji, orden: i}));
   const {data} = await sb.from('votos_opciones').insert(rows).select();
   if (data) S.votosOpciones = data;
+}
+
+
+// ══ SISTEMA DE VOTACIONES ═════════════════════════════════════════════════
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function parsefecha(s) {
+  if (!s) return null;
+  const [d,m,y] = s.split('/').map(Number);
+  return new Date(y, m-1, d);
+}
+
+function vacActiva(vac) {
+  if (!vac.activa) return false;
+  const hoy = ahoraAR();
+  const desde = parseecha(vac.desde);
+  const hasta = parseecha(vac.hasta);
+  return (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
+}
+
+function parseecha(s) {
+  if (!s) return null;
+  const [d,m,y] = s.split('/').map(Number);
+  return new Date(y, m-1, d);
+}
+
+function misVotosEnVac(vacId) {
+  return S.votacion_votos.filter(v =>
+    v.votacion_id === vacId &&
+    v.participant_name.toLowerCase() === me.toLowerCase()
+  );
+}
+
+function contarVotos(opcionId) {
+  return S.votacion_votos.filter(v => v.opcion_id === opcionId).length;
+}
+
+// ── Render panel principal ─────────────────────────────────────────────────
+function renderVotaciones() {
+  const el = document.getElementById('votaciones-container');
+  if (!el) return;
+
+  const hoy = ahoraAR();
+  const activas = S.votaciones.filter(v => {
+    if (!v.activa) return false;
+    const desde = parseecha(v.desde);
+    const hasta = parseecha(v.hasta);
+    return (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
+  });
+  const cerradas = S.votaciones.filter(v => {
+    if (!v.activa) return true;
+    const hasta = parseecha(v.hasta);
+    return hasta && hoy > hasta;
+  });
+
+  let html = '';
+
+  if (!activas.length && !cerradas.length) {
+    html = '<div style="text-align:center;padding:40px;color:var(--muted)">🗳️<br><br>Sin votaciones activas</div>';
+  }
+
+  activas.forEach(vac => { html += renderVacCard(vac, true); });
+
+  if (cerradas.length) {
+    html += '<div class="sh" style="margin-top:16px">📋 CERRADAS</div>';
+    cerradas.forEach(vac => { html += renderVacCard(vac, false); });
+  }
+
+  el.innerHTML = html;
+}
+
+function renderVacCard(vac, abierta) {
+  const opts = S.votacion_opciones.filter(o => o.votacion_id === vac.id);
+  const misVotos = misVotosEnVac(vac.id);
+  const yaVote = misVotos.length > 0;
+  const totalVotos = S.votacion_votos.filter(v => v.votacion_id === vac.id).length;
+  const tipoEmoji = vac.tipo === 'menu' ? '🍽️' : vac.tipo === 'fecha' ? '📅' : '💬';
+
+  // Ordenar por votos para resultados
+  const optsConVotos = opts.map(o => ({
+    ...o,
+    votos: contarVotos(o.id),
+    mio: misVotos.some(v => v.opcion_id === o.id)
+  })).sort((a,b) => b.votos - a.votos);
+
+  const maxVotos = optsConVotos.length ? optsConVotos[0].votos : 0;
+
+  // ¿Puede ver resultados? Admin siempre, usuarios solo cuando cerrada
+  const verResultados = isAdmin() || !abierta;
+
+  const hasta = vac.hasta ? ' · hasta ' + vac.hasta : '';
+
+  let optsHtml = optsConVotos.map(op => {
+    const pct = totalVotos > 0 ? Math.round(op.votos / totalVotos * 100) : 0;
+    const esGanador = abierta ? false : op.votos === maxVotos && op.votos > 0;
+
+    let btn = '';
+    if (abierta) {
+      if (op.mio) {
+        btn = '<button onclick="quitarVotoVac(' + vac.id + ',' + op.id + ')" style="padding:5px 10px;border-radius:7px;border:2px solid var(--fire);background:rgba(245,197,24,.15);color:var(--fire);font-size:11px;font-weight:700;cursor:pointer">✓ MI VOTO</button>';
+      } else if (!yaVote) {
+        btn = '<button onclick="votarVac(' + vac.id + ',' + op.id + ')" style="padding:5px 10px;border-radius:7px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">VOTAR</button>';
+      } else {
+        btn = '<span style="font-size:11px;color:var(--muted)">—</span>';
+      }
+    }
+
+    const barHtml = verResultados ?
+      '<div style="margin-top:4px;height:4px;border-radius:2px;background:var(--rim);overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + (esGanador ? 'var(--fire)' : 'var(--green)') + ';transition:width .4s"></div></div>' : '';
+
+    const votosLabel = verResultados ? '<span style="font-size:10px;color:var(--muted);margin-left:6px">' + op.votos + ' voto' + (op.votos !== 1 ? 's' : '') + (esGanador ? ' 🏆' : '') + '</span>' : '';
+
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--rim);' + (op.mio ? 'background:rgba(245,197,24,.05)' : '') + '">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<span style="font-size:18px">' + op.emoji + '</span>' +
+          '<span style="font-size:13px;font-weight:600;text-transform:uppercase">' + op.nombre + '</span>' +
+          votosLabel +
+        '</div>' +
+        barHtml +
+      '</div>' +
+      '<div style="margin-left:10px;flex-shrink:0">' + btn + '</div>' +
+    '</div>';
+  }).join('');
+
+  const badgeColor = abierta ? 'var(--green)' : 'var(--muted)';
+  const badgeTxt   = abierta ? '🟢 ABIERTA' : '🔒 CERRADA';
+
+  return '<div class="card" style="margin-bottom:12px;overflow:hidden">' +
+    '<div style="padding:10px 12px;border-bottom:1px solid var(--rim);display:flex;align-items:center;justify-content:space-between">' +
+      '<div>' +
+        '<div style="font-size:14px;font-weight:700;text-transform:uppercase">' + tipoEmoji + ' ' + vac.titulo + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + totalVotos + ' voto' + (totalVotos !== 1 ? 's' : '') + hasta + '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+        '<span style="font-size:10px;color:' + badgeColor + ';font-weight:700">' + badgeTxt + '</span>' +
+        (isAdmin() ? '<button onclick="editarVotacion(' + vac.id + ')" style="padding:3px 7px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">✏️</button>' : '') +
+      '</div>' +
+    '</div>' +
+    optsHtml +
+    (!abierta && !verResultados ? '<div style="padding:10px 12px;text-align:center;font-size:12px;color:var(--muted)">Resultados disponibles cuando cierre la votación</div>' : '') +
+    (abierta && yaVote ? '<div style="padding:8px 12px;text-align:center;font-size:11px;color:var(--green)">✅ Ya votaste</div>' : '') +
+    (abierta && !yaVote && opts.length ? '<div style="padding:8px 12px;text-align:center;font-size:11px;color:var(--muted)">Elegí una opción 👆</div>' : '') +
+  '</div>';
+}
+
+// ── Votar / quitar voto ────────────────────────────────────────────────────
+async function votarVac(vacId, opcionId) {
+  if (!me) return;
+  const {data, error} = await sb.from('votacion_votos').insert({
+    votacion_id: vacId,
+    opcion_id: opcionId,
+    participant_name: me
+  }).select().single();
+  if (error) { toast('❌ Error al votar: ' + error.message, 'var(--red)'); return; }
+  S.votacion_votos.push(data);
+  renderVotaciones();
+  toast('✅ ¡Voto registrado!', 'var(--green)');
+}
+
+async function quitarVotoVac(vacId, opcionId) {
+  const voto = S.votacion_votos.find(v =>
+    v.votacion_id === vacId &&
+    v.opcion_id === opcionId &&
+    v.participant_name.toLowerCase() === me.toLowerCase()
+  );
+  if (!voto) return;
+  await sb.from('votacion_votos').delete().eq('id', voto.id);
+  S.votacion_votos = S.votacion_votos.filter(v => v.id !== voto.id);
+  renderVotaciones();
+  toast('Voto quitado', 'var(--muted)');
+}
+
+// ── Admin: abrir panel votaciones ──────────────────────────────────────────
+function openVotacionesAdmin() {
+  nvReset();
+  openModal('modal-nueva-votacion');
+}
+
+// Opciones temporales al crear/editar
+let _nvOpciones = [];
+
+function nvReset() {
+  _nvOpciones = [];
+  document.getElementById('nv-edit-id').value = '';
+  document.getElementById('nv-titulo').value = '';
+  document.getElementById('nv-tipo').value = 'menu';
+  document.getElementById('nv-desde').value = '';
+  document.getElementById('nv-hasta').value = '';
+  document.getElementById('nv-nueva-op-emoji').value = '';
+  document.getElementById('nv-nueva-op-nombre').value = '';
+  nvRenderOpciones();
+}
+
+function nvAgregarOpcion() {
+  const emoji  = document.getElementById('nv-nueva-op-emoji').value.trim() || '🔥';
+  const nombre = document.getElementById('nv-nueva-op-nombre').value.trim().toUpperCase();
+  if (!nombre) return;
+  _nvOpciones.push({ emoji, nombre, id: null });
+  document.getElementById('nv-nueva-op-emoji').value = '';
+  document.getElementById('nv-nueva-op-nombre').value = '';
+  nvRenderOpciones();
+}
+
+function nvQuitarOpcion(idx) {
+  _nvOpciones.splice(idx, 1);
+  nvRenderOpciones();
+}
+
+function nvRenderOpciones() {
+  const el = document.getElementById('nv-opciones-list');
+  if (!el) return;
+  if (!_nvOpciones.length) { el.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:4px 0">Sin opciones aún</div>'; return; }
+  el.innerHTML = _nvOpciones.map((op,i) =>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--ash);border-radius:7px;margin-bottom:5px">' +
+      '<span>' + op.emoji + ' ' + op.nombre + '</span>' +
+      '<button onclick="nvQuitarOpcion(' + i + ')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:14px">✕</button>' +
+    '</div>'
+  ).join('');
+}
+
+async function nvGuardar() {
+  const editId = document.getElementById('nv-edit-id').value;
+  const titulo = document.getElementById('nv-titulo').value.trim();
+  const tipo   = document.getElementById('nv-tipo').value;
+  const desde  = document.getElementById('nv-desde').value.trim();
+  const hasta  = document.getElementById('nv-hasta').value.trim();
+
+  if (!titulo) { toast('Ingresá un título', 'var(--red)'); return; }
+  if (!_nvOpciones.length) { toast('Agregá al menos una opción', 'var(--red)'); return; }
+
+  let vacId = editId ? parseInt(editId) : null;
+
+  if (vacId) {
+    await sb.from('votaciones').update({ titulo, tipo, desde, hasta, activa: true }).eq('id', vacId);
+    // Borrar opciones viejas y reinsertar
+    await sb.from('votacion_opciones').delete().eq('votacion_id', vacId);
+  } else {
+    const { data } = await sb.from('votaciones').insert({ titulo, tipo, desde, hasta, activa: true }).select().single();
+    vacId = data.id;
+  }
+
+  // Insertar opciones
+  const ops = _nvOpciones.map((op, i) => ({ votacion_id: vacId, nombre: op.nombre, emoji: op.emoji, orden: i }));
+  await sb.from('votacion_opciones').insert(ops);
+
+  await fetchAll();
+  renderAll();
+  closeModal('modal-nueva-votacion');
+  toast('✅ Votación guardada!', 'var(--green)');
+}
+
+async function editarVotacion(id) {
+  const vac  = S.votaciones.find(v => v.id === id);
+  const opts = S.votacion_opciones.filter(o => o.votacion_id === id);
+  if (!vac) return;
+  document.getElementById('nv-edit-id').value  = id;
+  document.getElementById('nv-titulo').value   = vac.titulo;
+  document.getElementById('nv-tipo').value     = vac.tipo || 'menu';
+  document.getElementById('nv-desde').value    = vac.desde || '';
+  document.getElementById('nv-hasta').value    = vac.hasta || '';
+  _nvOpciones = opts.map(o => ({ emoji: o.emoji, nombre: o.nombre, id: o.id }));
+  nvRenderOpciones();
+  openModal('modal-nueva-votacion');
+}
+
+async function cerrarVotacion(id) {
+  if (!confirm('¿Cerrar esta votación?')) return;
+  await sb.from('votaciones').update({ activa: false }).eq('id', id);
+  await fetchAll();
+  renderAll();
+  toast('🔒 Votación cerrada');
+}
+
+
+async function agregarSugerenciaVoto() {
+  const input = document.getElementById('voto-sugerencia');
+  const nombre = (input?.value || '').trim();
+  if (!nombre) { toast('Escribí una sugerencia','var(--red)'); return; }
+  await agregarOpcionVoto(nombre, '🔥');
+  if (input) input.value = '';
+}
+
+async function agregarSugModal() {
+  const input = document.getElementById('voto-sug-modal');
+  const nombre = (input?.value || '').trim();
+  if (!nombre) { toast('Escribí una sugerencia','var(--red)'); return; }
+  await agregarOpcionVoto(nombre, '🔥');
+  if (input) input.value = '';
+  renderVotosModal();
 }
 
 function renderVotos() {
