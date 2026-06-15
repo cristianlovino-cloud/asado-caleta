@@ -2364,9 +2364,11 @@ function goSpSlide(idx) {
 }
 
 function startSpCarousel() {
-  if (_spTimer) clearInterval(_spTimer);
+  if (_spTimer) return; // ya está corriendo, no resetear
   if (!S.sponsors?.length || S.sponsors.length < 2) return;
   _spTimer = setInterval(() => {
+    const slides = document.querySelectorAll('.sp-slide');
+    if (!slides.length) { clearInterval(_spTimer); _spTimer = null; return; }
     const next = (_spIdx + 1) % S.sponsors.length;
     goSpSlide(next);
   }, 3000);
