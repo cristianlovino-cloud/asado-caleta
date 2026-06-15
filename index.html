@@ -1069,13 +1069,14 @@ async function fetchAll() {
   const _esInvitado = _part?.role === 'invitado';
   const _esPendiente = _part?.role === 'pendiente';
 
-  if (S.event && me && !_esAdmin && !_esInvitado && !_esPendiente) {
+  if (S.event && me && !_esAdmin && !_esInvitado && !_esPendiente && !window._skipRsvpCheck) {
     const rsvpLocal = getRsvp(me);
     if (rsvpLocal !== 'si' && rsvpLocal !== 'no') {
       const {data: rsvpDirect} = await sb.from('rsvp')
         .select('rsvp').eq('event_id', S.event.id).ilike('participant_name', me).maybeSingle();
       if (!rsvpDirect || (rsvpDirect.rsvp !== 'si' && rsvpDirect.rsvp !== 'no')) {
         hideSplash();
+        renderAll();
         mostrarConfirmScreen();
         return;
       }
@@ -1236,6 +1237,7 @@ async function checkPendingStatus() {
 // ──────────────────────────────────────────────────────────────────────────
 
 function entrarApp(v) {
+  window._skipRsvpCheck = true; // entró conscientemente sin confirmar
   document.getElementById('login-screen').style.display='none';
   document.getElementById('confirm-screen').style.display='none';
   document.getElementById('app').style.display='block';
