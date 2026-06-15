@@ -3291,20 +3291,32 @@ function renderVacCard(vac, abierta) {
     }
   }
 
-  // Participantes que no votaron (solo admin)
+  // Footer con stats compactos
   let faltanHtml = '';
-  if (isAdmin() && abierta) {
+  if (abierta) {
     const queVotaron = new Set(S.votacion_votos.filter(v => v.votacion_id === vac.id).map(v => v.participant_name.toLowerCase()));
     const activos = S.participants.filter(p => p.active && p.role !== 'pendiente');
-    const faltan = activos.filter(p => !queVotaron.has(p.name.toLowerCase()));
-    if (faltan.length) {
-      faltanHtml = '<div style="padding:8px 12px;background:rgba(231,76,60,.06);border-top:1px solid var(--rim)">' +
-        '<div style="font-size:10px;color:var(--red);font-weight:700;text-transform:uppercase;margin-bottom:4px">⏳ Faltan votar (' + faltan.length + ')</div>' +
-        '<div style="font-size:11px;color:var(--muted)">' + faltan.map(p => p.name).join(', ') + '</div>' +
-      '</div>';
-    } else {
-      faltanHtml = '<div style="padding:8px 12px;text-align:center;font-size:11px;color:var(--green);border-top:1px solid var(--rim)">✅ Todos votaron</div>';
-    }
+    const faltan = activos.filter(p => !queVotaron.has(p.name.toLowerCase())).length;
+    const hasta = parseecha(vac.hasta);
+    const hoy = ahoraAR();
+    const dias = hasta ? Math.max(0, Math.ceil((hasta - hoy) / 86400000)) : null;
+    const diasTxt = dias === null ? '—' : dias === 0 ? 'Hoy' : dias + 'd';
+    const diasColor = dias !== null && dias <= 1 ? 'var(--red)' : 'var(--muted)';
+
+    faltanHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--rim)">' +
+      '<div style="padding:8px;text-align:center;border-right:1px solid var(--rim)">' +
+        '<div style="font-size:16px;font-weight:700;color:var(--text)">' + totalVotos + '</div>' +
+        '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:1px">Votos</div>' +
+      '</div>' +
+      '<div style="padding:8px;text-align:center;border-right:1px solid var(--rim)">' +
+        '<div style="font-size:16px;font-weight:700;color:' + (faltan > 0 ? 'var(--red)' : 'var(--green)') + '">' + faltan + '</div>' +
+        '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:1px">Faltan</div>' +
+      '</div>' +
+      '<div style="padding:8px;text-align:center">' +
+        '<div style="font-size:16px;font-weight:700;color:' + diasColor + '">' + diasTxt + '</div>' +
+        '<div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:1px">Cierra</div>' +
+      '</div>' +
+    '</div>';
   }
 
   // Botón WS para admin
@@ -3393,7 +3405,8 @@ function renderVacCard(vac, abierta) {
       '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
         wsBtn +
         '<span style="font-size:10px;color:' + badgeColor + ';font-weight:700">' + badgeTxt + '</span>' +
-        (isAdmin() ? '<button onclick="editarVotacion(' + vac.id + ')" style="padding:3px 7px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">✏️</button>' : '') +
+        (isAdmin() ? '<button onclick="editarVotacion(' + vac.id + ')" style="padding:3px 7px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">✏️</button>' +
+          '<button onclick="eliminarVotacion(' + vac.id + ')" style="padding:3px 7px;border-radius:5px;border:none;background:rgba(231,76,60,.15);color:var(--red);font-size:11px;cursor:pointer">✕</button>' : '') +
       '</div>' +
     '</div>' +
     optsHtml +
@@ -3548,6 +3561,16 @@ async function editarVotacion(id) {
   _nvOpciones = opts.map(o => ({ emoji: o.emoji, nombre: o.nombre, id: o.id }));
   nvRenderOpciones();
   openModal('modal-nueva-votacion');
+}
+
+async function eliminarVotacion(id) {
+  if (!confirm('¿Eliminar esta votación y todos sus votos?')) return;
+  await sb.from('votacion_votos').delete().eq('votacion_id', id);
+  await sb.from('votacion_opciones').delete().eq('votacion_id', id);
+  await sb.from('votaciones').delete().eq('id', id);
+  await fetchAll();
+  renderVotaciones();
+  toast('🗑️ Votación eliminada');
 }
 
 async function cerrarVotacion(id) {
