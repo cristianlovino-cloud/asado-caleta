@@ -1052,6 +1052,21 @@ async function fetchAll() {
       S.rsvpCal[r.fecha][r.nombre] = r.resp;
     });
   }
+  // Chequear RSVP — fuente de verdad Supabase, nada local
+  if (S.event && me && !isAdmin() && !isInvitado() && !isPendiente()) {
+    const rsvpLocal = getRsvp(me);
+    if (rsvpLocal !== 'si' && rsvpLocal !== 'no') {
+      const {data: rsvpDirect} = await sb.from('rsvp')
+        .select('rsvp').eq('event_id', S.event.id).ilike('participant_name', me).maybeSingle();
+      if (!rsvpDirect || (rsvpDirect.rsvp !== 'si' && rsvpDirect.rsvp !== 'no')) {
+        hideSplash();
+        mostrarConfirmScreen();
+        return;
+      }
+      // Si está en Supabase pero no en S.rsvp (race condition), actualizarlo
+      S.rsvp[me.toLowerCase()] = { rsvp: rsvpDirect.rsvp };
+    }
+  }
   renderAll();
 }
 
@@ -3998,13 +4013,7 @@ if (me) {
   fetchAll()
     .then(()=>{
       if(!sbOk) renderAll();
-      // Si no confirmó asistencia, mostrar confirm-screen
-      if (S.event && !isAdmin() && !isInvitado()) {
-        const rsvp = getRsvp(me);
-        if (rsvp !== 'si' && rsvp !== 'no') {
-          mostrarConfirmScreen();
-        }
-      }
+      // RSVP check se hace dentro de fetchAll
     })
     .catch(e=>{ console.error('fetchAll error:',e); hideSplash(); renderAll(); });
   subscribe();
