@@ -588,8 +588,8 @@ body {
       <option value="otro">💬 Otro</option>
     </select>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <div><label class="fl">Desde</label><input class="fi" id="nv-desde" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
-      <div><label class="fl">Hasta</label><input class="fi" id="nv-hasta" placeholder="DD/MM/YYYY" style="margin-bottom:0"></div>
+      <div><label class="fl">Desde</label><input class="fi" type="date" id="nv-desde" style="margin-bottom:0"></div>
+      <div><label class="fl">Hasta</label><input class="fi" type="date" id="nv-hasta" style="margin-bottom:0"></div>
     </div>
     <label class="fl">Opciones</label>
     <div id="nv-opciones-list" style="margin-bottom:8px"></div>
@@ -2294,9 +2294,19 @@ function renderOvTareas(pendientes) {
 
 function renderOvVotosStats() {
   if (isInvitado() && !isAdmin()) return '';
-  return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
-    '<div onclick="abrirVotosModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🗳️</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">VOTOS</div></div>' +
-    '<div onclick="abrirStatsModal()" style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🏆</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">STATS</div></div></div>';
+  const hoy = ahoraAR();
+  const hayVotacion = S.votaciones.some(v => {
+    if (!v.activa) return false;
+    const desde = parseecha(v.desde);
+    const hasta = parseecha(v.hasta);
+    return (!desde || hoy >= desde) && (!hasta || hoy <= hasta);
+  });
+  const votosBtn = hayVotacion
+    ? '<div onclick="showTab(\'votos\')" style="background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.3);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🗳️</div><div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--fire)">VOTAR</div></div>'
+    : '';
+  const statsBtn = '<div onclick="abrirStatsModal()" style="background:var(--smoke);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🏆</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">STATS</div></div>';
+  const cols = hayVotacion ? '1fr 1fr' : '1fr';
+  return '<div style="display:grid;grid-template-columns:' + cols + ';gap:8px;margin-bottom:10px">' + votosBtn + statsBtn + '</div>';
 }
 
 function renderOvCalendario(meses) {
@@ -3370,12 +3380,17 @@ async function nvGuardar() {
     let vacId = editId ? parseInt(editId) : null;
 
     if (vacId) {
-      const { error: updErr } = await sb.from('votaciones').update({ titulo, tipo, desde, hasta, activa: true }).eq('id', vacId);
+      const fmtF = s => { if (!s) return ''; const [y,m,d] = s.split('-'); return d+'/'+m+'/'+y; };
+    const desdeF = fmtF(desde); const hastaF = fmtF(hasta);
+    const { error: updErr } = await sb.from('votaciones').update({ titulo, tipo, desde: desdeF, hasta: hastaF, activa: true }).eq('id', vacId);
       if (updErr) throw new Error('update votacion: ' + updErr.message);
       const { error: delErr } = await sb.from('votacion_opciones').delete().eq('votacion_id', vacId);
       if (delErr) throw new Error('delete opciones: ' + delErr.message);
     } else {
-      const { data, error: insErr } = await sb.from('votaciones').insert({ titulo, tipo, desde, hasta, activa: true }).select().single();
+      // Convertir YYYY-MM-DD a DD/MM/YYYY para consistencia con el resto de la app
+    const fmtF = s => { if (!s) return ''; const [y,m,d] = s.split('-'); return d+'/'+m+'/'+y; };
+    const desdeF = fmtF(desde); const hastaF = fmtF(hasta);
+    const { data, error: insErr } = await sb.from('votaciones').insert({ titulo, tipo, desde: desdeF, hasta: hastaF, activa: true }).select().single();
       if (insErr) throw new Error('insert votacion: ' + insErr.message);
       if (!data) throw new Error('insert no devolvió datos');
       vacId = data.id;
@@ -3402,8 +3417,9 @@ async function editarVotacion(id) {
   document.getElementById('nv-edit-id').value  = id;
   document.getElementById('nv-titulo').value   = vac.titulo;
   document.getElementById('nv-tipo').value     = vac.tipo || 'menu';
-  document.getElementById('nv-desde').value    = vac.desde || '';
-  document.getElementById('nv-hasta').value    = vac.hasta || '';
+  const toISO = s => { if (!s) return ''; const [d,m,y] = s.split('/'); return y+'-'+m+'-'+d; };
+  document.getElementById('nv-desde').value    = toISO(vac.desde);
+  document.getElementById('nv-hasta').value    = toISO(vac.hasta);
   _nvOpciones = opts.map(o => ({ emoji: o.emoji, nombre: o.nombre, id: o.id }));
   nvRenderOpciones();
   openModal('modal-nueva-votacion');
