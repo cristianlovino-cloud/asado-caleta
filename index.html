@@ -1070,17 +1070,13 @@ async function fetchAll() {
   const _esPendiente = _part?.role === 'pendiente';
 
   if (S.event && me && !_esAdmin && !_esInvitado && !_esPendiente && !window._skipRsvpCheck) {
+    // S.rsvp ya está cargado arriba en fetchAll — es la fuente de verdad
     const rsvpLocal = getRsvp(me);
     if (rsvpLocal !== 'si' && rsvpLocal !== 'no') {
-      const {data: rsvpDirect} = await sb.from('rsvp')
-        .select('rsvp').eq('event_id', S.event.id).ilike('participant_name', me).maybeSingle();
-      if (!rsvpDirect || (rsvpDirect.rsvp !== 'si' && rsvpDirect.rsvp !== 'no')) {
-        hideSplash();
-        renderAll();
-        mostrarConfirmScreen();
-        return;
-      }
-      S.rsvp[me.toLowerCase()] = { rsvp: rsvpDirect.rsvp };
+      hideSplash();
+      renderAll();
+      mostrarConfirmScreen();
+      return;
     }
   }
   renderAll();
