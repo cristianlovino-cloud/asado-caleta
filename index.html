@@ -1022,6 +1022,8 @@ async function fetchAll() {
 
   // Force logout check
   if (cfg.data) {
+    const owmRow = cfg.data.find(r => r.key === 'owm_key');
+    if (owmRow?.value) OWM_KEY = owmRow.value;
     const flTs = parseInt(cfg.data.find(r=>r.key==='force_logout_ts')?.value || '0');
     const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
     if (flTs > 0 && myLoginTs < flTs && me !== ADMIN_USER) {
@@ -2608,7 +2610,7 @@ async function uploadLogoGH(input) {
 // ─────────────────────────────────────────────────────────────────────────
 
 // ── Clima ─────────────────────────────────────────────────────────────────
-const OWM_KEY = 'dca1273e552261517c913e476ab37656';
+let OWM_KEY = ''; // cargada desde Supabase app_config
 
 // Cache clima para evitar parpadeo
 let _climaCache = { temp: '🌡️', desc: 'CLIMA' };
