@@ -1053,7 +1053,13 @@ async function fetchAll() {
     });
   }
   // Chequear RSVP — fuente de verdad Supabase, nada local
-  if (S.event && me && !isAdmin() && !isInvitado() && !isPendiente()) {
+  // Admin nunca ve la pantalla de confirmación
+  const _esAdmin = me === ADMIN_USER;
+  const _part = S.participants.find(p => p.name.toLowerCase() === me.toLowerCase());
+  const _esInvitado = _part?.role === 'invitado';
+  const _esPendiente = _part?.role === 'pendiente';
+
+  if (S.event && me && !_esAdmin && !_esInvitado && !_esPendiente) {
     const rsvpLocal = getRsvp(me);
     if (rsvpLocal !== 'si' && rsvpLocal !== 'no') {
       const {data: rsvpDirect} = await sb.from('rsvp')
@@ -1063,7 +1069,6 @@ async function fetchAll() {
         mostrarConfirmScreen();
         return;
       }
-      // Si está en Supabase pero no en S.rsvp (race condition), actualizarlo
       S.rsvp[me.toLowerCase()] = { rsvp: rsvpDirect.rsvp };
     }
   }
