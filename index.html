@@ -1064,21 +1064,6 @@ async function fetchAll() {
   }
   // Chequear RSVP — fuente de verdad Supabase, nada local
   // Admin nunca ve la pantalla de confirmación
-  const _esAdmin = me?.toLowerCase() === ADMIN_USER?.toLowerCase();
-  const _part = S.participants.find(p => p.name.toLowerCase() === me.toLowerCase());
-  const _esInvitado = _part?.role === 'invitado';
-  const _esPendiente = _part?.role === 'pendiente';
-
-  if (S.event && me && !_esAdmin && !_esInvitado && !_esPendiente && !window._skipRsvpCheck) {
-    // S.rsvp ya está cargado arriba en fetchAll — es la fuente de verdad
-    const rsvpLocal = getRsvp(me);
-    if (rsvpLocal !== 'si' && rsvpLocal !== 'no') {
-      hideSplash();
-      renderAll();
-      mostrarConfirmScreen();
-      return;
-    }
-  }
   renderAll();
 }
 
@@ -1125,6 +1110,8 @@ async function doLogin() {
   me=v;
   localStorage.setItem('asado_user', v);
   localStorage.setItem('asado_login_ts', Date.now());
+  // Admin entra siempre directo
+  if (v.toLowerCase() === ADMIN_USER.toLowerCase()) { entrarApp(v); return; }
   // Verificar rsvp desde Supabase (fuente de verdad)
   let part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase());
 
