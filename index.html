@@ -2186,7 +2186,7 @@ function renderOvHero(conf, pendientes, cumples, fechaStr) {
       (inv ? '<div class="ov-stat"><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas 📋</div></div>' : '') +
       (cumples.length > 0
         ? '<div class="ov-stat"><div class="ov-stat-n">🎂' + cumples.length + '</div><div class="ov-stat-l">CUMPLES</div></div>'
-        : '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-n" id="ov-weather-temp">🌡️</div><div class="ov-stat-l" id="ov-weather-desc">CLIMA</div></div>') +
+        : '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-n" id="ov-weather-temp">'+ _climaCache.temp +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>') +
     '</div></div>';
 }
 
@@ -2515,6 +2515,9 @@ async function uploadLogoGH(input) {
 // ── Clima ─────────────────────────────────────────────────────────────────
 const OWM_KEY = 'dca1273e552261517c913e476ab37656';
 
+// Cache clima para evitar parpadeo
+let _climaCache = { temp: '🌡️', desc: 'CLIMA' };
+
 async function fetchClima() {
   const tempEl = document.getElementById('ov-weather-temp');
   const descEl = document.getElementById('ov-weather-desc');
@@ -2526,8 +2529,9 @@ async function fetchClima() {
     const temp = Math.round(d.main.temp) + '°C';
     const desc = d.weather[0].description;
     const emoji = getWeatherEmoji(d.weather[0].id);
-    tempEl.textContent = emoji + ' ' + temp;
-    descEl.textContent = desc.toUpperCase().substring(0, 10);
+    _climaCache = { temp: emoji + ' ' + temp, desc: desc.toUpperCase().substring(0, 10) };
+    tempEl.textContent = _climaCache.temp;
+    descEl.textContent = _climaCache.desc;
   } catch(e) {
     // Fallback a wttr.in
     try {
@@ -2535,8 +2539,9 @@ async function fetchClima() {
       const d = await r.json();
       const cur = d.current_condition?.[0];
       if (cur) {
-        tempEl.textContent = getWeatherEmoji(parseInt(cur.weatherCode)) + ' ' + cur.temp_C + '°C';
-        descEl.textContent = 'ROSARIO';
+        _climaCache = { temp: getWeatherEmoji(parseInt(cur.weatherCode)) + ' ' + cur.temp_C + '°C', desc: 'ROSARIO' };
+        tempEl.textContent = _climaCache.temp;
+        descEl.textContent = _climaCache.desc;
       }
     } catch { tempEl.textContent = '🌡️'; descEl.textContent = 'CLIMA'; }
   }
