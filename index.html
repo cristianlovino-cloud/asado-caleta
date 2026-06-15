@@ -1838,13 +1838,14 @@ async function toggleTask(id,current) {
   }
 }
 
-function assignToMe(id) {
+async function assignToMe(id) {
   const t = S.tasks.find(t=>String(t.id)===String(id));
   if (!t) return;
   t.assignee = me;
   renderTasks();
-  toast('✅ Tarea asignada a vos!');
-  if (sbOk) sb.from('tasks').update({assignee:me}).eq('id',id);
+  if (sbOk) await sb.from('tasks').update({assignee:me}).eq('id',id);
+  toast('✅ Tarea asignada a vos!', 'var(--green)');
+  await fetchAll();
 }
 
 async function deleteTask(id) {
