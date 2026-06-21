@@ -1082,6 +1082,17 @@ function subscribe() {
     .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},     ()=>fetchAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},        ()=>{ if(!S.tasks.some(t=>t._saving)) fetchAll(); })
     .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},   ()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'app_config',filter:'key=eq.force_logout_ts'}, payload => {
+      // Expulsión instantánea — no espera refresh ni reapertura de la app
+      const flTs = parseInt(payload.new?.value || '0');
+      const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
+      if (flTs > 0 && myLoginTs < flTs && me !== ADMIN_USER) {
+        localStorage.removeItem('asado_user');
+        localStorage.removeItem('asado_login_ts');
+        alert('Tu sesión fue cerrada por el administrador. Volvé a ingresar tu nombre.');
+        location.reload();
+      }
+    })
     .subscribe(s=>{
       document.getElementById('ldot').style.display = s==='SUBSCRIBED'?'inline-block':'none';
     });
