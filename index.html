@@ -75,6 +75,8 @@
   .wsprev { background:#F0FFF4 !important; color:#1A3A20 !important; border-color:#B2DFBB !important; }
   .admin-bar { background: rgba(43,127,193,.05) !important; }
   .wnote { background: rgba(114,47,55,.08) !important; }
+  .wnote-t { color: #6B3439 !important; }
+  .wnote-t strong { color: #8B4A52 !important; }
 }
 
 /* ── RESET ──────────────────────────────── */
@@ -2485,10 +2487,8 @@ function renderOvMiEstado(miRsvp) {
 
 function renderOvAsistencia(conf, noVan, sinResp) {
   if (isInvitado() && !isAdmin()) return '';
-  const sinRespNames = S.participants.filter(p=>p.active&&!getRsvp(p.name)&&p.role!=='pendiente').map(p=>p.name.toUpperCase()).join(', ');
   const footer = sinResp > 0
-    ? '<div style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center">Sin responder: <strong>' + sinRespNames + '</strong></div>' +
-      '<button onclick="openModal(\'modal-asistencia\')" style="width:100%;margin-top:8px;padding:7px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>'
+    ? '<button onclick="openModal(\'modal-asistencia\')" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>'
     : '<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>';
   return '<div class="ov-card"><div class="ov-label">📊 Asistencia</div>' +
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">' +
@@ -2940,8 +2940,7 @@ function renderOverview() {
     renderOvCumples(cumples, meses, parts, mesActual, diaActual) +
     renderOvTareas(pendientes) +
     renderOvVotosStats() +
-    renderOvCalendario(meses) +
-    renderOvNavBtns();
+    renderOvCalendario(meses);
   startSpCarousel();
   fetchClima();
 }
