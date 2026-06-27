@@ -2491,10 +2491,10 @@ function renderOvAsistencia(conf, noVan, sinResp) {
     ? '<button onclick="openModal(\'modal-asistencia\')" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>'
     : '<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>';
   return '<div class="ov-card"><div class="ov-label">📊 Asistencia</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">' +
-    '<div style="padding:8px;background:rgba(39,174,96,.1);border-radius:8px;border:1px solid rgba(39,174,96,.2)"><div style="font-size:22px;font-weight:700;color:var(--green)">' + conf + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">Van</div></div>' +
-    '<div style="padding:8px;background:rgba(231,76,60,.1);border-radius:8px;border:1px solid rgba(231,76,60,.2)"><div style="font-size:22px;font-weight:700;color:var(--red)">' + noVan + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">No van</div></div>' +
-    '<div style="padding:8px;background:var(--ash);border-radius:8px;border:1px solid var(--rim)"><div style="font-size:22px;font-weight:700;color:var(--muted)">' + sinResp + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">PENDIENTE</div></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">' +
+    '<div style="padding:12px 8px;background:rgba(39,174,96,.15);border-radius:12px;border:2px solid rgba(39,174,96,.4)"><div style="font-size:32px;font-weight:800;color:var(--green);line-height:1">' + conf + '</div><div style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">VAN ✅</div></div>' +
+    '<div style="padding:12px 8px;background:rgba(231,76,60,.12);border-radius:12px;border:2px solid rgba(231,76,60,.35)"><div style="font-size:32px;font-weight:800;color:var(--red);line-height:1">' + noVan + '</div><div style="font-size:11px;color:var(--red);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">NO VAN ❌</div></div>' +
+    '<div style="padding:12px 8px;background:rgba(150,150,150,.1);border-radius:12px;border:2px solid rgba(150,150,150,.25)"><div style="font-size:32px;font-weight:800;color:var(--text);line-height:1">' + sinResp + '</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:4px">PENDIENTE</div></div>' +
     '</div>' + footer + '</div>';
 }
 
@@ -2980,13 +2980,18 @@ function updateClock() {
   const mins  = Math.floor((diff % 3600000) / 60000);
   const segs  = Math.floor((diff % 60000) / 1000);
   if (esHoy) {
-    // Es hoy pero todavía no arrancó
     el.textContent = `🔥 HOY · ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(segs).padStart(2,'0')}`;
   } else if (dias === 0) {
-    // Faltan horas (menos de 24hs pero no es hoy = medianoche pasada)
     el.textContent = `⏳ Mañana · ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
+  } else if (dias >= 7) {
+    // Mostrar en semanas y días
+    const semanas = Math.floor(dias / 7);
+    const diasResto = dias % 7;
+    const semLabel = semanas === 1 ? '1 SEM' : `${semanas} SEM`;
+    const diaLabel = diasResto > 0 ? ` ${diasResto}D` : '';
+    el.textContent = `⏳ ${semLabel}${diaLabel} · ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
   } else {
-    el.textContent = `⏳ ${dias}d ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m ${String(segs).padStart(2,'0')}s`;
+    el.textContent = `⏳ ${dias}D ${String(horas).padStart(2,'0')}H ${String(mins).padStart(2,'0')}M ${String(segs).padStart(2,'0')}S`;
   }
 }
 
