@@ -1594,7 +1594,7 @@ function showTab(t) {
   if (t==='votos') renderVotos();
   if (t==='stats') renderStats();
   if (t==='locker') renderLockerPanel();
-  if (t==='sugerencias') renderSugerencias();
+  if (t==='sugerencias') { renderSugerencias(); clearMencionesBadge(); }
   if (t==='gastos') fetchAll().then(()=>renderGastos());
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
@@ -1748,6 +1748,50 @@ async function renderLockerPanel() {
 
 // ══ SUGERENCIAS ═══════════════════════════════════════════════════════════
 
+async function checkMenciones() {
+  if (!me) return;
+  const { data } = await sb.from('sugerencias')
+    .select('id, texto, autor, menciones, created_at')
+    .eq('active', true)
+    .contains('menciones', [me]);
+  if (!data?.length) return;
+
+  // Verificar cuáles no vio todavía (usando localStorage)
+  const vistas = JSON.parse(localStorage.getItem('sug_vistas_' + me) || '[]');
+  const nuevas = data.filter(s => !vistas.includes(s.id));
+  if (!nuevas.length) return;
+
+  // Marcar badge en tab Ideas
+  const tabIdeas = document.querySelector('[onclick="showTab(\'sugerencias\')"]');
+  if (tabIdeas && !tabIdeas.querySelector('.mention-badge')) {
+    const badge = document.createElement('span');
+    badge.className = 'mention-badge';
+    badge.textContent = nuevas.length;
+    badge.style.cssText = 'background:var(--red);color:white;border-radius:50%;font-size:9px;padding:1px 5px;position:absolute;top:-2px;right:-4px;font-weight:700;line-height:1.4';
+    tabIdeas.style.position = 'relative';
+    tabIdeas.appendChild(badge);
+  }
+
+  // Toast con la primera mención nueva
+  const s = nuevas[0];
+  const preview = s.texto.substring(0, 60) + (s.texto.length > 60 ? '...' : '');
+  toast(`💡 ${s.autor} te mencionó: "${preview}"`, 'var(--fire)', 5000);
+}
+
+function clearMencionesBadge() {
+  if (!me) return;
+  const tabIdeas = document.querySelector('[onclick="showTab(\'sugerencias\')"]');
+  if (tabIdeas) tabIdeas.querySelector('.mention-badge')?.remove();
+  // Marcar todas como vistas
+  sb.from('sugerencias').select('id').eq('active', true).contains('menciones', [me])
+    .then(({ data }) => {
+      if (data?.length) {
+        const ids = data.map(s => s.id);
+        localStorage.setItem('sug_vistas_' + me, JSON.stringify(ids));
+      }
+    });
+}
+
 async function renderSugerencias() {
   const el = document.getElementById('sugerencias-panel-content');
   if (!el) return;
@@ -1790,7 +1834,7 @@ async function renderSugerencias() {
     ` : `<div style="margin-top:8px;font-size:11px;color:${ESTADO_COLORS[s.estado]};font-weight:700">${ESTADO_LABELS[s.estado]} · 👍${totalSi} 👎${totalNo}</div>`;
 
     return `<div class="card" style="margin-bottom:10px${s.estado!=='pendiente'?';opacity:.7':''}">
-      <div style="font-size:13px;line-height:1.5">${s.texto}</div>
+      <div style="font-size:13px;line-height:1.5">${s.texto.replace(/@(\w+)/g, '<span style="color:var(--fire);font-weight:700">@$1</span>')}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:5px">${s.autor.toUpperCase()} · ${fecha}</div>
       ${botonesVoto}
       ${isAdmin() && s.estado==='pendiente' ? `<button onclick="eliminarSugerencia(${s.id})" style="margin-top:6px;padding:3px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.1);color:var(--red);font-size:10px;cursor:pointer">Eliminar</button>` : ''}
@@ -1825,9 +1869,21 @@ async function enviarSugerencia() {
   const texto = document.getElementById('sug-nueva-texto')?.value.trim();
   if (!texto) { toast('Escribí tu sugerencia 👆', 'var(--red)'); return; }
   if (!me) { toast('Ingresá tu nombre primero', 'var(--red)'); return; }
-  const { error } = await sb.from('sugerencias').insert({ texto, autor: me });
+
+  // Detectar @menciones — buscar nombres que matcheen participantes
+  const menciones = [];
+  const palabras = texto.split(/\s+/);
+  palabras.forEach(p => {
+    if (p.startsWith('@')) {
+      const nombre = p.slice(1).toLowerCase();
+      const match = S.participants.find(pt => pt.name.toLowerCase().startsWith(nombre));
+      if (match && match.name.toLowerCase() !== me.toLowerCase()) menciones.push(match.name);
+    }
+  });
+
+  const { error } = await sb.from('sugerencias').insert({ texto, autor: me, menciones: menciones.length ? menciones : null });
   if (error) { toast('❌ Error: ' + error.message, 'var(--red)'); return; }
-  toast('✅ Sugerencia enviada!', 'var(--green)');
+  toast('✅ Sugerencia enviada!' + (menciones.length ? ' · @' + menciones.join(' @') + ' notificado' + (menciones.length>1?'s':'') : ''), 'var(--green)');
   await renderSugerencias();
 }
 
@@ -3403,6 +3459,7 @@ function renderAll() {
   renderWS();
   renderVotaciones();
   populateSel();
+  setTimeout(checkMenciones, 1500);
   // Badge invitados pendientes para admin
   if (isAdmin()) {
     const pendCount = S.participants.filter(p=>p.role==='pendiente').length;
@@ -3420,10 +3477,10 @@ function renderAll() {
 }
 
 // ══ UTILS ═════════════════════════════════════════
-function toast(msg,bg='var(--green)') {
+function toast(msg,bg='var(--green)',dur=3000) {
   const el=document.getElementById('toast');
   el.textContent=msg; el.style.background=bg;
-  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2400);
+  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),dur);
 }
 
 // cerrar modal tocando fondo
