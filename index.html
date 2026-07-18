@@ -400,6 +400,8 @@ body {
     <div class="tab" onclick="showTab('menu')"  ><span class="ti">🍖</span>Menú</div>
     <div class="tab" onclick="showTab('gastos')"><span class="ti">💰</span>Gastos</div>
     <div class="tab" onclick="showTab('carne')"><span class="ti">🥩</span>Carne</div>
+    <div class="tab" onclick="showTab('locker')"><span class="ti">🔒</span>Locker</div>
+    <div class="tab" onclick="showTab('sugerencias')"><span class="ti">💡</span>Ideas</div>
   </div>
 
   <!-- OVERVIEW -->
@@ -542,6 +544,14 @@ body {
   </div>
 
   <!-- VOTOS -->
+  <div class="panel" id="panel-locker">
+    <div id="locker-panel-content"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
+  </div>
+
+  <div class="panel" id="panel-sugerencias">
+    <div id="sugerencias-panel-content"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
+  </div>
+
   <div class="panel" id="panel-votos">
     <div id="votaciones-container"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
   </div>
@@ -1583,6 +1593,8 @@ function showTab(t) {
   if (t==='carne') calcularCarne();
   if (t==='votos') renderVotos();
   if (t==='stats') renderStats();
+  if (t==='locker') renderLockerPanel();
+  if (t==='sugerencias') renderSugerencias();
   if (t==='gastos') fetchAll().then(()=>renderGastos());
 }
 function tf(id) { document.getElementById(id).classList.toggle('open'); }
@@ -1701,6 +1713,151 @@ async function renderGastos() {
 
 // ══ TAREAS ════════════════════════════════════════
 
+
+
+// ══ LOCKER PANEL (usuarios) ════════════════════════════════════════════════
+
+async function renderLockerPanel() {
+  const el = document.getElementById('locker-panel-content');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div>';
+  const { data } = await sb.from('locker_items').select('*').eq('active', true).order('nombre');
+  if (!data?.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">🔒<br><br>Sin inventario registrado</div>';
+    return;
+  }
+  const ESTADOS = { disponible: { label: '✅ Disponible', color: 'var(--green)' }, bajo: { label: '⚠️ Bajo', color: 'var(--ember)' }, agotado: { label: '❌ Agotado', color: 'var(--red)' } };
+  el.innerHTML = '<div class="sh" style="margin-bottom:12px">🔒 Inventario Locker La Caleta</div>' +
+    data.map(item => {
+      const est = ESTADOS[item.estado] || ESTADOS.disponible;
+      const fotoHtml = item.foto_url
+        ? `<img src="${item.foto_url}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim)">`
+        : `<div style="width:64px;height:64px;border-radius:10px;background:var(--ash);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📦</div>`;
+      const updStr = item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) : '';
+      return `<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        ${fotoHtml}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;text-transform:uppercase">${item.nombre}</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:2px">${item.cantidad} ${item.unidad}</div>
+          <div style="font-size:11px;color:${est.color};font-weight:600;margin-top:3px">${est.label}${item.updated_by ? ' · ' + item.updated_by + ' ' + updStr : ''}</div>
+          ${item.notas ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">${item.notas}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+}
+
+// ══ SUGERENCIAS ═══════════════════════════════════════════════════════════
+
+async function renderSugerencias() {
+  const el = document.getElementById('sugerencias-panel-content');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div>';
+
+  const [{ data: sugs }, { data: votos }] = await Promise.all([
+    sb.from('sugerencias').select('*').eq('active', true).order('created_at', { ascending: false }),
+    sb.from('sugerencias_votos').select('*')
+  ]);
+
+  const pendientes = (sugs||[]).filter(s => s.estado === 'pendiente');
+  const cerradas  = (sugs||[]).filter(s => s.estado !== 'pendiente');
+
+  const renderCard = (s) => {
+    const misVotos = (votos||[]).filter(v => v.sugerencia_id === s.id && v.participant_name.toLowerCase() === me.toLowerCase());
+    const miVoto = misVotos[0]?.voto || null;
+    const totalSi = (votos||[]).filter(v => v.sugerencia_id === s.id && v.voto === 'si').length;
+    const totalNo = (votos||[]).filter(v => v.sugerencia_id === s.id && v.voto === 'no').length;
+    const total = totalSi + totalNo;
+    const pctSi = total > 0 ? Math.round(totalSi/total*100) : 0;
+    const fecha = new Date(s.created_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+    const ESTADO_COLORS = { implementada: 'var(--green)', descartada: 'var(--red)', pendiente: 'var(--muted)' };
+    const ESTADO_LABELS = { implementada: '✅ Implementada', descartada: '❌ Descartada', pendiente: '⏳ Pendiente' };
+
+    const botonesVoto = s.estado === 'pendiente' ? `
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="votarSugerencia(${s.id},'si')" style="flex:1;padding:8px;border-radius:10px;border:2px solid ${miVoto==='si'?'var(--green)':'var(--rim)'};background:${miVoto==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${miVoto==='si'?'var(--green)':'var(--muted)'};font-size:13px;font-weight:700;cursor:pointer">
+          👍 ${totalSi}
+        </button>
+        <button onclick="votarSugerencia(${s.id},'no')" style="flex:1;padding:8px;border-radius:10px;border:2px solid ${miVoto==='no'?'var(--red)':'var(--rim)'};background:${miVoto==='no'?'rgba(231,76,60,.12)':'var(--ash)'};color:${miVoto==='no'?'var(--red)':'var(--muted)'};font-size:13px;font-weight:700;cursor:pointer">
+          👎 ${totalNo}
+        </button>
+        ${isAdmin() ? `<button onclick="cerrarSugerencia(${s.id},'implementada')" style="padding:8px 10px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">✅</button>
+        <button onclick="cerrarSugerencia(${s.id},'descartada')" style="padding:8px 10px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">❌</button>` : ''}
+      </div>
+      ${total > 0 ? `<div style="margin-top:8px;height:5px;border-radius:3px;background:var(--rim);overflow:hidden">
+        <div style="height:100%;width:${pctSi}%;background:var(--green);transition:width .4s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px"><span>${pctSi}% a favor</span><span>${total} votos</span></div>` : ''}
+    ` : `<div style="margin-top:8px;font-size:11px;color:${ESTADO_COLORS[s.estado]};font-weight:700">${ESTADO_LABELS[s.estado]} · 👍${totalSi} 👎${totalNo}</div>`;
+
+    return `<div class="card" style="margin-bottom:10px${s.estado!=='pendiente'?';opacity:.7':''}">
+      <div style="font-size:13px;line-height:1.5">${s.texto}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:5px">${s.autor.toUpperCase()} · ${fecha}</div>
+      ${botonesVoto}
+      ${isAdmin() && s.estado==='pendiente' ? `<button onclick="eliminarSugerencia(${s.id})" style="margin-top:6px;padding:3px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.1);color:var(--red);font-size:10px;cursor:pointer">Eliminar</button>` : ''}
+    </div>`;
+  };
+
+  let html = `
+    <div style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:12px;margin-bottom:14px">
+      <div class="sh" style="margin-bottom:8px">💡 Nueva sugerencia</div>
+      <textarea class="fi" id="sug-nueva-texto" placeholder="¿Qué mejorarías del asado? ¿Alguna idea?" style="min-height:80px;resize:vertical;font-family:inherit"></textarea>
+      <button class="btp" style="width:100%;margin-top:6px" onclick="enviarSugerencia()">📬 ENVIAR</button>
+    </div>`;
+
+  if (pendientes.length) {
+    html += `<div class="sh" style="margin-bottom:8px">⏳ Pendientes (${pendientes.length})</div>`;
+    pendientes.forEach(s => { html += renderCard(s); });
+  }
+
+  if (cerradas.length) {
+    html += `<div class="sh" style="margin:14px 0 8px">📋 Cerradas</div>`;
+    cerradas.forEach(s => { html += renderCard(s); });
+  }
+
+  if (!pendientes.length && !cerradas.length) {
+    html += '<div style="text-align:center;padding:30px;color:var(--muted)">💡<br><br>Sin sugerencias aún<br><span style="font-size:11px">¡Sé el primero!</span></div>';
+  }
+
+  el.innerHTML = html;
+}
+
+async function enviarSugerencia() {
+  const texto = document.getElementById('sug-nueva-texto')?.value.trim();
+  if (!texto) { toast('Escribí tu sugerencia 👆', 'var(--red)'); return; }
+  if (!me) { toast('Ingresá tu nombre primero', 'var(--red)'); return; }
+  const { error } = await sb.from('sugerencias').insert({ texto, autor: me });
+  if (error) { toast('❌ Error: ' + error.message, 'var(--red)'); return; }
+  toast('✅ Sugerencia enviada!', 'var(--green)');
+  await renderSugerencias();
+}
+
+async function votarSugerencia(id, voto) {
+  if (!me) return;
+  // Si ya votó lo mismo, quita el voto
+  const { data: existing } = await sb.from('sugerencias_votos').select('*')
+    .eq('sugerencia_id', id).ilike('participant_name', me).maybeSingle();
+  if (existing?.voto === voto) {
+    await sb.from('sugerencias_votos').delete().eq('id', existing.id);
+  } else if (existing) {
+    await sb.from('sugerencias_votos').update({ voto }).eq('id', existing.id);
+  } else {
+    await sb.from('sugerencias_votos').insert({ sugerencia_id: id, participant_name: me, voto });
+  }
+  await renderSugerencias();
+}
+
+async function cerrarSugerencia(id, estado) {
+  await sb.from('sugerencias').update({ estado }).eq('id', id);
+  await renderSugerencias();
+  toast(estado === 'implementada' ? '✅ Marcada como implementada' : '❌ Marcada como descartada');
+}
+
+async function eliminarSugerencia(id) {
+  if (!confirm('¿Eliminar esta sugerencia?')) return;
+  await sb.from('sugerencias').update({ active: false }).eq('id', id);
+  await renderSugerencias();
+  toast('Sugerencia eliminada');
+}
 
 // ══ LOCKER LA CALETA ══════════════════════════════════════════════════════
 
