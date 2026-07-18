@@ -1742,6 +1742,7 @@ async function renderLockerPanel() {
           <div style="font-size:11px;color:${est.color};font-weight:600;margin-top:3px">${est.label}${item.updated_by ? ' · ' + item.updated_by + ' ' + updStr : ''}</div>
           ${item.notas ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">${item.notas}</div>` : ''}
         </div>
+        <button onclick="editarLockerItem(${item.id})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer;flex-shrink:0">✏️</button>
       </div>`;
     }).join('');
 }
@@ -2087,8 +2088,14 @@ async function guardarLockerItem() {
       if (error) throw error;
     }
     closeModal('modal-locker-item');
-    openModal('modal-locker');
-    await renderLocker();
+    // Si viene del panel de usuarios, actualizar el panel; si viene del modal admin, reabrir modal
+    const panelLocker = document.getElementById('panel-locker');
+    if (panelLocker?.classList.contains('active')) {
+      await renderLockerPanel();
+    } else {
+      openModal('modal-locker');
+      await renderLocker();
+    }
     toast('✅ Item guardado!', 'var(--green)');
   } catch(e) {
     toast('❌ Error: ' + e.message, 'var(--red)');
