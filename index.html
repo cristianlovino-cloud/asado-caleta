@@ -1844,7 +1844,10 @@ async function renderSugerencias() {
   let html = `
     <div style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:12px;margin-bottom:14px">
       <div class="sh" style="margin-bottom:8px">💡 Nueva sugerencia</div>
-      <textarea class="fi" id="sug-nueva-texto" placeholder="¿Qué mejorarías del asado? ¿Alguna idea?" style="min-height:80px;resize:vertical;font-family:inherit"></textarea>
+      <div style="position:relative">
+        <textarea class="fi" id="sug-nueva-texto" placeholder="¿Qué mejorarías del asado? Usá @nombre para mencionar" style="min-height:80px;resize:vertical;font-family:inherit" oninput="sugAtMention(this)"></textarea>
+        <div id="sug-mention-list" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--rim);border-radius:10px;z-index:100;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.2)"></div>
+      </div>
       <button class="btp" style="width:100%;margin-top:6px" onclick="enviarSugerencia()">📬 ENVIAR</button>
     </div>`;
 
@@ -1864,6 +1867,50 @@ async function renderSugerencias() {
 
   el.innerHTML = html;
 }
+
+function sugAtMention(ta) {
+  const val = ta.value;
+  const cursor = ta.selectionStart;
+  // Buscar @ antes del cursor
+  const textoBefore = val.slice(0, cursor);
+  const match = textoBefore.match(/@(\w*)$/);
+  const list = document.getElementById('sug-mention-list');
+  if (!match) { list.style.display = 'none'; return; }
+  const query = match[1].toLowerCase();
+  const results = S.participants
+    .filter(p => p.active && p.name.toLowerCase() !== me.toLowerCase() && p.name.toLowerCase().includes(query))
+    .slice(0, 5);
+  if (!results.length) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = results.map(p =>
+    `<div onclick="sugInsertMention('${p.name}')" style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:1px solid var(--rim);display:flex;align-items:center;gap:8px">
+      <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--club1),var(--club2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0">${p.name[0].toUpperCase()}</div>
+      <span>${p.name}</span>
+    </div>`
+  ).join('');
+}
+
+function sugInsertMention(nombre) {
+  const ta = document.getElementById('sug-nueva-texto');
+  const cursor = ta.selectionStart;
+  const val = ta.value;
+  const textoBefore = val.slice(0, cursor);
+  const textoAfter = val.slice(cursor);
+  // Reemplazar el @parcial con el nombre completo
+  const newBefore = textoBefore.replace(/@(\w*)$/, '@' + nombre + ' ');
+  ta.value = newBefore + textoAfter;
+  ta.focus();
+  ta.setSelectionRange(newBefore.length, newBefore.length);
+  document.getElementById('sug-mention-list').style.display = 'none';
+}
+
+// Cerrar dropdown al tocar afuera
+document.addEventListener('click', e => {
+  if (!e.target.closest('#sug-nueva-texto') && !e.target.closest('#sug-mention-list')) {
+    const list = document.getElementById('sug-mention-list');
+    if (list) list.style.display = 'none';
+  }
+});
 
 async function enviarSugerencia() {
   const texto = document.getElementById('sug-nueva-texto')?.value.trim();
