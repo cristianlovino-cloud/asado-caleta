@@ -388,6 +388,7 @@ body {
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
     <button class="abtn" onclick="openVotacionesAdmin()" style="border-color:rgba(39,174,96,.4);color:var(--green)">🗳️ Votaciones</button>
     <button class="abtn" onclick="restablecerTareas()" style="border-color:rgba(46,134,222,.4);color:#2e86de">🔄 Restablecer Tareas</button>
+    <button class="abtn" onclick="openLocker()" style="border-color:rgba(255,165,0,.4);color:#FFA500">🔒 LOCKER</button>
     <button class="abtn red" onclick="forceLogoutAll()">🔐 CERRAR SESIONES</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
     <button class="abtn" onclick="publicarVersion()" style="border-color:rgba(91,184,232,.4);color:var(--club1)">📡 Publicar versión</button>
@@ -1699,6 +1700,182 @@ async function renderGastos() {
 }
 
 // ══ TAREAS ════════════════════════════════════════
+
+
+// ══ LOCKER LA CALETA ══════════════════════════════════════════════════════
+
+const LOCKER_ESTADOS = [
+  { key: 'disponible', label: '✅ Disponible', color: 'var(--green)' },
+  { key: 'bajo',       label: '⚠️ Bajo',       color: 'var(--ember)' },
+  { key: 'agotado',    label: '❌ Agotado',     color: 'var(--red)'   },
+];
+
+async function openLocker() {
+  openModal('modal-locker');
+  await renderLocker();
+}
+
+async function renderLocker() {
+  const el = document.getElementById('locker-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div>';
+  const { data, error } = await sb.from('locker_items').select('*').eq('active', true).order('nombre');
+  if (error) { el.innerHTML = '<div style="color:var(--red)">Error: ' + error.message + '</div>'; return; }
+  if (!data?.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">🔒<br><br>El locker está vacío<br><span style="font-size:11px">Agregá items después del asado</span></div>';
+    return;
+  }
+  el.innerHTML = data.map(item => {
+    const est = LOCKER_ESTADOS.find(e => e.key === item.estado) || LOCKER_ESTADOS[0];
+    const fotoHtml = item.foto_url
+      ? `<img src="${item.foto_url}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim)">`
+      : `<div style="width:56px;height:56px;border-radius:10px;background:var(--ash);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">📦</div>`;
+    const updStr = item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--rim)">
+      ${fotoHtml}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase">${item.nombre}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${item.cantidad} ${item.unidad}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+          <span style="font-size:10px;color:${est.color};font-weight:700">${est.label}</span>
+          ${item.updated_by ? `<span style="font-size:10px;color:var(--muted)">· ${item.updated_by} ${updStr}</span>` : ''}
+        </div>
+        ${item.notas ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">${item.notas}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        <button onclick="editarLockerItem(${item.id})" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer">✏️</button>
+        <button onclick="eliminarLockerItem(${item.id})" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.15);color:var(--red);font-size:11px;cursor:pointer">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderEstadoPicker(selected) {
+  const el = document.getElementById('li-estado-picker');
+  if (!el) return;
+  el.innerHTML = LOCKER_ESTADOS.map(e => {
+    const active = e.key === selected;
+    return `<button type="button" onclick="selectLockerEstado('${e.key}')" data-est="${e.key}"
+      style="padding:6px 12px;border-radius:20px;border:1.5px solid ${active ? e.color : 'var(--rim)'};
+      background:${active ? 'rgba(255,255,255,.08)' : 'var(--ash)'};color:${active ? e.color : 'var(--muted)'};
+      font-size:12px;font-weight:${active ? '700' : '400'};cursor:pointer">${e.label}</button>`;
+  }).join('');
+}
+
+function selectLockerEstado(key) {
+  renderEstadoPicker(key);
+}
+
+function getLockerEstado() {
+  const active = document.querySelector('#li-estado-picker button[style*="700"]');
+  if (active) return active.dataset.est;
+  return 'disponible';
+}
+
+function openNuevoLockerItem() {
+  document.getElementById('li-edit-id').value = '';
+  document.getElementById('li-nombre').value = '';
+  document.getElementById('li-cantidad').value = '';
+  document.getElementById('li-unidad').value = '';
+  document.getElementById('li-notas').value = '';
+  document.getElementById('li-foto-url').value = '';
+  document.getElementById('li-foto-preview').style.display = 'none';
+  document.getElementById('li-upload-status').style.display = 'none';
+  document.getElementById('locker-item-title').textContent = '📦 Nuevo Item';
+  renderEstadoPicker('disponible');
+  closeModal('modal-locker');
+  openModal('modal-locker-item');
+}
+
+async function editarLockerItem(id) {
+  const { data } = await sb.from('locker_items').select('*').eq('id', id).single();
+  if (!data) return;
+  document.getElementById('li-edit-id').value = id;
+  document.getElementById('li-nombre').value = data.nombre || '';
+  document.getElementById('li-cantidad').value = data.cantidad || '';
+  document.getElementById('li-unidad').value = data.unidad || '';
+  document.getElementById('li-notas').value = data.notas || '';
+  document.getElementById('li-foto-url').value = data.foto_url || '';
+  document.getElementById('locker-item-title').textContent = '✏️ Editar Item';
+  if (data.foto_url) {
+    document.getElementById('li-foto-img').src = data.foto_url;
+    document.getElementById('li-foto-preview').style.display = 'block';
+  } else {
+    document.getElementById('li-foto-preview').style.display = 'none';
+  }
+  renderEstadoPicker(data.estado || 'disponible');
+  closeModal('modal-locker');
+  openModal('modal-locker-item');
+}
+
+async function guardarLockerItem() {
+  const editId = document.getElementById('li-edit-id').value;
+  const nombre = document.getElementById('li-nombre').value.trim();
+  const cantidad = parseFloat(document.getElementById('li-cantidad').value) || 0;
+  const unidad = document.getElementById('li-unidad').value.trim() || 'unidad';
+  const estado = getLockerEstado();
+  const notas = document.getElementById('li-notas').value.trim();
+  const foto_url = document.getElementById('li-foto-url').value.trim();
+  if (!nombre) { toast('Ingresá un nombre', 'var(--red)'); return; }
+  const payload = { nombre, cantidad, unidad, estado, notas, foto_url, updated_by: me, updated_at: new Date().toISOString(), active: true };
+  try {
+    if (editId) {
+      const { error } = await sb.from('locker_items').update(payload).eq('id', editId);
+      if (error) throw error;
+    } else {
+      const { error } = await sb.from('locker_items').insert(payload);
+      if (error) throw error;
+    }
+    closeModal('modal-locker-item');
+    openModal('modal-locker');
+    await renderLocker();
+    toast('✅ Item guardado!', 'var(--green)');
+  } catch(e) {
+    toast('❌ Error: ' + e.message, 'var(--red)');
+  }
+}
+
+async function eliminarLockerItem(id) {
+  if (!confirm('¿Eliminar este item del locker?')) return;
+  await sb.from('locker_items').update({ active: false }).eq('id', id);
+  await renderLocker();
+  toast('Item eliminado');
+}
+
+async function uploadLockerFoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('li-upload-status');
+  statusEl.style.display = 'block';
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = '⏳ Subiendo foto...';
+  try {
+    const fileName = Date.now() + '_' + file.name.replace(/\s/g, '_');
+    const { error } = await sb.storage.from('Locker').upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
+    if (error) throw new Error(error.message);
+    const { data: urlData } = sb.storage.from('Locker').getPublicUrl(fileName);
+    document.getElementById('li-foto-url').value = urlData.publicUrl;
+    document.getElementById('li-foto-img').src = urlData.publicUrl;
+    document.getElementById('li-foto-preview').style.display = 'block';
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = '✅ Foto subida!';
+  } catch(e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+// Mostrar locker como recordatorio en la pantalla post-asado (overview)
+async function renderLockerRecordatorio() {
+  const { data } = await sb.from('locker_items').select('*').eq('active', true).order('nombre');
+  if (!data?.length) return '';
+  const items = data.map(i => `${i.cantidad} ${i.unidad} de ${i.nombre}`).join(' · ');
+  return `<div class="ov-card" style="border-color:rgba(255,165,0,.3);background:rgba(255,165,0,.05);cursor:pointer" onclick="openLocker()">
+    <div class="ov-label" style="color:#FFA500">🔒 Locker La Caleta</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6">${items}</div>
+    <div style="font-size:11px;color:#FFA500;margin-top:6px;font-weight:600">Ver inventario completo →</div>
+  </div>`;
+}
 
 // ══ BIBLIOTECA DE TAREAS ══════════════════════════════════════════════════
 
@@ -4599,6 +4776,61 @@ const F1_COLORES = {
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" style="flex:1" onclick="guardarBiblioteca()">💾 GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-nueva-bib')">✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Locker -->
+<div class="modal-bg" id="modal-locker">
+  <div class="modal" style="max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-title">🔒 Locker La Caleta
+      <button class="modal-close" onclick="closeModal('modal-locker')">✕</button>
+    </div>
+    <div style="padding:0 0 10px;flex-shrink:0">
+      <button class="btp" style="width:100%;margin-bottom:0" onclick="openNuevoLockerItem()">+ AGREGAR ITEM</button>
+    </div>
+    <div id="locker-list" style="overflow-y:auto;flex:1;padding-bottom:8px"></div>
+  </div>
+</div>
+
+<!-- Modal Nuevo/Editar Item Locker -->
+<div class="modal-bg" id="modal-locker-item">
+  <div class="modal">
+    <div class="modal-title" id="locker-item-title">📦 Nuevo Item
+      <button class="modal-close" onclick="closeModal('modal-locker-item')">✕</button>
+    </div>
+    <input type="hidden" id="li-edit-id">
+    <label class="fl">Nombre</label>
+    <input class="fi" id="li-nombre" placeholder="ej: Carbón, Vino Malbec...">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <label class="fl">Cantidad</label>
+        <input class="fi" id="li-cantidad" type="number" min="0" step="0.5" placeholder="0" style="margin-bottom:0">
+      </div>
+      <div>
+        <label class="fl">Unidad</label>
+        <input class="fi" id="li-unidad" placeholder="bolsas, botellas..." style="margin-bottom:0">
+      </div>
+    </div>
+    <label class="fl">Estado</label>
+    <div id="li-estado-picker" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap"></div>
+    <label class="fl">Notas</label>
+    <input class="fi" id="li-notas" placeholder="ej: Abrió el 08/08, quedan 2/3...">
+    <label class="fl">Foto</label>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+      <div id="li-foto-preview" style="display:none;border-radius:10px;overflow:hidden;max-height:180px;text-align:center">
+        <img id="li-foto-img" src="" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:10px">
+      </div>
+      <input type="hidden" id="li-foto-url">
+      <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;border:1px dashed var(--rim);background:var(--ash);cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)">
+        <input type="file" accept="image/*" id="li-foto-file" style="display:none" onchange="uploadLockerFoto(this)">
+        📷 ELEGIR FOTO
+      </label>
+      <div id="li-upload-status" style="font-size:11px;color:var(--muted);text-align:center;display:none"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btp" style="flex:1" onclick="guardarLockerItem()">💾 GUARDAR</button>
+      <button class="btg" onclick="closeModal('modal-locker-item')">✕</button>
     </div>
   </div>
 </div>
