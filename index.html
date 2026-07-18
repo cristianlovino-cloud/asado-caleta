@@ -2994,27 +2994,54 @@ async function fetchClima() {
   const tempEl = document.getElementById('ov-weather-temp');
   const descEl = document.getElementById('ov-weather-desc');
   if (!tempEl) return;
+
+  const CACHE_MINUTES = 10;
+
   try {
+    // 1. Leer cache de Supabase
+    const { data: cfgRows } = await sb.from('app_config').select('key,value').in('key', ['clima_temp','clima_desc','clima_ts']);
+    const cfgMap = {};
+    (cfgRows||[]).forEach(r => cfgMap[r.key] = r.value);
+
+    const lastTs = parseInt(cfgMap['clima_ts'] || '0');
+    const ahora = Date.now();
+    const cacheValido = (ahora - lastTs) < CACHE_MINUTES * 60 * 1000;
+
+    if (cacheValido && cfgMap['clima_temp']) {
+      // Usar cache — no llama a OWM
+      _climaCache = { temp: cfgMap['clima_temp'], desc: cfgMap['clima_desc'] || 'ROSARIO' };
+      tempEl.textContent = _climaCache.temp;
+      descEl.textContent = _climaCache.desc;
+      return;
+    }
+
+    // 2. Cache vencido — llamar a OWM y actualizar Supabase
     const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Rosario,AR&appid=${OWM_KEY}&units=metric&lang=es`);
     const d = await r.json();
     if (d.cod !== 200) throw new Error('API error');
-    const temp = Math.round(d.main.temp) + '°C';
-    const desc = d.weather[0].description;
-    const emoji = getWeatherEmoji(d.weather[0].id);
-    _climaCache = { temp: emoji + ' ' + temp, desc: desc.toUpperCase().substring(0, 10) };
-    tempEl.textContent = _climaCache.temp;
-    descEl.textContent = _climaCache.desc;
+    const temp = getWeatherEmoji(d.weather[0].id) + ' ' + Math.round(d.main.temp) + '°C';
+    const desc = d.weather[0].description.toUpperCase().substring(0, 10);
+
+    // Guardar en Supabase para que todos los usuarios usen este dato
+    await Promise.all([
+      sb.from('app_config').upsert({ key: 'clima_temp', value: temp }),
+      sb.from('app_config').upsert({ key: 'clima_desc', value: desc }),
+      sb.from('app_config').upsert({ key: 'clima_ts',   value: String(ahora) }),
+    ]);
+
+    _climaCache = { temp, desc };
+    tempEl.textContent = temp;
+    descEl.textContent = desc;
+
   } catch(e) {
-    try {
-      const r = await fetch('https://wttr.in/Rosario,Argentina?format=j1');
-      const d = await r.json();
-      const cur = d.current_condition?.[0];
-      if (cur) {
-        _climaCache = { temp: getWeatherEmoji(parseInt(cur.weatherCode)) + ' ' + cur.temp_C + '°C', desc: 'ROSARIO' };
-        tempEl.textContent = _climaCache.temp;
-        descEl.textContent = _climaCache.desc;
-      }
-    } catch { tempEl.textContent = '🌡️'; descEl.textContent = 'CLIMA'; }
+    // Fallback: mostrar lo que haya en cache local
+    if (_climaCache.temp !== '🌡️') {
+      tempEl.textContent = _climaCache.temp;
+      descEl.textContent = _climaCache.desc;
+    } else {
+      tempEl.textContent = '🌡️';
+      descEl.textContent = 'ROSARIO';
+    }
   }
 }
 
