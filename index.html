@@ -1651,16 +1651,13 @@ async function fetchPaymentRequests() {
 }
 
 function abrirMP() {
-  const mpDeep = `mercadopago://send?alias=${MP_ALIAS}`;
-  window.location.href = mpDeep;
-  setTimeout(() => window.open('https://www.mercadopago.com.ar/', '_blank'), 1500);
+  // mpago.la redirige a la app si está instalada, sino al sitio
+  window.open('https://mpago.la/' + MP_ALIAS, '_blank');
 }
 
 function abrirModo() {
-  // Modo deep link — abre la app con el alias precargado
-  const modoDeep = `modo://send?cbu_alias=${MP_ALIAS}`;
-  window.location.href = modoDeep;
-  setTimeout(() => window.open('https://www.modopagos.com.ar/', '_blank'), 1500);
+  // Modo: el link oficial abre la app si está instalada
+  window.open('https://modo.com.ar/pay/' + MP_ALIAS, '_blank');
 }
 
 async function abrirPagoMP(deudor, monto) {
@@ -1832,7 +1829,7 @@ async function renderGastos() {
       <div>
         <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':acrCobrado?'✅':b>=0?'+':'-'}${saldado||acrCobrado?'':b>0.5?fmt(pendienteCobrar):fmt(b)}</div>
         <div class="blbl">${saldado?'saldado':acrCobrado?'cobrado':b>=0?'a cobrar':'debe pagar'}</div>
-        ${im && b < -0.5 && !saldado ? `<button onclick="abrirPagoMP('${p}',${Math.abs(b)})" style="margin-top:4px;padding:5px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,#00b4f5,#009ee3);color:white;font-size:11px;font-weight:700;cursor:pointer;width:100%">💳 PAGAR MP</button>` : ''}
+        ${im && b < -0.5 && !saldado ? `<button onclick="abrirPagoMP('${p}',${Math.abs(b)})" style="margin-top:4px;padding:5px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:11px;font-weight:700;cursor:pointer;width:100%">💳 PAGAR</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -5333,6 +5330,10 @@ const F1_COLORES = {
     <!-- Transferencia digital -->
     <div style="background:var(--ash);border:1px solid var(--rim);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💳 Transferencia digital</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <button onclick="abrirMP()" style="padding:8px;border-radius:8px;border:none;background:#009EE3;color:white;font-size:11px;font-weight:700;cursor:pointer">💙 Abrir MP</button>
+        <button onclick="abrirModo()" style="padding:8px;border-radius:8px;border:none;background:#5B2D8E;color:white;font-size:11px;font-weight:700;cursor:pointer">💜 Abrir Modo</button>
+      </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:13px;color:var(--muted)">Alias</span>
         <div style="display:flex;align-items:center;gap:8px">
