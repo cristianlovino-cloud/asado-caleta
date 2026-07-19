@@ -384,6 +384,7 @@ body {
     <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
     <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
     <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
+    <button class="abtn" onclick="cerrarCuentasAll()" style="border-color:rgba(245,197,24,.4);color:var(--fire)" id="btn-cerrar-cuentas">🔒 COBRAR DEUDAS</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
     <button class="abtn" onclick="openVotacionesAdmin()" style="border-color:rgba(39,174,96,.4);color:var(--green)">🗳️ Votaciones</button>
@@ -1042,6 +1043,14 @@ async function fetchAll() {
   if (cfg.data) {
     const owmRow = cfg.data.find(r => r.key === 'owm_key');
     if (owmRow?.value) OWM_KEY = owmRow.value;
+    // Cobro de deudas activo: forzar tab gastos a no-admin
+    const cuentasRow = cfg.data.find(r => r.key === 'cuentas_abiertas');
+    if (cuentasRow?.value === 'true' && !isAdmin()) {
+      setTimeout(() => {
+        showTab('gastos');
+        toast('💰 El admin está cobrando — revisá tus deudas', 'var(--fire)', 5000);
+      }, 800);
+    }
     const flTs = parseInt(cfg.data.find(r=>r.key==='force_logout_ts')?.value || '0');
     const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
     if (flTs > 0 && myLoginTs < flTs && me !== ADMIN_USER) {
@@ -1678,6 +1687,24 @@ function openModalPagoConfirm(deudor, monto) {
   document.getElementById('mpc-monto-val').value = monto;
   document.getElementById('mpc-nota').value = '';
   modal.classList.add('open');
+}
+
+async function confirmarPagoEfectivo() {
+  const montoEf = parseFloat(document.getElementById('mpc-efectivo').value);
+  if (!montoEf || montoEf <= 0) { toast('Ingresá el monto en efectivo','var(--red)'); return; }
+  const nota = (document.getElementById('mpc-nota').value.trim() || '') + ' [EFECTIVO]';
+  if (!me || !S.event) return;
+  const { error } = await sb.from('payment_requests').insert({
+    participant_name: me,
+    monto: montoEf,
+    event_id: S.event.id,
+    estado: 'pendiente',
+    nota
+  });
+  if (error) { toast('❌ Error: ' + error.message, 'var(--red)'); return; }
+  closeModal('modal-pago-confirm');
+  toast('✅ Pago en efectivo notificado al admin', 'var(--green)', 4000);
+  renderGastos();
 }
 
 async function confirmarPagoUsuario() {
@@ -3648,6 +3675,24 @@ function renderAll() {
   renderVotaciones();
   populateSel();
   setTimeout(checkMenciones, 1500);
+  // Actualizar botón cobrar deudas según estado
+  if (isAdmin()) {
+    sb.from('app_config').select('value').eq('key','cuentas_abiertas').maybeSingle().then(({data}) => {
+      const btn = document.getElementById('btn-cerrar-cuentas');
+      if (!btn) return;
+      if (data?.value === 'true') {
+        btn.textContent = '🔓 FINALIZAR COBRO';
+        btn.style.borderColor = 'rgba(39,174,96,.4)';
+        btn.style.color = 'var(--green)';
+        btn.onclick = reabrirCuentas;
+      } else {
+        btn.textContent = '🔒 COBRAR DEUDAS';
+        btn.style.borderColor = 'rgba(245,197,24,.4)';
+        btn.style.color = 'var(--fire)';
+        btn.onclick = cerrarCuentasAll;
+      }
+    });
+  }
   // Badge invitados pendientes para admin
   if (isAdmin()) {
     const pendCount = S.participants.filter(p=>p.role==='pendiente').length;
@@ -3677,6 +3722,19 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 });
 
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
+async function cerrarCuentasAll() {
+  if (!confirm('¿Cerrar cuentas? Todos los usuarios verán la pantalla de GASTOS al entrar hasta que cierres el estado.')) return;
+  await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'true' });
+  toast('💰 Cuentas cerradas — todos verán Gastos al entrar', 'var(--fire)', 4000);
+  // Notificar via realtime a los que ya están conectados
+  sb.channel('cuentas-canal').send({ type: 'broadcast', event: 'cerrar_cuentas', payload: {} });
+}
+
+async function reabrirCuentas() {
+  await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'false' });
+  toast('✅ Cuentas cerradas — todos vuelven a Inicio', 'var(--green)');
+}
+
 async function forceLogoutAll() {
   if (!confirm('¿Cerrar sesión a TODOS los usuarios? (vos no te ves afectado)')) return;
   const ts = Date.now().toString();
@@ -5270,27 +5328,37 @@ const F1_COLORES = {
     <div class="modal-title">💳 Confirmar pago
       <button class="modal-close" onclick="closeModal('modal-pago-confirm')">✕</button>
     </div>
-    <div style="text-align:center;padding:16px 0">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Transferí a</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px">
-        <div style="font-size:18px;font-weight:800;color:var(--fire)">📲 crilovino.mp</div>
-        <button onclick="navigator.clipboard.writeText('crilovino.mp');toast('✅ Alias copiado!','var(--green)')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--fire);background:rgba(245,197,24,.1);color:var(--fire);font-size:11px;font-weight:700;cursor:pointer">📋 COPIAR</button>
+    <input type="hidden" id="mpc-monto-val">
+    <input type="hidden" id="mpc-nombre">
+    <!-- Transferencia digital -->
+    <div style="background:var(--ash);border:1px solid var(--rim);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💳 Transferencia digital</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;color:var(--muted)">Alias</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px;font-weight:700;color:var(--fire)">crilovino.mp</span>
+          <button onclick="navigator.clipboard.writeText('crilovino.mp');toast('✅ Alias copiado!','var(--green)')" style="padding:3px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:11px;cursor:pointer">📋</button>
+        </div>
       </div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">el monto de</div>
-      <div style="font-size:36px;font-weight:800;color:var(--green);font-family:'Bebas Neue',cursive;letter-spacing:2px" id="mpc-monto"></div>
-      <input type="hidden" id="mpc-monto-val">
-      <input type="hidden" id="mpc-nombre">
-      <div style="margin-top:6px;padding:8px 14px;background:rgba(39,174,96,.08);border-radius:8px;border:1px solid rgba(39,174,96,.2);font-size:11px;color:var(--muted)">
-        💡 El monto fue copiado al portapapeles
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--muted)">Monto</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px;font-weight:700;color:var(--green)" id="mpc-monto"></span>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('mpc-monto-val').value);toast('✅ Monto copiado!','var(--green)')" style="padding:3px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:11px;cursor:pointer">📋</button>
+        </div>
       </div>
     </div>
-    <label class="fl">Nota opcional (ej: "transferí ayer")</label>
-    <input class="fi" id="mpc-nota" placeholder="Opcional...">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <button onclick="abrirModo()" style="padding:10px;border-radius:10px;border:none;background:#5B2D8E;color:white;font-size:12px;font-weight:700;cursor:pointer">💜 PAGAR CON MODO</button>
-      <button onclick="abrirMP()" style="padding:10px;border-radius:10px;border:none;background:#009EE3;color:white;font-size:12px;font-weight:700;cursor:pointer">💙 PAGAR CON MP</button>
+    <!-- Efectivo -->
+    <div style="background:var(--ash);border:1px solid var(--rim);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💵 Pagué en efectivo</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="fi" id="mpc-efectivo" type="number" placeholder="Monto en efectivo..." style="margin-bottom:0;flex:1">
+        <button onclick="confirmarPagoEfectivo()" style="padding:9px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">✅ CONFIRMAR</button>
+      </div>
     </div>
-    <button class="btp" style="width:100%;margin-top:4px" onclick="confirmarPagoUsuario()">✅ YA PAGUÉ — NOTIFICAR AL ADMIN</button>
+    <label class="fl">Nota (opcional)</label>
+    <input class="fi" id="mpc-nota" placeholder="ej: transferí ayer a las 18hs">
+    <button class="btp" style="width:100%;margin-top:4px" onclick="confirmarPagoUsuario()">📲 YA TRANSFERÍ — NOTIFICAR AL ADMIN</button>
     <button onclick="closeModal('modal-pago-confirm')" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--rim);background:transparent;color:var(--muted);font-size:13px;cursor:pointer">Cancelar</button>
   </div>
 </div>
