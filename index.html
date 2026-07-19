@@ -1641,14 +1641,31 @@ async function fetchPaymentRequests() {
   return data || [];
 }
 
+function abrirMP() {
+  const mpDeep = `mercadopago://send?alias=${MP_ALIAS}`;
+  window.location.href = mpDeep;
+  setTimeout(() => window.open('https://www.mercadopago.com.ar/', '_blank'), 1500);
+}
+
+function abrirModo() {
+  // Modo deep link — abre la app con el alias precargado
+  const modoDeep = `modo://send?cbu_alias=${MP_ALIAS}`;
+  window.location.href = modoDeep;
+  setTimeout(() => window.open('https://www.modopagos.com.ar/', '_blank'), 1500);
+}
+
 async function abrirPagoMP(deudor, monto) {
   if (!S.event) return;
   // Copiar monto al portapapeles
   try { await navigator.clipboard.writeText(String(Math.round(monto))); } catch(e) {}
   // Abrir Mercado Pago con alias
-  // URL correcta de MP — alias sin monto (el monto ya está copiado al portapapeles)
-  const mpUrl = `https://link.mercadopago.com.ar/${MP_ALIAS}`;
-  window.open(mpUrl, '_blank');
+  // Deep link MP — abre la app si está instalada, sino el sitio web
+  const mpDeep = `mercadopago://send?alias=${MP_ALIAS}`;
+  const mpWeb  = `https://www.mercadopago.com.ar/`;
+  try {
+    window.location.href = mpDeep;
+    setTimeout(() => window.open(mpWeb, '_blank'), 1500);
+  } catch(e) { window.open(mpWeb, '_blank'); }
   // Mostrar modal de confirmación de pago
   openModalPagoConfirm(deudor, monto);
 }
@@ -1800,10 +1817,17 @@ async function renderGastos() {
     : '';
   // Pagos pendientes de validar (solo admin)
   if (isAdmin()) {
+    // Limpiar bloque anterior antes de reinsertar
+    document.getElementById('pending-payments-block')?.remove();
     renderPendingPayments().then(html => {
       if (html) {
         const explistEl = document.getElementById('explist');
-        if (explistEl) explistEl.insertAdjacentHTML('beforebegin', html);
+        if (explistEl) {
+          const div = document.createElement('div');
+          div.id = 'pending-payments-block';
+          div.innerHTML = html;
+          explistEl.before(div);
+        }
       }
     });
   }
@@ -5262,6 +5286,10 @@ const F1_COLORES = {
     </div>
     <label class="fl">Nota opcional (ej: "transferí ayer")</label>
     <input class="fi" id="mpc-nota" placeholder="Opcional...">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <button onclick="abrirModo()" style="padding:10px;border-radius:10px;border:none;background:#5B2D8E;color:white;font-size:12px;font-weight:700;cursor:pointer">💜 PAGAR CON MODO</button>
+      <button onclick="abrirMP()" style="padding:10px;border-radius:10px;border:none;background:#009EE3;color:white;font-size:12px;font-weight:700;cursor:pointer">💙 PAGAR CON MP</button>
+    </div>
     <button class="btp" style="width:100%;margin-top:4px" onclick="confirmarPagoUsuario()">✅ YA PAGUÉ — NOTIFICAR AL ADMIN</button>
     <button onclick="closeModal('modal-pago-confirm')" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--rim);background:transparent;color:var(--muted);font-size:13px;cursor:pointer">Cancelar</button>
   </div>
