@@ -1662,17 +1662,6 @@ function abrirModo() {
 
 async function abrirPagoMP(deudor, monto) {
   if (!S.event) return;
-  // Copiar monto al portapapeles
-  try { await navigator.clipboard.writeText(String(Math.round(monto))); } catch(e) {}
-  // Abrir Mercado Pago con alias
-  // Deep link MP — abre la app si está instalada, sino el sitio web
-  const mpDeep = `mercadopago://send?alias=${MP_ALIAS}`;
-  const mpWeb  = `https://www.mercadopago.com.ar/`;
-  try {
-    window.location.href = mpDeep;
-    setTimeout(() => window.open(mpWeb, '_blank'), 1500);
-  } catch(e) { window.open(mpWeb, '_blank'); }
-  // Mostrar modal de confirmación de pago
   openModalPagoConfirm(deudor, monto);
 }
 
@@ -3672,24 +3661,7 @@ function renderAll() {
   renderVotaciones();
   populateSel();
   setTimeout(checkMenciones, 1500);
-  // Actualizar botón cobrar deudas según estado
-  if (isAdmin()) {
-    sb.from('app_config').select('value').eq('key','cuentas_abiertas').maybeSingle().then(({data}) => {
-      const btn = document.getElementById('btn-cerrar-cuentas');
-      if (!btn) return;
-      if (data?.value === 'true') {
-        btn.textContent = '🔓 FINALIZAR COBRO';
-        btn.style.borderColor = 'rgba(39,174,96,.4)';
-        btn.style.color = 'var(--green)';
-        btn.onclick = reabrirCuentas;
-      } else {
-        btn.textContent = '🔒 COBRAR DEUDAS';
-        btn.style.borderColor = 'rgba(245,197,24,.4)';
-        btn.style.color = 'var(--fire)';
-        btn.onclick = cerrarCuentasAll;
-      }
-    });
-  }
+
   // Badge invitados pendientes para admin
   if (isAdmin()) {
     const pendCount = S.participants.filter(p=>p.role==='pendiente').length;
@@ -5330,10 +5302,7 @@ const F1_COLORES = {
     <!-- Transferencia digital -->
     <div style="background:var(--ash);border:1px solid var(--rim);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💳 Transferencia digital</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-        <button onclick="abrirMP()" style="padding:8px;border-radius:8px;border:none;background:#009EE3;color:white;font-size:11px;font-weight:700;cursor:pointer">💙 Abrir MP</button>
-        <button onclick="abrirModo()" style="padding:8px;border-radius:8px;border:none;background:#5B2D8E;color:white;font-size:11px;font-weight:700;cursor:pointer">💜 Abrir Modo</button>
-      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:13px;color:var(--muted)">Alias</span>
         <div style="display:flex;align-items:center;gap:8px">
