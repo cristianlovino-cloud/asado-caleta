@@ -1646,7 +1646,8 @@ async function abrirPagoMP(deudor, monto) {
   // Copiar monto al portapapeles
   try { await navigator.clipboard.writeText(String(Math.round(monto))); } catch(e) {}
   // Abrir Mercado Pago con alias
-  const mpUrl = `https://mpago.la/transferir?alias=${MP_ALIAS}&amount=${Math.round(monto)}`;
+  // URL correcta de MP — alias sin monto (el monto ya está copiado al portapapeles)
+  const mpUrl = `https://link.mercadopago.com.ar/${MP_ALIAS}`;
   window.open(mpUrl, '_blank');
   // Mostrar modal de confirmación de pago
   openModalPagoConfirm(deudor, monto);
@@ -3177,24 +3178,22 @@ function renderOvSponsor() {
 }
 
 function renderSpCard(sp) {
-  const logoSection = sp.logo_url
-    ? `<div style="display:flex;justify-content:center;padding:14px 14px 0">
-        <img src="${sp.logo_url}" alt="${sp.nombre}" style="width:90px;height:90px;object-fit:contain;border-radius:16px;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05)">
-       </div>`
-    : `<div style="display:flex;justify-content:center;padding:14px 14px 0">
-        <div style="width:90px;height:90px;border-radius:16px;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:36px">🌍</div>
-       </div>`;
-  const wrap = sp.url ? `onclick="window.open('${sp.url}','_blank')" style="cursor:pointer"` : '';
-  return `<div ${wrap} style="border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative">
+  const logo = sp.logo_url
+    ? `<img src="${sp.logo_url}" alt="${sp.nombre}" style="width:72px;height:72px;object-fit:contain;border-radius:12px;border:2px solid rgba(255,255,255,.15);flex-shrink:0">`
+    : `<div style="width:72px;height:72px;border-radius:12px;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🌍</div>`;
+  const clickAttr = sp.url ? `onclick="window.open('${sp.url}','_blank')" ` : '';
+  return `<div ${clickAttr}style="border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative${sp.url?';cursor:pointer':''}">
     <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(100,160,255,.6),transparent)"></div>
-    <div style="padding:10px 14px 4px;display:flex;align-items:center;gap:4px">
+    <div style="padding:8px 14px 4px;display:flex;align-items:center;gap:4px">
       <div style="width:5px;height:5px;border-radius:50%;background:#4a90e2;animation:pulse 2s infinite"></div>
       <span style="font-size:9px;color:rgba(100,160,255,.8);font-weight:700;letter-spacing:1.5px;text-transform:uppercase">SPONSOR OFICIAL</span>
     </div>
-    ${logoSection}
-    <div style="padding:10px 14px 14px;text-align:center">
-      <div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">${sp.nombre}</div>
-      ${sp.tagline ? `<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">${sp.tagline}</div>` : ''}
+    <div style="padding:8px 14px 14px;display:flex;align-items:center;gap:14px">
+      ${logo}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">${sp.nombre}</div>
+        ${sp.tagline ? `<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">${sp.tagline}</div>` : ''}
+      </div>
     </div>
   </div>`;
 }
@@ -5249,7 +5248,10 @@ const F1_COLORES = {
     </div>
     <div style="text-align:center;padding:16px 0">
       <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Transferí a</div>
-      <div style="font-size:18px;font-weight:800;color:var(--fire);margin-bottom:4px">📲 crilovino.mp</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4px">
+        <div style="font-size:18px;font-weight:800;color:var(--fire)">📲 crilovino.mp</div>
+        <button onclick="navigator.clipboard.writeText('crilovino.mp');toast('✅ Alias copiado!','var(--green)')" style="padding:4px 10px;border-radius:8px;border:1px solid var(--fire);background:rgba(245,197,24,.1);color:var(--fire);font-size:11px;font-weight:700;cursor:pointer">📋 COPIAR</button>
+      </div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:4px">el monto de</div>
       <div style="font-size:36px;font-weight:800;color:var(--green);font-family:'Bebas Neue',cursive;letter-spacing:2px" id="mpc-monto"></div>
       <input type="hidden" id="mpc-monto-val">
