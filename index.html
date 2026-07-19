@@ -964,7 +964,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[], votaciones:[], votacion_opciones:[], votacion_votos:[] };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[], votaciones:[], votacion_opciones:[], votacion_votos:[], paymentReqs:[] };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -1016,7 +1016,7 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg,vac,vaco,vacv] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg,vac,vaco,vacv,pr] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
@@ -1031,6 +1031,7 @@ async function fetchAll() {
     sb.from('votaciones').select('*').order('id'),
     sb.from('votacion_opciones').select('*').order('orden'),
     sb.from('votacion_votos').select('*'),
+    S.event ? sb.from('payment_requests').select('*').eq('event_id', S.event?.id || 0).order('created_at', { ascending: false }) : Promise.resolve({data:[]}),
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
@@ -1069,6 +1070,7 @@ async function fetchAll() {
   if (vac.data)  S.votaciones         = vac.data;
   if (vaco.data) S.votacion_opciones  = vaco.data;
   if (vacv.data) S.votacion_votos     = vacv.data;
+  if (pr.data)   S.paymentReqs        = pr.data;
 
   // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
   S.rsvp = {};
@@ -1711,7 +1713,7 @@ async function confirmarPagoUsuario() {
 }
 
 async function renderPendingPayments() {
-  const reqs = await fetchPaymentRequests();
+  const reqs = S.paymentReqs || [];
   const pendientes = reqs.filter(r => r.estado === 'pendiente');
   if (!pendientes.length) return '';
   return `<div style="background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.3);border-radius:12px;padding:12px;margin-bottom:12px">
