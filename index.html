@@ -1630,6 +1630,106 @@ async function addExpense() {
     .then(()=>fetchAll());
 }
 
+
+// ══ SISTEMA DE PAGOS MP ═══════════════════════════════════════════════════
+
+const MP_ALIAS = 'crilovino.mp';
+
+async function fetchPaymentRequests() {
+  if (!S.event) return [];
+  const { data } = await sb.from('payment_requests').select('*').eq('event_id', S.event.id).order('created_at', { ascending: false });
+  return data || [];
+}
+
+async function abrirPagoMP(deudor, monto) {
+  if (!S.event) return;
+  // Copiar monto al portapapeles
+  try { await navigator.clipboard.writeText(String(Math.round(monto))); } catch(e) {}
+  // Abrir Mercado Pago con alias
+  const mpUrl = `https://mpago.la/transferir?alias=${MP_ALIAS}&amount=${Math.round(monto)}`;
+  window.open(mpUrl, '_blank');
+  // Mostrar modal de confirmación de pago
+  openModalPagoConfirm(deudor, monto);
+}
+
+function openModalPagoConfirm(deudor, monto) {
+  const modal = document.getElementById('modal-pago-confirm');
+  if (!modal) return;
+  document.getElementById('mpc-nombre').textContent = deudor.toUpperCase();
+  document.getElementById('mpc-monto').textContent = fmt(monto);
+  document.getElementById('mpc-monto-val').value = monto;
+  document.getElementById('mpc-nota').value = '';
+  modal.classList.add('open');
+}
+
+async function confirmarPagoUsuario() {
+  const monto = parseFloat(document.getElementById('mpc-monto-val').value);
+  const nota = document.getElementById('mpc-nota').value.trim();
+  if (!monto || !me || !S.event) return;
+  const { error } = await sb.from('payment_requests').insert({
+    participant_name: me,
+    monto,
+    event_id: S.event.id,
+    estado: 'pendiente',
+    nota: nota || null
+  });
+  if (error) { toast('❌ Error: ' + error.message, 'var(--red)'); return; }
+  closeModal('modal-pago-confirm');
+  toast('✅ ¡Pago notificado! El admin lo va a confirmar', 'var(--green)', 4000);
+  renderGastos();
+}
+
+async function renderPendingPayments() {
+  const reqs = await fetchPaymentRequests();
+  const pendientes = reqs.filter(r => r.estado === 'pendiente');
+  if (!pendientes.length) return '';
+  return `<div style="background:rgba(245,197,24,.06);border:1px solid rgba(245,197,24,.3);border-radius:12px;padding:12px;margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--fire);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⏳ Pagos a validar (${pendientes.length})</div>
+    ${pendientes.map(r => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div>
+          <div style="font-size:13px;font-weight:700">${r.participant_name.toUpperCase()}</div>
+          <div style="font-size:11px;color:var(--muted)">${fmt(r.monto)}${r.nota ? ' · ' + r.nota : ''}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="validarPago(${r.id},'aprobado')" style="padding:5px 10px;border-radius:8px;border:none;background:rgba(39,174,96,.2);color:var(--green);font-size:12px;font-weight:700;cursor:pointer">✅</button>
+          <button onclick="validarPago(${r.id},'rechazado')" style="padding:5px 10px;border-radius:8px;border:none;background:rgba(231,76,60,.15);color:var(--red);font-size:12px;font-weight:700;cursor:pointer">❌</button>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+async function validarPago(id, estado) {
+  await sb.from('payment_requests').update({
+    estado,
+    validated_at: new Date().toISOString(),
+    validated_by: me
+  }).eq('id', id);
+
+  if (estado === 'aprobado') {
+    // Registrar el pago en la tabla payments existente
+    const req = (await sb.from('payment_requests').select('*').eq('id', id).single()).data;
+    if (req) {
+      // Encontrar el acreedor principal del evento
+      const payments = await fetchPayments();
+      const acreedores = allP().filter(p => bal(p) > 0.5);
+      if (acreedores.length) {
+        await sb.from('payments').insert({
+          event_id: S.event.id,
+          payer: req.participant_name,
+          receiver: acreedores[0],
+          amount: req.monto,
+          note: 'Pago via MP · ' + (req.nota || '')
+        });
+      }
+    }
+    toast('✅ Pago confirmado y registrado', 'var(--green)');
+  } else {
+    toast('❌ Pago rechazado', 'var(--red)');
+  }
+  renderGastos();
+}
+
 async function renderGastos() {
   if (!S.event) return;
   await fetchAll();
@@ -1687,6 +1787,7 @@ async function renderGastos() {
       <div>
         <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':acrCobrado?'✅':b>=0?'+':'-'}${saldado||acrCobrado?'':b>0.5?fmt(pendienteCobrar):fmt(b)}</div>
         <div class="blbl">${saldado?'saldado':acrCobrado?'cobrado':b>=0?'a cobrar':'debe pagar'}</div>
+        ${im && b < -0.5 && !saldado ? `<button onclick="abrirPagoMP('${p}',${Math.abs(b)})" style="margin-top:4px;padding:5px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,#00b4f5,#009ee3);color:white;font-size:11px;font-weight:700;cursor:pointer;width:100%">💳 PAGAR MP</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -1696,6 +1797,15 @@ async function renderGastos() {
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
     : '';
+  // Pagos pendientes de validar (solo admin)
+  if (isAdmin()) {
+    renderPendingPayments().then(html => {
+      if (html) {
+        const explistEl = document.getElementById('explist');
+        if (explistEl) explistEl.insertAdjacentHTML('beforebegin', html);
+      }
+    });
+  }
 
   const el=document.getElementById('explist');
   if (el) el.innerHTML=S.expenses.length===0
@@ -3067,25 +3177,26 @@ function renderOvSponsor() {
 }
 
 function renderSpCard(sp) {
-  const logo = sp.logo_url
-    ? '<img src="' + sp.logo_url + '" alt="' + sp.nombre + '" style="width:56px;height:56px;object-fit:contain;border-radius:50%;border:2px solid rgba(255,255,255,.15);flex-shrink:0" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">' +
-      '<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:none;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌍</div>'
-    : '<div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🌍</div>';
-  return '<div style="border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative">' +
-    '<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(100,160,255,.6),transparent)"></div>' +
-    '<div style="padding:10px 14px 6px;display:flex;align-items:center;gap:4px">' +
-      '<div style="width:5px;height:5px;border-radius:50%;background:#4a90e2;animation:pulse 2s infinite"></div>' +
-      '<span style="font-size:9px;color:rgba(100,160,255,.8);font-weight:700;letter-spacing:1.5px;text-transform:uppercase">SPONSOR OFICIAL</span>' +
-    '</div>' +
-    '<div style="padding:8px 14px 14px;display:flex;align-items:center;gap:12px">' +
-      logo +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">' + sp.nombre + '</div>' +
-        (sp.tagline ? '<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">' + sp.tagline + '</div>' : '') +
-      '</div>' +
-      (sp.url ? '<a href="' + sp.url + '" target="_blank" style="flex-shrink:0;padding:6px 10px;border-radius:8px;border:1px solid rgba(100,160,255,.3);background:rgba(100,160,255,.1);color:rgba(150,190,255,.9);font-size:10px;font-weight:700;text-decoration:none;text-transform:uppercase;letter-spacing:.5px">VER ↗</a>' : '') +
-    '</div>' +
-  '</div>';
+  const logoSection = sp.logo_url
+    ? `<div style="display:flex;justify-content:center;padding:14px 14px 0">
+        <img src="${sp.logo_url}" alt="${sp.nombre}" style="width:90px;height:90px;object-fit:contain;border-radius:16px;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05)">
+       </div>`
+    : `<div style="display:flex;justify-content:center;padding:14px 14px 0">
+        <div style="width:90px;height:90px;border-radius:16px;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:36px">🌍</div>
+       </div>`;
+  const wrap = sp.url ? `onclick="window.open('${sp.url}','_blank')" style="cursor:pointer"` : '';
+  return `<div ${wrap} style="border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative">
+    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(100,160,255,.6),transparent)"></div>
+    <div style="padding:10px 14px 4px;display:flex;align-items:center;gap:4px">
+      <div style="width:5px;height:5px;border-radius:50%;background:#4a90e2;animation:pulse 2s infinite"></div>
+      <span style="font-size:9px;color:rgba(100,160,255,.8);font-weight:700;letter-spacing:1.5px;text-transform:uppercase">SPONSOR OFICIAL</span>
+    </div>
+    ${logoSection}
+    <div style="padding:10px 14px 14px;text-align:center">
+      <div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">${sp.nombre}</div>
+      ${sp.tagline ? `<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">${sp.tagline}</div>` : ''}
+    </div>
+  </div>`;
 }
 
 let _spIdx = 0;
@@ -5127,6 +5238,30 @@ const F1_COLORES = {
       <button class="btp" style="flex:1" onclick="guardarLockerItem()">💾 GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-locker-item')">✕</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal Confirmar Pago -->
+<div class="modal-bg" id="modal-pago-confirm">
+  <div class="modal">
+    <div class="modal-title">💳 Confirmar pago
+      <button class="modal-close" onclick="closeModal('modal-pago-confirm')">✕</button>
+    </div>
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Transferí a</div>
+      <div style="font-size:18px;font-weight:800;color:var(--fire);margin-bottom:4px">📲 crilovino.mp</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">el monto de</div>
+      <div style="font-size:36px;font-weight:800;color:var(--green);font-family:'Bebas Neue',cursive;letter-spacing:2px" id="mpc-monto"></div>
+      <input type="hidden" id="mpc-monto-val">
+      <input type="hidden" id="mpc-nombre">
+      <div style="margin-top:6px;padding:8px 14px;background:rgba(39,174,96,.08);border-radius:8px;border:1px solid rgba(39,174,96,.2);font-size:11px;color:var(--muted)">
+        💡 El monto fue copiado al portapapeles
+      </div>
+    </div>
+    <label class="fl">Nota opcional (ej: "transferí ayer")</label>
+    <input class="fi" id="mpc-nota" placeholder="Opcional...">
+    <button class="btp" style="width:100%;margin-top:4px" onclick="confirmarPagoUsuario()">✅ YA PAGUÉ — NOTIFICAR AL ADMIN</button>
+    <button onclick="closeModal('modal-pago-confirm')" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--rim);background:transparent;color:var(--muted);font-size:13px;cursor:pointer">Cancelar</button>
   </div>
 </div>
 </body>
