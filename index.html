@@ -654,68 +654,6 @@ body {
     </div>
   </div>
 </div>
-
-<!-- ══ MODALES ════════════════════════════════════════ -->
-
-<!-- Modal Votos -->
-<div class="modal-bg" id="modal-votos">
-  <div class="modal" style="max-height:85vh;overflow-y:auto">
-    <div class="modal-title">🗳️ Votos <button class="modal-close" onclick="closeModal('modal-votos')">X</button></div>
-    <div id="modal-votos-content"></div>
-  </div>
-</div>
-<!-- Modal Stats -->
-<div class="modal-bg" id="modal-stats">
-  <div class="modal" style="max-height:85vh;overflow-y:auto">
-    <div class="modal-title">🏆 Estadísticas <button class="modal-close" onclick="closeModal('modal-stats')">X</button></div>
-    <div id="modal-stats-content"></div>
-  </div>
-</div>
-<!-- Modal Logout -->
-<div class="modal-bg" id="modal-logout">
-  <div class="modal" style="text-align:center;padding:24px">
-    <div style="font-size:48px;margin-bottom:12px">🚪</div>
-    <div style="font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;margin-bottom:8px">SALIR</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Vas a cerrar tu sesion.<br>Vas a tener que volver a ingresar tu nombre.</div>
-    <div style="display:flex;gap:10px">
-      <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
-      <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal comensales -->
-<div class="modal-bg" id="modal-comensales">
-  <div class="modal">
-    <div class="modal-title">👥 Comensales <button class="modal-close" onclick="closeModal('modal-comensales')">✕</button></div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5">Cantidad de personas que dividen el costo. Puede ser diferente a los participantes registrados.</p>
-    <label class="fl">Cantidad de comensales</label>
-    <input class="fi" id="comen-input" type="number" inputmode="numeric" placeholder="11" min="1" max="100">
-    <div class="frow">
-      <button class="btp" onclick="saveComensales()">GUARDAR</button>
-      <button class="btg" onclick="closeModal('modal-comensales')">CANCELAR</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal editar gasto -->
-<div class="modal-bg" id="modal-edit-expense">
-  <div class="modal">
-    <div class="modal-title">✏️ Editar Gasto <button class="modal-close" onclick="closeModal('modal-edit-expense')">✕</button></div>
-    <input type="hidden" id="edit-exp-id">
-    <label class="fl">Concepto</label>
-    <input class="fi" id="edit-exp-desc" placeholder="Concepto...">
-    <label class="fl">Monto $</label>
-    <input class="fi" id="edit-exp-amt" type="number" inputmode="numeric" placeholder="0">
-    <label class="fl">Pagado por</label>
-    <select class="fsel" id="edit-exp-payer"></select>
-    <div class="frow">
-      <button class="btp" onclick="saveEditExpense()">GUARDAR</button>
-      <button class="btg" style="color:var(--red);border-color:rgba(231,76,60,.3)" onclick="deleteExpense()">🗑 ELIMINAR</button>
-    </div>
-  </div>
-</div>
-
 <!-- Editar evento -->
 <div class="modal-bg" id="modal-event">
   <div class="modal">
@@ -1333,9 +1271,6 @@ function toggleAdminBar() {
 
 // ══ MODALES ════════════════════════════════════════
 function openModal(id) {
-  if (id==='modal-comensales' && S.event) {
-    document.getElementById('comen-input').value = S.event.comensales || allP().length;
-  }
   if (id==='modal-comensales' && S.event) {
     document.getElementById('comen-input').value = S.event.comensales || allP().length;
   }
@@ -2912,49 +2847,6 @@ async function deleteExpense() {
   toast('🗑 Gasto eliminado');
 }
 
-// ══ COMENSALES ═══════════════════════════════════
-function saveComensales() {
-  const n = parseInt(document.getElementById('comen-input').value);
-  if (!n || n < 1) { toast('Ingresá un número válido','var(--red)'); return; }
-  sb.from('events').update({comensales: n}).eq('id', S.event.id).then(()=>{
-    closeModal('modal-comensales');
-    fetchAll();
-    toast('✅ Comensales actualizados!');
-  });
-}
-
-function openEditExpense(id) {
-  const e = S.expenses.find(x=>x.id===id);
-  if (!e) return;
-  document.getElementById('edit-exp-id').value   = id;
-  document.getElementById('edit-exp-desc').value = e.description;
-  document.getElementById('edit-exp-amt').value  = e.amount;
-  const sel = document.getElementById('edit-exp-payer');
-  sel.innerHTML = allP().map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p}</option>`).join('');
-  openModal('modal-edit-expense');
-}
-
-async function saveEditExpense() {
-  const id    = parseInt(document.getElementById('edit-exp-id').value);
-  const desc  = document.getElementById('edit-exp-desc').value.trim();
-  const amt   = parseFloat(document.getElementById('edit-exp-amt').value);
-  const payer = document.getElementById('edit-exp-payer').value;
-  if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  await sb.from('expenses').update({description:desc, amount:amt, payer}).eq('id',id);
-  closeModal('modal-edit-expense');
-  await fetchAll();
-  toast('✅ Gasto actualizado!');
-}
-
-async function deleteExpense() {
-  const id = parseInt(document.getElementById('edit-exp-id').value);
-  if (!confirm('¿Eliminar este gasto?')) return;
-  await sb.from('expenses').delete().eq('id',id);
-  closeModal('modal-edit-expense');
-  await fetchAll();
-  toast('🗑 Gasto eliminado');
-}
-
 // ══ WS ════════════════════════════════════════════
 function setTmpl(el,t){ document.querySelectorAll('.tbt').forEach(b=>b.classList.remove('active')); el.classList.add('active'); tmpl=t; renderWS(); }
 
@@ -3137,12 +3029,6 @@ async function rsvpCalendario(fechaISO, resp) {
     await sb.from('calendar_rsvp').delete()
       .eq('fecha', fechaISO).eq('nombre', me);
   }
-}
-
-function enviarFelizCumple(nombre) {
-  const msg = `🎂 *¡FELIZ CUMPLE MANDI ${nombre.toUpperCase()}!* 🎉\n\nDesde el grupo te deseamos un día increíble, que la pases bomba y que el próximo asado sea tuyo! 🔥🥩`;
-  const encoded = encodeURIComponent(msg);
-  window.open(`https://wa.me/?text=${encoded}`, '_blank');
 }
 
 function renderOvHero(conf, pendientes, cumples, fechaStr) {
@@ -4623,15 +4509,6 @@ function abrirEditOpcion(id, nombre, emoji) {
   if (!nuevoNombre) return;
   const nuevoEmoji = prompt('Emoji:', emoji) || emoji;
   editarOpcionVoto(id, nuevoNombre, nuevoEmoji);
-}
-
-function abrirVotosModal() {
-  if (S.votosOpciones.length === 0) {
-    initVotosOpciones().then(() => { openModal('modal-votos'); renderVotos(); });
-  } else {
-    openModal('modal-votos');
-    renderVotos();
-  }
 }
 
 // ══ STATS ═════════════════════════════════════════
