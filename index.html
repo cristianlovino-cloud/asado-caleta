@@ -3416,7 +3416,7 @@ async function fetchClima() {
     const d = await r.json();
     if (d.cod !== 200) throw new Error('API error');
     const temp = getWeatherEmoji(d.weather[0].id) + ' ' + Math.round(d.main.temp) + '°C';
-    const desc = d.weather[0].description.toUpperCase().substring(0, 10);
+    const desc = d.weather[0].description.toUpperCase();
 
     // Guardar en Supabase para que todos los usuarios usen este dato
     await Promise.all([
