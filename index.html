@@ -1991,13 +1991,13 @@ async function renderSugerencias() {
         <div style="height:100%;width:${pctSi}%;background:var(--green);transition:width .4s"></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px"><span>${pctSi}% a favor</span><span>${total} votos</span></div>` : ''}
-    ` : `<div style="margin-top:8px;font-size:11px;color:${ESTADO_COLORS[s.estado]};font-weight:700">${ESTADO_LABELS[s.estado]} · 👍${totalSi} 👎${totalNo}</div>`;
+    ` : `<div style="margin-top:8px;font-size:11px;color:${ESTADO_COLORS[s.estado]};font-weight:700;text-transform:uppercase">${ESTADO_LABELS[s.estado]} · 👍${totalSi} 👎${totalNo}</div>`;
 
     return `<div class="card" style="margin-bottom:10px${s.estado!=='pendiente'?';opacity:.7':''}">
-      <div style="font-size:13px;line-height:1.5">${s.texto.replace(/@(\w+)/g, '<span style="color:var(--fire);font-weight:700">@$1</span>')}</div>
+      <div style="font-size:13px;line-height:1.5;text-transform:uppercase">${s.texto.replace(/@(\w+)/g, '<span style="color:var(--fire);font-weight:700">@$1</span>')}</div>
       <div style="font-size:10px;color:var(--muted);margin-top:5px">${s.autor.toUpperCase()} · ${fecha}</div>
       ${botonesVoto}
-      ${isAdmin() && s.estado==='pendiente' ? `<button onclick="eliminarSugerencia(${s.id})" style="margin-top:6px;padding:3px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.1);color:var(--red);font-size:10px;cursor:pointer">Eliminar</button>` : ''}
+      ${isAdmin() && s.estado==='pendiente' ? `<button onclick="eliminarSugerencia(${s.id})" style="margin-top:6px;padding:3px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.1);color:var(--red);font-size:10px;cursor:pointer;text-transform:uppercase">Eliminar</button>` : ''}
     </div>`;
   };
 
@@ -2005,7 +2005,7 @@ async function renderSugerencias() {
     <div style="background:var(--card);border:1px solid var(--rim);border-radius:14px;padding:12px;margin-bottom:14px">
       <div class="sh" style="margin-bottom:8px">💡 Nueva sugerencia</div>
       <div style="position:relative">
-        <textarea class="fi" id="sug-nueva-texto" placeholder="¿Qué mejorarías del asado? Usá @nombre para mencionar" style="min-height:80px;resize:vertical;font-family:inherit" oninput="sugAtMention(this)"></textarea>
+        <textarea class="fi" id="sug-nueva-texto" placeholder="¿Qué mejorarías del asado? Usá @nombre para mencionar" style="min-height:80px;resize:vertical;font-family:inherit;text-transform:uppercase" oninput="sugAtMention(this)"></textarea>
         <div id="sug-mention-list" style="display:none;position:absolute;left:0;right:0;top:100%;background:var(--card);border:1px solid var(--rim);border-radius:10px;z-index:100;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.2)"></div>
       </div>
       <button class="btp" style="width:100%;margin-top:6px" onclick="enviarSugerencia()">📬 ENVIAR</button>
@@ -2096,15 +2096,25 @@ async function enviarSugerencia() {
 
 async function votarSugerencia(id, voto) {
   if (!me) return;
-  // Si ya votó lo mismo, quita el voto
-  const { data: existing } = await sb.from('sugerencias_votos').select('*')
-    .eq('sugerencia_id', id).ilike('participant_name', me).maybeSingle();
-  if (existing?.voto === voto) {
-    await sb.from('sugerencias_votos').delete().eq('id', existing.id);
-  } else if (existing) {
-    await sb.from('sugerencias_votos').update({ voto }).eq('id', existing.id);
-  } else {
-    await sb.from('sugerencias_votos').insert({ sugerencia_id: id, participant_name: me, voto });
+  try {
+    // Si ya votó lo mismo, quita el voto (uso maybeSingle con limit por si hay duplicados viejos)
+    const { data: existingRows, error: selErr } = await sb.from('sugerencias_votos').select('*')
+      .eq('sugerencia_id', id).ilike('participant_name', me).order('id', { ascending: false }).limit(1);
+    if (selErr) throw selErr;
+    const existing = existingRows?.[0] || null;
+    let opErr;
+    if (existing?.voto === voto) {
+      ({ error: opErr } = await sb.from('sugerencias_votos').delete().eq('id', existing.id));
+    } else if (existing) {
+      ({ error: opErr } = await sb.from('sugerencias_votos').update({ voto }).eq('id', existing.id));
+    } else {
+      ({ error: opErr } = await sb.from('sugerencias_votos').insert({ sugerencia_id: id, participant_name: me, voto }));
+    }
+    if (opErr) throw opErr;
+  } catch (e) {
+    console.error('votarSugerencia error:', e);
+    toast('❌ No se pudo registrar el voto', 'var(--red)');
+    return;
   }
   await renderSugerencias();
 }
@@ -2644,7 +2654,7 @@ function renderPersonPicker(pickerId, hiddenId, selected, includeEmpty=true) {
   const all = includeEmpty ? ['', ...people] : people;
   el.innerHTML = all.map(p => {
     const active = p === selected;
-    const label = p || 'Sin asignar';
+    const label = (p || 'Sin asignar').toUpperCase();
     return `<button type="button" onclick="selectPersonPicker('${pickerId}','${hiddenId}',this.dataset.val)" data-val="${p}" style="padding:5px 11px;border-radius:20px;border:1.5px solid ${active ? 'var(--fire)' : 'var(--rim)'};background:${active ? 'rgba(245,197,24,.15)' : 'var(--ash)'};color:${active ? 'var(--fire)' : 'var(--muted)'};font-size:12px;font-weight:${active ? '700' : '400'};cursor:pointer">${label}</button>`;
   }).join('');
 }
