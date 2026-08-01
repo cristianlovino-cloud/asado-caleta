@@ -1044,6 +1044,9 @@ async function fetchAll() {
   if (cfg.data) {
     const owmRow = cfg.data.find(r => r.key === 'owm_key');
     if (owmRow?.value) OWM_KEY = owmRow.value;
+    // Info física del locker (número y clave), visible para todos
+    S.lockerNumero = cfg.data.find(r => r.key === 'locker_numero')?.value || '';
+    S.lockerClave  = cfg.data.find(r => r.key === 'locker_clave')?.value || '';
     // Cobro de deudas activo: forzar tab gastos a no-admin
     const cuentasRow = cfg.data.find(r => r.key === 'cuentas_abiertas');
     if (cuentasRow?.value === 'true' && !isAdmin()) {
@@ -1154,6 +1157,8 @@ async function doLogin() {
   localStorage.setItem('asado_login_ts', Date.now());
   // Admin entra siempre directo
   if (v.toLowerCase() === ADMIN_USER.toLowerCase()) { entrarApp(v); return; }
+  // Asegurar que los datos base (participantes, evento activo, rsvp) ya cargaron
+  if (!S.event || !S.participants?.length) await fetchAll();
   // Verificar rsvp desde Supabase (fuente de verdad)
   let part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase());
 
@@ -1881,12 +1886,15 @@ async function renderLockerPanel() {
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div>';
   const { data } = await sb.from('locker_items').select('*').eq('active', true).order('nombre');
+  const cabecera = '<div class="sh" style="margin-bottom:12px">🔒 Inventario Locker La Caleta</div>' +
+    renderLockerInfoCard() +
+    '<button class="btp" style="width:100%;margin-bottom:12px" onclick="openNuevoLockerItem()">+ AGREGAR ITEM</button>';
   if (!data?.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">🔒<br><br>Sin inventario registrado</div>';
+    el.innerHTML = cabecera + '<div style="text-align:center;padding:40px;color:var(--muted)">🔒<br><br>Sin inventario registrado</div>';
     return;
   }
   const ESTADOS = { disponible: { label: '✅ Disponible', color: 'var(--green)' }, bajo: { label: '⚠️ Bajo', color: 'var(--ember)' }, agotado: { label: '❌ Agotado', color: 'var(--red)' } };
-  el.innerHTML = '<div class="sh" style="margin-bottom:12px">🔒 Inventario Locker La Caleta</div>' +
+  el.innerHTML = cabecera +
     data.map(item => {
       const est = ESTADOS[item.estado] || ESTADOS.disponible;
       const fotoHtml = item.foto_url
@@ -1901,7 +1909,10 @@ async function renderLockerPanel() {
           <div style="font-size:11px;color:${est.color};font-weight:600;margin-top:3px">${est.label}${item.updated_by ? ' · ' + item.updated_by + ' ' + updStr : ''}</div>
           ${item.notas ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">${item.notas}</div>` : ''}
         </div>
-        <button onclick="editarLockerItem(${item.id})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer;flex-shrink:0">✏️</button>
+        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+          <button onclick="editarLockerItem(${item.id})" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer">✏️</button>
+          <button onclick="eliminarLockerItem(${item.id})" style="padding:6px 10px;border-radius:8px;border:none;background:rgba(231,76,60,.15);color:var(--red);font-size:12px;cursor:pointer">✕</button>
+        </div>
       </div>`;
     }).join('');
 }
@@ -2140,6 +2151,47 @@ const LOCKER_ESTADOS = [
   { key: 'agotado',    label: '❌ Agotado',     color: 'var(--red)'   },
 ];
 
+function renderLockerInfoCard() {
+  const numero = S.lockerNumero || '';
+  const clave  = S.lockerClave  || '';
+  if (!numero && !clave && !isAdmin()) return ''; // nada que mostrar y no es admin
+  return `<div class="card" style="display:flex;align-items:center;gap:14px;margin-bottom:10px;background:rgba(255,165,0,.08);border-color:rgba(255,165,0,.3)">
+    <div style="flex:1;display:flex;gap:18px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">N° Locker</div>
+        <div style="font-size:18px;font-weight:700;color:#FFA500">${numero || '—'}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Clave</div>
+        <div style="font-size:18px;font-weight:700;color:#FFA500;letter-spacing:1px">${clave || '—'}</div>
+      </div>
+    </div>
+    ${isAdmin() ? `<button onclick="editarLockerInfo()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer;flex-shrink:0">✏️</button>` : ''}
+  </div>`;
+}
+
+async function editarLockerInfo() {
+  if (!isAdmin()) return;
+  const numero = prompt('N° de locker:', S.lockerNumero || '');
+  if (numero === null) return;
+  const clave = prompt('Clave del locker:', S.lockerClave || '');
+  if (clave === null) return;
+  try {
+    await Promise.all([
+      sb.from('app_config').upsert({ key: 'locker_numero', value: numero.trim() }),
+      sb.from('app_config').upsert({ key: 'locker_clave',  value: clave.trim() }),
+    ]);
+    S.lockerNumero = numero.trim();
+    S.lockerClave  = clave.trim();
+    toast('✅ Datos del locker actualizados', 'var(--green)');
+    const panelLocker = document.getElementById('panel-locker');
+    if (panelLocker?.classList.contains('active')) await renderLockerPanel();
+    else await renderLocker();
+  } catch(e) {
+    toast('❌ Error: ' + e.message, 'var(--red)');
+  }
+}
+
 async function openLocker() {
   openModal('modal-locker');
   await renderLocker();
@@ -2151,11 +2203,12 @@ async function renderLocker() {
   el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">Cargando...</div>';
   const { data, error } = await sb.from('locker_items').select('*').eq('active', true).order('nombre');
   if (error) { el.innerHTML = '<div style="color:var(--red)">Error: ' + error.message + '</div>'; return; }
+  const infoCard = renderLockerInfoCard();
   if (!data?.length) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">🔒<br><br>El locker está vacío<br><span style="font-size:11px">Agregá items después del asado</span></div>';
+    el.innerHTML = infoCard + '<div style="text-align:center;padding:30px;color:var(--muted)">🔒<br><br>El locker está vacío<br><span style="font-size:11px">Agregá items después del asado</span></div>';
     return;
   }
-  el.innerHTML = data.map(item => {
+  el.innerHTML = infoCard + data.map(item => {
     const est = LOCKER_ESTADOS.find(e => e.key === item.estado) || LOCKER_ESTADOS[0];
     const fotoHtml = item.foto_url
       ? `<img src="${item.foto_url}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim)">`
@@ -2274,7 +2327,9 @@ async function guardarLockerItem() {
 async function eliminarLockerItem(id) {
   if (!confirm('¿Eliminar este item del locker?')) return;
   await sb.from('locker_items').update({ active: false }).eq('id', id);
-  await renderLocker();
+  const panelLocker = document.getElementById('panel-locker');
+  if (panelLocker?.classList.contains('active')) await renderLockerPanel();
+  else await renderLocker();
   toast('Item eliminado');
 }
 
