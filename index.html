@@ -300,8 +300,8 @@ body {
 .ov-hero::before{content:'';position:absolute;right:-15px;top:-15px;width:120px;height:120px;background:rgba(255,255,255,.08);border-radius:50%}
 .ov-title{font-family:var(--font-title);font-size:26px;letter-spacing:2px;margin-bottom:2px}
 .ov-date{font-size:12px;opacity:.85;margin-bottom:14px}
-.ov-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.ov-stat{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 8px;text-align:center;backdrop-filter:blur(4px)}
+.ov-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ov-stat{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 8px;text-align:center;backdrop-filter:blur(4px);overflow:hidden}
 .ov-stat-n{font-family:var(--font-title);font-size:26px;line-height:1}
 .ov-stat-l{font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .ov-card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--rim)}
