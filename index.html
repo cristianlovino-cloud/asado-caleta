@@ -184,6 +184,7 @@ body {
 .fw.open{display:block}
 .fl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:5px;display:block}
 .fi,.fsel{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;margin-bottom:8px;transition:border-color .2s;direction:ltr;unicode-bidi:embed}
+.fi-monto{font-size:22px;font-weight:700;letter-spacing:.5px}
 .fi:focus,.fsel:focus{border-color:var(--fire)}
 .fsel option{background:var(--ash)}
 .frow{display:flex;gap:7px}
@@ -425,9 +426,9 @@ body {
     </div>
     <div class="fw" id="fexp">
       <label class="fl">Concepto</label>
-      <input class="fi" id="fedesc" placeholder="ej: carne, bebidas...">
+      <input class="fi" id="fedesc" placeholder="ej: carne, bebidas..." oninput="this.value=this.value.toUpperCase()">
       <label class="fl">Monto $</label>
-      <input class="fi" id="feamt" type="number" placeholder="0" inputmode="numeric">
+      <input class="fi fi-monto" id="feamt" type="text" placeholder="0" inputmode="numeric" oninput="formatMontoInput(this)">
       <div class="frow">
         <button class="btp" onclick="addExpense()">GUARDAR</button>
         <button class="btg" onclick="tf('fexp')">✕</button>
@@ -630,9 +631,9 @@ body {
     <div class="modal-title">✏️ Editar Gasto <button class="modal-close" onclick="closeModal('modal-edit-expense')">✕</button></div>
     <input type="hidden" id="edit-exp-id">
     <label class="fl">Concepto</label>
-    <input class="fi" id="edit-exp-desc" placeholder="Concepto...">
+    <input class="fi" id="edit-exp-desc" placeholder="Concepto..." oninput="this.value=this.value.toUpperCase()">
     <label class="fl">Monto $</label>
-    <input class="fi" id="edit-exp-amt" type="number" inputmode="numeric" placeholder="0">
+    <input class="fi fi-monto" id="edit-exp-amt" type="text" inputmode="numeric" placeholder="0" oninput="formatMontoInput(this)">
     <label class="fl">Pagado por</label>
     <select class="fsel" id="edit-exp-payer"></select>
     <div class="frow">
@@ -741,7 +742,7 @@ body {
     <label class="fl">Quién pagó</label>
     <select class="fi" id="mp-payer" style="margin-bottom:8px"></select>
     <label class="fl">Cuánto</label>
-    <input class="fi" id="mp-amount" type="number" placeholder="$0" style="margin-bottom:8px">
+    <input class="fi fi-monto" id="mp-amount" type="text" inputmode="numeric" placeholder="$0" style="margin-bottom:8px" oninput="formatMontoInput(this)">
     <label class="fl">Cómo pagó</label>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <label style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);cursor:pointer">
@@ -929,6 +930,17 @@ const getRsvpAt= name => S.rsvp[name.toLowerCase()]?.rsvp_at || null;
 
 const allP = () => [...new Set(S.participants.filter(p=>(p.active && getRsvp(p.name)==='si') || (p.role==='invitado' && getRsvp(p.name)==='si')).map(p=>p.name))];
 const fmt     = n  => '$'+Math.abs(Math.round(n)).toLocaleString('es-AR');
+
+// Formatea un input de monto con puntos de miles mientras se escribe (ej: 120000 → 120.000)
+function formatMontoInput(el) {
+  const digits = el.value.replace(/\D/g, '');
+  el.value = digits ? Number(digits).toLocaleString('es-AR') : '';
+}
+// Lee el valor numérico real de un input de monto formateado (saca los puntos)
+function montoNumerico(id) {
+  const raw = (document.getElementById(id).value || '').replace(/\D/g, '');
+  return raw ? parseInt(raw, 10) : NaN;
+}
 
 // ══ FETCH ═════════════════════════════════════════
 async function fetchAll() {
@@ -1572,7 +1584,7 @@ const bal      = n => paid(n)-getPP();
 
 async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
-  const amt=parseFloat(document.getElementById('feamt').value);
+  const amt=montoNumerico('feamt');
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
   document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
   // Actualizar UI inmediatamente
@@ -2786,7 +2798,7 @@ function openEditExpense(id) {
   if (!e) return;
   document.getElementById('edit-exp-id').value   = id;
   document.getElementById('edit-exp-desc').value = e.description;
-  document.getElementById('edit-exp-amt').value  = e.amount;
+  document.getElementById('edit-exp-amt').value  = Number(e.amount).toLocaleString('es-AR');
   // populate payer select
   const sel = document.getElementById('edit-exp-payer');
   sel.innerHTML = allP().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p.toUpperCase()}</option>`).join('');
@@ -2796,7 +2808,7 @@ function openEditExpense(id) {
 async function saveEditExpense() {
   const id    = parseInt(document.getElementById('edit-exp-id').value);
   const desc  = document.getElementById('edit-exp-desc').value.trim();
-  const amt   = parseFloat(document.getElementById('edit-exp-amt').value);
+  const amt   = montoNumerico('edit-exp-amt');
   const payer = document.getElementById('edit-exp-payer').value;
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
   await sb.from('expenses').update({description:desc, amount:amt, payer}).eq('id',id);
@@ -4675,13 +4687,13 @@ function abrirModalPago(payerName, amount, receiverName) {
   payerSel.innerHTML = allP().sort((a,b)=>a.localeCompare(b,'es')).map(p =>
     '<option value="' + p + '"' + (p === payerName ? ' selected' : '') + '>' + p.toUpperCase() + '</option>'
   ).join('');
-  if (amount) document.getElementById('mp-amount').value = Math.round(amount);
+  if (amount) document.getElementById('mp-amount').value = Number(Math.round(amount)).toLocaleString('es-AR');
   openModal('modal-pago');
 }
 
 async function confirmarPago() {
   const payer    = document.getElementById('mp-payer').value;
-  const amount   = parseFloat(document.getElementById('mp-amount').value);
+  const amount   = montoNumerico('mp-amount');
   const method   = document.querySelector('input[name="mp-method"]:checked')?.value || 'efectivo';
   const receiver = document.getElementById('mp-receiver').value;
   if (!payer || !amount || !receiver) { toast('Completá todos los campos','var(--red)'); return; }
