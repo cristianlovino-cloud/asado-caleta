@@ -3767,7 +3767,8 @@ async function confirmarAsistencia(resp) {
 }
 
 async function upsertRsvp(name, resp) {
-  if (!S.event) return;
+  if (!S.event) await fetchAll();   // fuerza la carga si todavía no estaba
+  if (!S.event) return;             // recién ahí, si sigue sin haber evento, corta
   const existing = S.rsvp[name.toLowerCase()];
   if (existing?.id) {
     await sb.from('rsvp').update({rsvp: resp, rsvp_at: new Date().toISOString()}).eq('id', existing.id);
