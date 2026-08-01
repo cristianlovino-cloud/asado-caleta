@@ -1213,6 +1213,8 @@ async function doLogin() {
     document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
     document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
   }
+  const csSinConfLogin = document.getElementById('cs-sin-confirmar');
+  if (csSinConfLogin) csSinConfLogin.style.display = '';
 }
 
 // ── Pantalla de espera para invitados pendientes ───────────────────────────
@@ -3630,6 +3632,8 @@ function mostrarConfirmScreen() {
     document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
     document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
   }
+  const csSinConfBtn = document.getElementById('cs-sin-confirmar');
+  if (csSinConfBtn) csSinConfBtn.style.display = '';
 }
 
 async function cambiarAsistencia() {
@@ -3923,6 +3927,9 @@ function cambiarRsvp() {
     document.getElementById('cs-date').textContent = S.event.event_date+' · '+(S.event.time_range||'');
     document.getElementById('cs-loc').textContent = '📍 '+(S.event.location||'');
   }
+  // Ya está adentro de la app cambiando su voto: no tiene sentido "entrar sin confirmar"
+  const csSinConf = document.getElementById('cs-sin-confirmar');
+  if (csSinConf) csSinConf.style.display = 'none';
 }
 
 // ══ CALCULADORA DE CARNE ══════════════════════════
