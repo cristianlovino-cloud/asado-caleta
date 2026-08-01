@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="🔥 Asado">
   <meta name="theme-color" content="var(--fire)">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=Anton&family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
   // ── Timezone Argentina ─────────────────
   function ahoraAR() {
@@ -82,14 +82,36 @@
 /* ── RESET ──────────────────────────────── */
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html { font-size:16px; }
+
+/* ══════════════════════════════════════════════════════════
+   TIPOGRAFÍA — 3 combinaciones para elegir.
+   Para cambiar: dejá activas (sin //) SOLO las 2 líneas de UNA opción
+   y poné // adelante de las otras 4 líneas. Nada más hay que tocar acá.
+   ══════════════════════════════════════════════════════════ */
+:root {
+  /* OPCIÓN 1 (actual) — Bebas Neue + DM Sans: la de siempre, cartel/afiche + texto limpio */
+  --font-title: 'Bebas Neue', cursive;
+  --font-body: 'DM Sans', sans-serif;
+
+  /* OPCIÓN 2 — Anton + Inter: títulos bien gruesos/impacto, texto muy legible y moderno
+  --font-title: 'Anton', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  */
+
+  /* OPCIÓN 3 — Oswald + Nunito: títulos condensados estilo deportivo, texto redondeado/amigable
+  --font-title: 'Oswald', sans-serif;
+  --font-body: 'Nunito', sans-serif;
+  */
+}
+
 body {
-  font-family:'DM Sans',sans-serif;
+  font-family:var(--font-body);
   background:var(--coal); color:var(--text);
   min-height:100vh; overflow-x:hidden;
 }
 
 /* ── RESPONSIVE ─────────────────────────── */
-#login-screen, #app { max-width:min(480px,100vw); margin:0 auto; }
+#login-screen, #app { max-width:min(480px,100vw); margin:0 auto; zoom:1.08; }
 
 @media (min-width:600px) {
   #login-screen, #app { max-width:520px; }
@@ -104,21 +126,21 @@ body {
 #login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 22px;background:radial-gradient(ellipse at 50% 0%,rgba(245,197,24,.18) 0%,transparent 60%),var(--coal);transition:background .3s}
 .lfire{font-size:68px;animation:flk 1.8s ease-in-out infinite alternate;margin-bottom:8px;filter:drop-shadow(0 0 20px rgba(245,197,24,.6))}
 @keyframes flk{0%{transform:scale(1) rotate(-1deg)}50%{transform:scale(1.06) rotate(1deg)}100%{transform:scale(1.03) rotate(-1deg)}}
-.ltitle{font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:3px;text-align:center;line-height:1;margin-bottom:4px}
+.ltitle{font-family:var(--font-title);font-size:36px;letter-spacing:3px;text-align:center;line-height:1;margin-bottom:4px}
 .lsub{font-size:12px;color:var(--ember);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:32px}
 .lcard{width:100%;background:var(--smoke);border-radius:20px;padding:24px 20px;border:1px solid var(--rim);box-shadow:0 8px 40px rgba(0,0,0,.4)}
 .llabel{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:12px;display:block}
 .ngrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px} @media(min-width:400px){.ngrid{grid-template-columns:1fr 1fr 1fr}}
-.nbtn{padding:10px 7px;background:var(--ash);border:1px solid var(--rim);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:7px}
+.nbtn{padding:10px 7px;background:var(--ash);border:1px solid var(--rim);border-radius:10px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:7px}
 .nbtn:hover,.nbtn.sel{background:rgba(245,197,24,.15);border-color:var(--fire);color:var(--fire)}
 .nbtn .badge-admin{font-size:9px;margin-left:auto;background:var(--fire);color:white;border-radius:4px;padding:1px 5px}
 .avs{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;text-transform:uppercase;flex-shrink:0}
 .ordiv{text-align:center;color:var(--muted);font-size:12px;margin:10px 0;display:flex;align-items:center;gap:10px}
 .ordiv::before,.ordiv::after{content:'';flex:1;height:1px;background:var(--rim)}
-.linput{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:10px;padding:14px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;outline:none;margin-bottom:16px;transition:border-color .2s;letter-spacing:.3px}
+.linput{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:10px;padding:14px 16px;color:var(--text);font-family:var(--font-body);font-size:16px;outline:none;margin-bottom:16px;transition:border-color .2s;letter-spacing:.3px}
 .linput:focus{border-color:var(--fire)}
 .linput::placeholder{color:var(--muted)}
-.lbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:12px;color:white;font-family:'Bebas Neue',cursive;font-size:19px;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 20px rgba(245,197,24,.4);transition:transform .1s}
+.lbtn{width:100%;padding:14px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:12px;color:white;font-family:var(--font-title);font-size:19px;letter-spacing:3px;cursor:pointer;box-shadow:0 4px 20px rgba(245,197,24,.4);transition:transform .1s}
 .lbtn:active{transform:scale(.98)}
 .wnote{margin-top:20px;background:rgba(114,47,55,.2);border:1px solid rgba(114,47,55,.4);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:9px}
 .wnote-i{font-size:20px;flex-shrink:0}
@@ -129,7 +151,7 @@ body {
 #app{display:none}
 .hdr{background:linear-gradient(180deg,#0D1A2A,var(--smoke));padding:12px 14px 10px;border-bottom:1px solid var(--rim);position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.5)}
 .hdr-row{display:flex;align-items:center;justify-content:space-between}
-.hdr-title{font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;line-height:1;cursor:pointer}
+.hdr-title{font-family:var(--font-title);font-size:20px;letter-spacing:2px;line-height:1;cursor:pointer}
 .hdr-sub{font-size:11px;color:var(--ember);letter-spacing:1px;text-transform:uppercase;margin-top:1px}
 .uc{display:flex;align-items:center;gap:6px;background:rgba(245,197,24,.12);border:1px solid rgba(245,197,24,.25);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer}
 .uc .av{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;text-transform:uppercase}
@@ -156,7 +178,7 @@ body {
 .panel.active{display:block}
 
 /* ── COMPONENTES ────────────────── */
-.sh{font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:2px;color:var(--ember);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.sh{font-family:var(--font-title);font-size:17px;letter-spacing:2px;color:var(--ember);margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .card{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);overflow:hidden;margin-bottom:10px}
 .sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px} @media(min-width:400px){.sg{gap:10px}} 
 .sb{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:12px 11px;position:relative;overflow:hidden}
@@ -166,7 +188,7 @@ body {
 .sbgr::after{background:linear-gradient(90deg,var(--green),#1A7A40)}
 .sbb::after{background:linear-gradient(90deg,var(--blue),#1A5FA8)}
 .sl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:3px}
-.sv{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px;line-height:1}
+.sv{font-family:var(--font-title);font-size:22px;letter-spacing:1px;line-height:1}
 .cf{color:var(--fire)}.cg{color:var(--gold)}.cgr{color:var(--green)}.cb{color:var(--blue)}.cr{color:var(--red)}.cm{color:var(--muted)}
 
 .pr{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--rim)}
@@ -177,20 +199,20 @@ body {
 .av.n{background:linear-gradient(135deg,#444,#666)}
 .pname{font-weight:600;font-size:13px}
 .psub{font-size:11px;color:var(--muted);margin-top:1px}
-.bval{font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:1px}
+.bval{font-family:var(--font-title);font-size:15px;letter-spacing:1px}
 .blbl{font-size:10px;text-align:right;color:var(--muted);margin-top:1px}
 
 .fw{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:12px;margin-bottom:10px;display:none}
 .fw.open{display:block}
 .fl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:5px;display:block}
-.fi,.fsel{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;margin-bottom:8px;transition:border-color .2s;direction:ltr;unicode-bidi:embed}
+.fi,.fsel{width:100%;background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:9px 11px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none;margin-bottom:8px;transition:border-color .2s;direction:ltr;unicode-bidi:embed}
 .fi-monto{font-size:22px;font-weight:700;letter-spacing:.5px}
 .fi:focus,.fsel:focus{border-color:var(--fire)}
 .fsel option{background:var(--ash)}
 .frow{display:flex;gap:7px}
 .btp{flex:1;padding:10px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:8px;color:white;font-weight:600;font-size:13px;cursor:pointer}
 .btg{padding:10px 13px;background:var(--ash);border:1px solid var(--rim);border-radius:8px;color:var(--muted);font-size:13px;cursor:pointer}
-.bta{width:100%;padding:11px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:10px;color:white;font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;cursor:pointer;margin-bottom:9px;box-shadow:0 3px 14px rgba(91,184,232,.35);transition:transform .1s}
+.bta{width:100%;padding:11px;background:linear-gradient(135deg,var(--club1),var(--club2));border:none;border-radius:10px;color:white;font-family:var(--font-title);font-size:15px;letter-spacing:2px;cursor:pointer;margin-bottom:9px;box-shadow:0 3px 14px rgba(91,184,232,.35);transition:transform .1s}
 .bta:active{transform:scale(.98)}
 
 /* TASK */
@@ -242,14 +264,14 @@ body {
 .eb{flex:1}
 .en{font-size:13px;font-weight:500}
 .ew{font-size:11px;color:var(--muted)}
-.ea{font-family:'Bebas Neue',cursive;font-size:15px;color:var(--green)}
+.ea{font-family:var(--font-title);font-size:15px;color:var(--green)}
 
 /* HISTORIAL */
 .event-card{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:14px;margin-bottom:9px;cursor:pointer;transition:border-color .2s}
 .event-card:hover{border-color:var(--ember)}
 .event-card.current{border-color:var(--fire);background:rgba(245,197,24,.05)}
 .ec-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.ec-title{font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:1px}
+.ec-title{font-family:var(--font-title);font-size:17px;letter-spacing:1px}
 .ec-badge{padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(245,197,24,.15);color:var(--fire);border:1px solid rgba(245,197,24,.3)}
 .ec-badge.arch{background:var(--ash);color:var(--muted);border-color:var(--rim)}
 .ec-meta{font-size:12px;color:var(--muted)}
@@ -261,7 +283,7 @@ body {
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;display:none}
 .modal-bg.open{display:flex}
 .modal{background:var(--smoke);border-radius:20px 20px 0 0;border:1px solid var(--rim);padding:24px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
-.modal-title{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase}
+.modal-title{font-family:var(--font-title);font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase}
 .modal-close{background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--muted);font-size:14px}
 
 /* UTILS */
@@ -275,19 +297,19 @@ body {
 .en,.sl,.fl,.sh,.tab,.modal-title,.pname,.tknm,.blbl { text-transform:uppercase }
 .ov-hero{background:linear-gradient(135deg,#1a9fd4 0%,#2eb8e8 30%,#f5c518 70%,#e8b400 100%);border-radius:18px;padding:20px;margin-bottom:12px;color:white;position:relative;overflow:hidden}
 .ov-hero::before{content:'';position:absolute;right:-15px;top:-15px;width:120px;height:120px;background:rgba(255,255,255,.08);border-radius:50%}
-.ov-title{font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:2px;margin-bottom:2px}
+.ov-title{font-family:var(--font-title);font-size:26px;letter-spacing:2px;margin-bottom:2px}
 .ov-date{font-size:12px;opacity:.85;margin-bottom:14px}
 .ov-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .ov-stat{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 8px;text-align:center;backdrop-filter:blur(4px)}
-.ov-stat-n{font-family:'Bebas Neue',cursive;font-size:26px;line-height:1}
+.ov-stat-n{font-family:var(--font-title);font-size:26px;line-height:1}
 .ov-stat-l{font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .ov-card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--rim)}
 .ov-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--fire);margin-bottom:10px}
 .ov-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--rim);font-size:13px}
 .ov-row:last-child{border-bottom:none}
 .ov-muted{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600}
-.ov-btn{display:block;width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.3)}
-.ov-btn-sec{display:block;width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
+.ov-btn{display:block;width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:var(--font-title);font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.ov-btn-sec{display:block;width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-family:var(--font-title);font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
 .sh,.sl,.fl,.tab,.modal-title,.en,.blbl,.psub,.pname,.tknm,.ec-title,.ec-meta,.ov-label,.ov-row span,.admin-bar span,.abtn,.bta,.btp,.btg,.ltitle,.ov-btn,.ov-btn-sec,.ov-stat-l,.ov-muted { text-transform:uppercase }
 @keyframes splashPulse {
   0%,100% { transform:scale(1); opacity:1; }
@@ -301,7 +323,7 @@ body {
 <!-- Splash screen -->
 <div id="splash-screen" style="position:fixed;inset:0;background:#0c0c0c;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s">
   <img src="icon-transparent.png" style="width:140px;height:140px;object-fit:contain;animation:splashPulse 1.2s ease-in-out infinite;filter:drop-shadow(0 0 20px rgba(91,184,232,.5))">
-  <div style="font-family:'Bebas Neue',cursive;font-size:22px;color:white;letter-spacing:3px;margin-top:16px;opacity:.8">CARGANDO...</div>
+  <div style="font-family:var(--font-title);font-size:22px;color:white;letter-spacing:3px;margin-top:16px;opacity:.8">CARGANDO...</div>
 </div>
 
 <div id="login-screen">
@@ -333,18 +355,18 @@ body {
   <div style="width:100%;max-width:400px">
     <div style="text-align:center;margin-bottom:20px">
       <img src="icon-transparent.png" style="width:100px;height:100px;margin-bottom:8px;filter:drop-shadow(0 4px 24px rgba(0,0,0,.4))">
-      <div style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text);letter-spacing:2px;text-transform:uppercase" id="cs-title">Asado en la Caleta</div>
+      <div style="font-family:var(--font-title);font-size:36px;color:var(--text);letter-spacing:2px;text-transform:uppercase" id="cs-title">Asado en la Caleta</div>
       <div style="font-size:15px;color:var(--fire);margin-top:6px;font-weight:700;letter-spacing:.5px;text-transform:uppercase" id="cs-date"></div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.3px" id="cs-loc"></div>
     </div>
     <div style="background:var(--smoke);border-radius:16px;padding:20px;border:1px solid var(--rim)">
       <div style="font-size:16px;font-weight:600;text-align:center;margin-bottom:16px">
-        <span style="font-size:13px;color:var(--muted);letter-spacing:.5px">HOLA</span> <span id="cs-nombre" style="color:var(--fire);font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:1px"></span> 👋<br>
+        <span style="font-size:13px;color:var(--muted);letter-spacing:.5px">HOLA</span> <span id="cs-nombre" style="color:var(--fire);font-family:var(--font-title);font-size:22px;letter-spacing:1px"></span> 👋<br>
         <span style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase" id="rsvp-pregunta">¿VAS AL ASADO?</span>
       </div>
       <div style="display:flex;gap:10px">
-        <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:2px solid var(--fire);background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
-        <button onclick="confirmarAsistencia('no')" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:22px;cursor:pointer;letter-spacing:1px">❌ NO PUEDO</button>
+        <button onclick="confirmarAsistencia('si')" style="flex:1;padding:14px;border-radius:12px;border:2px solid var(--fire);background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:var(--font-title);font-size:22px;cursor:pointer;letter-spacing:1px">✅ VOY</button>
+        <button onclick="confirmarAsistencia('no')" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:var(--font-title);font-size:22px;cursor:pointer;letter-spacing:1px">❌ NO PUEDO</button>
       </div>
     </div>
     <div style="text-align:center;margin-top:16px">
@@ -519,7 +541,7 @@ body {
       <label class="fl" style="margin-top:10px">CONFIRMADOS</label>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <button onclick="cambiarComensalesCalc(-1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer">−</button>
-        <div id="calc-comen" style="flex:1;text-align:center;font-family:'Bebas Neue',cursive;font-size:28px;color:var(--fire)">12</div>
+        <div id="calc-comen" style="flex:1;text-align:center;font-family:var(--font-title);font-size:28px;color:var(--fire)">12</div>
         <button onclick="cambiarComensalesCalc(1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer">+</button>
       </div>
       <div id="resultado-carne"></div>
@@ -584,11 +606,11 @@ body {
 <div class="modal-bg" id="modal-logout">
   <div class="modal" style="text-align:center;padding:24px">
     <div style="font-size:48px;margin-bottom:12px">🚪</div>
-    <div style="font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;margin-bottom:8px">SALIR</div>
+    <div style="font-family:var(--font-title);font-size:28px;letter-spacing:2px;margin-bottom:8px">SALIR</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Vas a cerrar tu sesion.<br>Vas a tener que volver a ingresar tu nombre.</div>
     <div style="display:flex;gap:10px">
-      <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
-      <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:'Bebas Neue',cursive;font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
+      <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
+      <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
     </div>
   </div>
 </div>
@@ -680,7 +702,7 @@ body {
     <div id="fusionar-principal" style="font-weight:700;font-size:16px;padding:10px 12px;background:var(--ash);border-radius:8px;margin-bottom:12px;color:var(--fire)"></div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px">FUSIONAR CON</div>
     <select id="fusionar-select" class="fsel" style="margin-bottom:16px"></select>
-    <button onclick="ejecutarFusion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--fire);color:white;font-family:'Bebas Neue',cursive;font-size:18px;cursor:pointer;letter-spacing:1px">⇄ FUSIONAR</button>
+    <button onclick="ejecutarFusion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--fire);color:white;font-family:var(--font-title);font-size:18px;cursor:pointer;letter-spacing:1px">⇄ FUSIONAR</button>
   </div>
 </div>
 
@@ -1185,7 +1207,7 @@ function renderPendienteScreen(nombre) {
   el.style.display='flex';
   el.innerHTML = `
     <div style="font-size:52px;margin-bottom:16px">⏳</div>
-    <div style="font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;color:var(--fire);margin-bottom:8px">ESPERÁ UN SEGUNDO</div>
+    <div style="font-family:var(--font-title);font-size:28px;letter-spacing:2px;color:var(--fire);margin-bottom:8px">ESPERÁ UN SEGUNDO</div>
     <div style="font-size:15px;color:var(--text);margin-bottom:6px">Hola <strong>${nombre.toUpperCase()}</strong> 👋</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.6">Tu solicitud fue enviada.<br>Cris tiene que aceptarte para entrar al asado.</div>
     <div style="width:48px;height:4px;border-radius:2px;background:var(--rim);margin:0 auto 28px;overflow:hidden;position:relative">
@@ -1732,7 +1754,7 @@ async function renderGastos() {
     if (elEl) elEl.innerHTML = `<div style="padding:16px">
       <div class="ov-card" style="text-align:center;margin-bottom:12px">
         <div class="ov-label">💰 Tu parte del asado</div>
-        <div style="font-size:42px;font-weight:700;font-family:'Bebas Neue',cursive;color:var(--fire);letter-spacing:2px">${fmt(pp)}</div>
+        <div style="font-size:42px;font-weight:700;font-family:var(--font-title);color:var(--fire);letter-spacing:2px">${fmt(pp)}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas</div>
       </div>
       <div class="ov-card">
@@ -2547,7 +2569,7 @@ function renderTasks() {
               const main = done ? '<s style="color:var(--muted)">'+lines[0]+'</s>' : lines[0];
               const prefix = catEmoji ? `<span style="margin-right:5px;font-style:normal">${catEmoji}</span>` : '';
               const subs = lines.slice(1).filter(l=>l.trim()).map(l=>`<div style="font-size:12px;color:var(--muted);margin-top:2px;padding-left:4px">• ${l.replace(/^[+•\-]\s*/,'')}</div>`).join('');
-              return prefix + main + (t.qty&&t.qty>1?` <span style="font-family:'Bebas Neue',cursive;font-size:12px;color:var(--ember)">×${t.qty}</span>`:'') + subs;
+              return prefix + main + (t.qty&&t.qty>1?` <span style="font-family:var(--font-title);font-size:12px;color:var(--ember)">×${t.qty}</span>`:'') + subs;
             })()}
           </div>
           <div class="tkfoot">
@@ -2966,7 +2988,7 @@ function renderCumples() {
         ? `<span style="color:var(--muted);font-size:11px">en ${diasFaltan} día${diasFaltan>1?'s':''} — ${c.dia} de ${meses[mesActual]}</span>`
         : `<span style="color:var(--muted);font-size:11px">${c.dia} de ${meses[mesActual]}</span>`;
     const btnCumple = isAdmin()
-      ? `<button onclick="enviarFelizCumple('${c.nombre}')" style="margin-top:8px;width:100%;padding:8px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-family:'Bebas Neue',cursive;font-size:14px;letter-spacing:1px;cursor:pointer">🎂 ENVIAR FELIZ CUMPLE</button>`
+      ? `<button onclick="enviarFelizCumple('${c.nombre}')" style="margin-top:8px;width:100%;padding:8px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-family:var(--font-title);font-size:14px;letter-spacing:1px;cursor:pointer">🎂 ENVIAR FELIZ CUMPLE</button>`
       : '';
     return `<div style="background:${esHoy?'rgba(39,174,96,.08)':'rgba(255,255,255,.04)'};border:1px solid ${esHoy?'rgba(39,174,96,.3)':'rgba(245,197,24,.15)'};border-radius:10px;padding:10px 12px;margin-bottom:6px${cumples.indexOf(c)===cumples.length-1?';margin-bottom:0':''}">
       <div style="display:flex;align-items:center;gap:10px">
@@ -3931,12 +3953,12 @@ function calcularCarne() {
     const kg = (total/1000).toFixed(1);
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
       <div><span style="font-size:18px;margin-right:7px">${co.emoji}</span><span style="font-size:13px;font-weight:500">${co.nombre}</span></div>
-      <div style="text-align:right"><div style="font-family:'Bebas Neue',cursive;font-size:20px;color:var(--fire)">${kg} kg</div><div style="font-size:10px;color:var(--muted)">${total}g</div></div>
+      <div style="text-align:right"><div style="font-family:var(--font-title);font-size:20px;color:var(--fire)">${kg} kg</div><div style="font-size:10px;color:var(--muted)">${total}g</div></div>
     </div>`;
   }).join('');
   const totalKg = (cortes.reduce((a,co)=>a+co.grPorPax*n,0)/1000).toFixed(1);
   const el = document.getElementById('resultado-carne');
-  if(el) el.innerHTML = html + `<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.08);border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--muted)">Total estimado</div><div style="font-family:'Bebas Neue',cursive;font-size:26px;color:var(--fire)">${totalKg} kg</div><div style="font-size:10px;color:var(--muted)">para ${n} personas</div></div>`;
+  if(el) el.innerHTML = html + `<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.08);border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--muted)">Total estimado</div><div style="font-family:var(--font-title);font-size:26px;color:var(--fire)">${totalKg} kg</div><div style="font-size:10px;color:var(--muted)">para ${n} personas</div></div>`;
 }
 
 // ══ VOTOS ═════════════════════════════════════════
@@ -4462,7 +4484,7 @@ function renderVotos() {
           ${medalla?`<span style="font-size:14px">${medalla}</span>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:4px">
-          <span style="font-family:'Bebas Neue',cursive;font-size:18px;color:${votado?'var(--fire)':'var(--muted)'}">${c}</span>
+          <span style="font-family:var(--font-title);font-size:18px;color:${votado?'var(--fire)':'var(--muted)'}">${c}</span>
           <span onclick="votarOpcion(${op.id})" style="font-size:16px;color:${votado?'var(--fire)':'var(--rim)'};cursor:pointer">${votado?'✅':'○'}</span>
           ${editBtn}
         </div>
