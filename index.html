@@ -302,6 +302,7 @@ body {
 .ov-date{font-size:12px;opacity:.85;margin-bottom:14px}
 .ov-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .ov-stat{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:10px 8px;text-align:center;backdrop-filter:blur(4px);overflow:hidden}
+.ov-stat-icon{font-size:22px;line-height:1;margin-bottom:3px}
 .ov-stat-n{font-family:var(--font-title);font-size:26px;line-height:1}
 .ov-stat-l{font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .ov-card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--rim)}
@@ -3040,13 +3041,17 @@ function renderOvHero(conf, pendientes, cumples, fechaStr) {
     '<div class="ov-date">📍 ' + (S.event.location||'') + ' · ' + fechaStr + ' · ' + (S.event.time_range||'') + '</div>' +
     '<div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:\'Bebas Neue\',cursive;letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>' +
     '<div class="ov-stats" style="margin-top:14px">' +
-      '<div class="ov-stat"><div class="ov-stat-n">' + conf + '</div><div class="ov-stat-l">Van ✅</div></div>' +
+      '<div class="ov-stat"><div class="ov-stat-icon">✅</div><div class="ov-stat-n">' + conf + '</div><div class="ov-stat-l">Van</div></div>' +
       (inv ? (cumples.length > 0
-        ? '<div class="ov-stat"><div class="ov-stat-n">🎂' + cumples.length + '</div><div class="ov-stat-l">CUMPLES</div></div>'
-        : '<div class="ov-stat"><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas 📋</div></div>') : '') +
-      '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-n" id="ov-weather-temp">'+ _climaCache.temp +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>' +
+        ? '<div class="ov-stat"><div class="ov-stat-icon">🎂</div><div class="ov-stat-n">' + cumples.length + '</div><div class="ov-stat-l">Cumples</div></div>'
+        : '<div class="ov-stat"><div class="ov-stat-icon">📋</div><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas</div></div>') : '') +
+      '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-icon" id="ov-weather-icon">' + climaIcon(_climaCache.temp) + '</div><div class="ov-stat-n" id="ov-weather-temp">'+ climaNum(_climaCache.temp) +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>' +
     '</div></div>';
 }
+
+// Separa el emoji del clima ("☀️ 21°C") del número, para mostrarlos en líneas propias
+function climaIcon(temp) { return (temp||'🌡️ --°C').split(' ')[0] || '🌡️'; }
+function climaNum(temp)  { return (temp||'🌡️ --°C').split(' ').slice(1).join(' ') || '--°C'; }
 
 function renderOvMiEstado(miRsvp) {
   let btn = '';
@@ -3387,6 +3392,7 @@ let OWM_KEY = ''; // cargada desde Supabase app_config
 let _climaCache = { temp: '🌡️', desc: 'CLIMA' };
 
 async function fetchClima() {
+  const iconEl = document.getElementById('ov-weather-icon');
   const tempEl = document.getElementById('ov-weather-temp');
   const descEl = document.getElementById('ov-weather-desc');
   if (!tempEl) return;
@@ -3406,7 +3412,8 @@ async function fetchClima() {
     if (cacheValido && cfgMap['clima_temp']) {
       // Usar cache — no llama a OWM
       _climaCache = { temp: cfgMap['clima_temp'], desc: cfgMap['clima_desc'] || 'ROSARIO' };
-      tempEl.textContent = _climaCache.temp;
+      if (iconEl) iconEl.textContent = climaIcon(_climaCache.temp);
+      tempEl.textContent = climaNum(_climaCache.temp);
       descEl.textContent = _climaCache.desc;
       return;
     }
@@ -3426,16 +3433,19 @@ async function fetchClima() {
     ]);
 
     _climaCache = { temp, desc };
-    tempEl.textContent = temp;
+    if (iconEl) iconEl.textContent = climaIcon(temp);
+    tempEl.textContent = climaNum(temp);
     descEl.textContent = desc;
 
   } catch(e) {
     // Fallback: mostrar lo que haya en cache local
     if (_climaCache.temp !== '🌡️') {
-      tempEl.textContent = _climaCache.temp;
+      if (iconEl) iconEl.textContent = climaIcon(_climaCache.temp);
+      tempEl.textContent = climaNum(_climaCache.temp);
       descEl.textContent = _climaCache.desc;
     } else {
-      tempEl.textContent = '🌡️';
+      if (iconEl) iconEl.textContent = '🌡️';
+      tempEl.textContent = '--°C';
       descEl.textContent = 'ROSARIO';
     }
   }
