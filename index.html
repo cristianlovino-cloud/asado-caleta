@@ -1501,7 +1501,14 @@ function renderInvitadosList() {
           <div style="font-size:10px;font-weight:700;color:${rsvpColor}">${rsvpLabel}</div>
         </div>
       </div>
-      <button onclick="quitarInvitado(${p.id})" style="background:none;border:1px solid var(--rim);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--muted);cursor:pointer">✕</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${isAdmin()
+          ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 8px;border-radius:6px;border:1px solid ${getRsvp(p.name)==='si'?'var(--green)':'var(--rim)'};background:${getRsvp(p.name)==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${getRsvp(p.name)==='si'?'var(--green)':'var(--muted)'};font-size:11px;cursor:pointer;font-weight:600">✅</button>
+           <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 8px;border-radius:6px;border:1px solid ${getRsvp(p.name)==='no'?'var(--red)':'var(--rim)'};background:${getRsvp(p.name)==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${getRsvp(p.name)==='no'?'var(--red)':'var(--muted)'};font-size:11px;cursor:pointer;font-weight:600">❌</button>`
+          :''
+        }
+        <button onclick="quitarInvitado(${p.id})" style="background:none;border:1px solid var(--rim);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--muted);cursor:pointer">✕</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -3892,6 +3899,7 @@ async function setRsvpAdmin(nombre, resp) {
     await upsertRsvp(nombre, resp);
     await fetchAll();
     renderAsistencia();
+    renderInvitadosList();
   } catch(e) {}
 }
 
