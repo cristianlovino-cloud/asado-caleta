@@ -383,13 +383,10 @@ body {
     <button class="abtn" onclick="openModal('modal-history')">📚 Historial</button>
     <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
     <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
-    <button class="abtn" onclick="openModal('modal-cuentas')" style="border-color:rgba(39,174,96,.4);color:var(--green)">💰 Cerrar cuentas</button>
-    <button class="abtn" onclick="cerrarCuentasAll()" style="border-color:rgba(245,197,24,.4);color:var(--fire)" id="btn-cerrar-cuentas">🔒 COBRAR DEUDAS</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
     <button class="abtn" onclick="openVotacionesAdmin()" style="border-color:rgba(39,174,96,.4);color:var(--green)">🗳️ Votaciones</button>
     <button class="abtn" onclick="restablecerTareas()" style="border-color:rgba(46,134,222,.4);color:#2e86de">🔄 Restablecer Tareas</button>
-    <button class="abtn" onclick="openLocker()" style="border-color:rgba(255,165,0,.4);color:#FFA500">🔒 LOCKER</button>
     <button class="abtn red" onclick="forceLogoutAll()">🔐 CERRAR SESIONES</button>
     <button class="abtn red" onclick="newAsado()">🔥 Nuevo asado</button>
     <button class="abtn" onclick="publicarVersion()" style="border-color:rgba(91,184,232,.4);color:var(--club1)">📡 Publicar versión</button>
@@ -422,6 +419,10 @@ body {
       <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
     </div>
     <button class="bta" onclick="tf('fexp')">+ CARGAR MI GASTO</button>
+    <div id="gastos-admin-controls" style="display:none;gap:8px;margin:10px 0">
+      <button class="abtn" style="flex:1;border-color:rgba(39,174,96,.4);color:var(--green)" onclick="openModal('modal-cuentas')">📊 Dashboard de cobro</button>
+      <button class="abtn" style="flex:1;border-color:rgba(245,197,24,.4);color:var(--fire)" onclick="cerrarCuentasAll()">🔒 Cerrar cuentas</button>
+    </div>
     <div class="fw" id="fexp">
       <label class="fl">Concepto</label>
       <input class="fi" id="fedesc" placeholder="ej: carne, bebidas...">
@@ -1824,6 +1825,8 @@ async function renderGastos() {
   document.getElementById('spp').textContent = fmt(pp);
   document.getElementById('sc').textContent  = allP().length;
   if(isAdmin()) document.getElementById('comen-edit').style.display='inline';
+  const gAdminCtrls = document.getElementById('gastos-admin-controls');
+  if (gAdminCtrls) gAdminCtrls.style.display = isAdmin() ? 'flex' : 'none';
   const miPago = pagadoPorGastos(me);
   const miSaldado = mb < -0.5 && miPago >= Math.abs(mb) - 0.5;
   const cobradoYo = payments.filter(p => p.receiver.toLowerCase()===me.toLowerCase()).reduce((a,p)=>a+p.amount,0);
