@@ -1047,13 +1047,19 @@ async function fetchAll() {
     // Info física del locker (número y clave), visible para todos
     S.lockerNumero = cfg.data.find(r => r.key === 'locker_numero')?.value || '';
     S.lockerClave  = cfg.data.find(r => r.key === 'locker_clave')?.value || '';
-    // Cobro de deudas activo: forzar tab gastos a no-admin
+    // Cobro de deudas activo: forzar tab gastos a no-admin (una sola vez por cierre)
     const cuentasRow = cfg.data.find(r => r.key === 'cuentas_abiertas');
     if (cuentasRow?.value === 'true' && !isAdmin()) {
-      setTimeout(() => {
-        showTab('gastos');
-        toast('💰 El admin está cobrando — revisá tus deudas', 'var(--fire)', 5000);
-      }, 800);
+      if (!window._cuentasAvisado) {
+        window._cuentasAvisado = true;
+        setTimeout(() => {
+          showTab('gastos');
+          toast('💰 El admin está cobrando — revisá tus deudas', 'var(--fire)', 5000);
+          playSonidoCierreCuentas();
+        }, 800);
+      }
+    } else if (cuentasRow?.value !== 'true') {
+      window._cuentasAvisado = false; // se reabrieron las cuentas, listo para avisar la próxima vez
     }
     const flTs = parseInt(cfg.data.find(r=>r.key==='force_logout_ts')?.value || '0');
     const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
@@ -1118,6 +1124,15 @@ function subscribe() {
         localStorage.removeItem('asado_login_ts');
         alert('Tu sesión fue cerrada por el administrador. Volvé a ingresar tu nombre.');
         location.reload();
+      }
+    })
+    .on('broadcast', {event: 'cerrar_cuentas'}, () => {
+      // Aviso instantáneo a quien ya está adentro de la app (sin esperar el auto-refresh)
+      if (!isAdmin() && !window._cuentasAvisado) {
+        window._cuentasAvisado = true;
+        showTab('gastos');
+        toast('💰 El admin está cobrando — revisá tus deudas', 'var(--fire)', 5000);
+        playSonidoCierreCuentas();
       }
     })
     .subscribe(s=>{
@@ -3763,6 +3778,27 @@ function toast(msg,bg='var(--green)',dur=3000) {
   el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),dur);
 }
 
+// Sonido de aviso "cierre de cuentas" (sintetizado, sin archivos externos)
+function playSonidoCierreCuentas() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notas = [523.25, 659.25, 783.99]; // do-mi-sol ascendente, tipo "cha-ching"
+    notas.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t0 = ctx.currentTime + i * 0.11;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.4);
+    });
+  } catch(e) { /* audio no disponible, no pasa nada */ }
+}
+
 // cerrar modal tocando fondo
 document.querySelectorAll('.modal-bg').forEach(bg=>{
   bg.addEventListener('click', e=>{ if(e.target===bg) bg.classList.remove('open'); });
@@ -3773,8 +3809,8 @@ async function cerrarCuentasAll() {
   if (!confirm('¿Cerrar cuentas? Todos los usuarios verán la pantalla de GASTOS al entrar hasta que cierres el estado.')) return;
   await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'true' });
   toast('💰 Cuentas cerradas — todos verán Gastos al entrar', 'var(--fire)', 4000);
-  // Notificar via realtime a los que ya están conectados
-  sb.channel('cuentas-canal').send({ type: 'broadcast', event: 'cerrar_cuentas', payload: {} });
+  // Notificar al instante a los que ya están conectados (mismo canal que escuchan en subscribe())
+  sb.channel('rt-all').send({ type: 'broadcast', event: 'cerrar_cuentas', payload: {} });
 }
 
 async function reabrirCuentas() {
@@ -4935,12 +4971,37 @@ async function renderCuentas() {
   const totalTransf = payments.filter(p=>p.method==='transferencia').reduce((a,p)=>a+p.amount,0);
   const totalPendiente = pendientes.reduce((a,p) => a + deudaRestante(p), 0);
 
+  // Orden de pagos sugerido: mínimas transacciones entre quien debe y quien tiene que cobrar
+  const deudoresRest = pendientes.map(p => ({ name: p, monto: deudaRestante(p) })).filter(x => x.monto > 0.5).sort((a,b) => b.monto - a.monto);
+  const acreedoresRest = acreedores.map(p => ({ name: p, monto: Math.max(0, bal(p) - cobradoPor(p)) })).filter(x => x.monto > 0.5).sort((a,b) => b.monto - a.monto);
+  const ordenPagos = [];
+  { let i = 0, j = 0;
+    const D = deudoresRest.map(x => ({...x})), A = acreedoresRest.map(x => ({...x}));
+    while (i < D.length && j < A.length) {
+      const monto = Math.min(D[i].monto, A[j].monto);
+      if (monto > 0.5) ordenPagos.push({ de: D[i].name, a: A[j].name, monto });
+      D[i].monto -= monto; A[j].monto -= monto;
+      if (D[i].monto <= 0.5) i++;
+      if (A[j].monto <= 0.5) j++;
+    }
+  }
+  const ordenHtml = ordenPagos.length ? '<div class="sh" style="margin-bottom:8px">🔀 Orden de pagos sugerido</div>' +
+    '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim);margin-bottom:12px">' +
+    ordenPagos.map(o => '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--rim)">' +
+      '<span style="font-size:13px"><strong>' + o.de.toUpperCase() + '</strong> → <strong>' + o.a.toUpperCase() + '</strong></span>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span style="font-weight:700;color:var(--fire)">' + fmt(o.monto) + '</span>' +
+        (isAdmin() ? '<button onclick="abrirModalPago_btn(this)" data-payer="' + o.de + '" data-amount="' + Math.round(o.monto) + '" data-receiver="' + o.a + '" style="padding:5px 8px;border-radius:6px;border:none;background:rgba(245,197,24,.15);color:var(--fire);font-size:11px;cursor:pointer;font-weight:700">💰</button>' : '') +
+      '</div></div>').join('') +
+    '</div>' : '';
+
   el.innerHTML =
     '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">' + numP + '</span></div>' +
       '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
     '</div>' +
+    ordenHtml +
     acrHtml +
     (isAdmin() ? '<button onclick="abrirModalPago_btn(null)" style="width:100%;margin-bottom:12px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:Bebas Neue,cursive;letter-spacing:1px">➕ REGISTRAR PAGO</button>' : '') +
     '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div>' +
