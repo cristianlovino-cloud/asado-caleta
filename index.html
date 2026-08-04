@@ -3088,10 +3088,50 @@ function renderOvMiEstado(miRsvp) {
   if (miRsvp==='si') btn = '<button onclick="cambiarAsistencia()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase;margin-right:4px">CAMBIAR</button>';
   else if (miRsvp==='no') btn = '<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.1);color:var(--green);font-size:11px;cursor:pointer;text-transform:uppercase">VOY DESPUÉS DE TODO ✅</button>';
   else btn = '<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>';
+  const calBtn = '<button onclick="agregarACalendario()" title="Agregar a mi calendario" style="padding:7px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:14px;cursor:pointer;margin-right:4px">📅</button>';
   const estado = miRsvp==='si' ? '✅ VAS AL ' + (S.event?.title||'ASADO').split(' ')[0].toUpperCase() : miRsvp==='no' ? '❌ NO VAS' : '🤷 SIN CONFIRMAR';
   return '<div class="ov-card"><div class="ov-label">👤 Mi estado — ' + me.toUpperCase() + '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center">' +
-    '<span style="font-size:14px;font-weight:700">' + estado + '</span>' + btn + '</div></div>';
+    '<span style="font-size:14px;font-weight:700">' + estado + '</span><div style="display:flex;align-items:center">' + calBtn + btn + '</div></div></div>';
+}
+
+// ── Agregar el asado al calendario del celular (.ics, funciona en iOS y Android) ──
+function agregarACalendario() {
+  if (!S.event) return;
+  try {
+    const [d, m, y] = (S.event.event_date || '').split('/').map(Number);
+    const [horaIni, horaFin] = (S.event.time_range || '00:00-23:59').split(/[-–]/).map(s => s.trim());
+    const [hIni, mIni] = horaIni.split(':').map(Number);
+    const [hFin, mFin] = (horaFin || horaIni).split(':').map(Number);
+    const pad = n => String(n).padStart(2, '0');
+    const fmtICS = (y,m,d,h,mi) => `${y}${pad(m)}${pad(d)}T${pad(h)}${pad(mi)}00`;
+    const dtStart = fmtICS(y, m, d, hIni||10, mIni||0);
+    const dtEnd   = fmtICS(y, m, d, hFin||23, mFin||59);
+    const esc = s => (s||'').replace(/([,;])/g,'\\$1').replace(/\n/g,'\\n');
+    const ics = [
+      'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Asado en La Caleta//ES','CALSCALE:GREGORIAN',
+      'BEGIN:VEVENT',
+      'UID:asado-' + (S.event.id||Date.now()) + '@lacaleta',
+      'DTSTART:' + dtStart,
+      'DTEND:' + dtEnd,
+      'SUMMARY:' + esc(S.event.title || 'Asado en La Caleta'),
+      'LOCATION:' + esc(S.event.location || ''),
+      'DESCRIPTION:' + esc('Organizado desde la app Asado en La Caleta'),
+      'END:VEVENT','END:VCALENDAR'
+    ].join('\r\n');
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (S.event.title || 'asado').toLowerCase().replace(/[^a-z0-9]+/g,'-') + '.ics';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    toast('📅 Abriendo tu calendario...');
+  } catch(e) {
+    toast('❌ No se pudo generar el evento', 'var(--red)');
+  }
 }
 
 function renderOvAsistencia(conf, noVan, sinResp) {
