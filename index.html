@@ -25,7 +25,7 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
-  const APP_VERSION = '2.17';
+  const APP_VERSION = '2.18';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // ── Publicar versión (admin) ─────────────
@@ -617,6 +617,19 @@ body {
   </div>
 </div>
 
+<!-- Modal Confirmación genérica (reemplaza confirm() nativo del navegador) -->
+<div class="modal-bg" id="modal-confirm-generic">
+  <div class="modal" style="text-align:center;padding:24px">
+    <div style="font-size:48px;margin-bottom:12px" id="mcg-icon">🤔</div>
+    <div style="font-family:var(--font-title);font-size:24px;letter-spacing:1px;margin-bottom:8px" id="mcg-title">¿CONFIRMÁS?</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5" id="mcg-msg"></div>
+    <div style="display:flex;gap:10px">
+      <button id="mcg-cancel" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
+      <button id="mcg-ok" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--fire);color:white;font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px">ACEPTAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Nueva Votacion -->
 <div class="modal-bg" id="modal-nueva-votacion">
   <div class="modal">
@@ -1142,7 +1155,11 @@ async function doLogin() {
     const posibles = S.participants.filter(p => p.active !== false && p.name !== ADMIN_USER && p.role !== 'pendiente' && p.name.toLowerCase().startsWith(v.toLowerCase()));
     if (posibles.length === 1) {
       const completo = posibles[0].name;
-      if (confirm('¿Sos ' + completo + '?\n\nTocá Aceptar para entrar con ese nombre, o Cancelar si sos otra persona.')) {
+      const ok = await showConfirm('Tocá <b>ACEPTAR</b> para entrar con ese nombre, o <b>CANCELAR</b> si sos otra persona.', {
+        title: '¿SOS ' + completo.toUpperCase() + '?',
+        icon: '👋'
+      });
+      if (ok) {
         document.getElementById('cname').value = completo;
         me = completo;
         localStorage.setItem('asado_user', completo);
@@ -3692,6 +3709,27 @@ function toast(msg,bg='var(--green)',dur=3000) {
   el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),dur);
 }
 
+// Reemplazo estilizado de confirm() nativo. Uso: if (await showConfirm('¿Estás seguro?')) { ... }
+function showConfirm(msg, { title = '¿CONFIRMÁS?', icon = '🤔', okText = 'ACEPTAR', cancelText = 'CANCELAR' } = {}) {
+  return new Promise(resolve => {
+    document.getElementById('mcg-icon').textContent = icon;
+    document.getElementById('mcg-title').textContent = title;
+    document.getElementById('mcg-msg').innerHTML = msg;
+    const okBtn = document.getElementById('mcg-ok');
+    const cancelBtn = document.getElementById('mcg-cancel');
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+    const cleanup = (result) => {
+      closeModal('modal-confirm-generic');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      resolve(result);
+    };
+    okBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+    openModal('modal-confirm-generic');
+  });
+}
+
 // Sonido de aviso "cierre de cuentas" (sintetizado, sin archivos externos)
 function playSonidoCierreCuentas() {
   try {
@@ -3715,7 +3753,12 @@ function playSonidoCierreCuentas() {
 
 // cerrar modal tocando fondo
 document.querySelectorAll('.modal-bg').forEach(bg=>{
-  bg.addEventListener('click', e=>{ if(e.target===bg) bg.classList.remove('open'); });
+  bg.addEventListener('click', e=>{
+    if (e.target===bg) {
+      bg.classList.remove('open');
+      if (bg.id === 'modal-confirm-generic') document.getElementById('mcg-cancel')?.click();
+    }
+  });
 });
 
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
