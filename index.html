@@ -1137,7 +1137,20 @@ async function doLogin() {
   // Verificar rsvp desde Supabase (fuente de verdad)
   let part = S.participants.find(p=>p.name.toLowerCase()===v.toLowerCase());
 
-  // ── NUEVO: usuario desconocido → insertar como pendiente ──────────────────
+  // ── NUEVO: usuario desconocido → buscar si es un nombre corto de alguien ya registrado ──
+  if (!part) {
+    const posibles = S.participants.filter(p => p.active !== false && p.name !== ADMIN_USER && p.role !== 'pendiente' && p.name.toLowerCase().startsWith(v.toLowerCase()));
+    if (posibles.length === 1) {
+      const completo = posibles[0].name;
+      if (confirm('¿Sos ' + completo + '?\n\nTocá Aceptar para entrar con ese nombre, o Cancelar si sos otra persona.')) {
+        document.getElementById('cname').value = completo;
+        me = completo;
+        localStorage.setItem('asado_user', completo);
+        part = posibles[0];
+      }
+    }
+  }
+  // ── usuario desconocido de verdad → insertar como pendiente ──────────────────
   if (!part) {
     const {data:inserted} = await sb.from('participants').insert({
       name: v, active: false, role: 'pendiente'
