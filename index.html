@@ -3711,6 +3711,7 @@ function toast(msg,bg='var(--green)',dur=3000) {
 
 // Reemplazo estilizado de confirm() nativo. Uso: if (await showConfirm('¿Estás seguro?')) { ... }
 function showConfirm(msg, { title = '¿CONFIRMÁS?', icon = '🤔', okText = 'ACEPTAR', cancelText = 'CANCELAR' } = {}) {
+  document.activeElement?.blur(); // cerrar el teclado si había un input enfocado, para que el modal no quede tapado
   return new Promise(resolve => {
     document.getElementById('mcg-icon').textContent = icon;
     document.getElementById('mcg-title').textContent = title;
@@ -3726,7 +3727,7 @@ function showConfirm(msg, { title = '¿CONFIRMÁS?', icon = '🤔', okText = 'AC
     };
     okBtn.onclick = () => cleanup(true);
     cancelBtn.onclick = () => cleanup(false);
-    openModal('modal-confirm-generic');
+    setTimeout(() => openModal('modal-confirm-generic'), 250); // deja que el teclado termine de cerrarse
   });
 }
 
