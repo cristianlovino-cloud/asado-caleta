@@ -453,6 +453,13 @@ body {
       <input class="fi" id="fedesc" placeholder="ej: carne, bebidas..." oninput="this.value=this.value.toUpperCase()">
       <label class="fl">Monto $</label>
       <input class="fi fi-monto" id="feamt" type="text" placeholder="0" inputmode="numeric" oninput="formatMontoInput(this)">
+      <input type="hidden" id="fe-foto-url" value="">
+      <div id="fe-foto-preview" style="display:none;margin-bottom:8px">
+        <img id="fe-foto-img" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;border:1px solid var(--rim)">
+      </div>
+      <div id="fe-upload-status" style="display:none;font-size:11px;margin-bottom:8px"></div>
+      <input type="file" accept="image/*" capture="environment" id="fe-foto-file" style="display:none" onchange="uploadGastoFoto(this,'fe')">
+      <button type="button" onclick="document.getElementById('fe-foto-file').click()" style="width:100%;padding:9px;border-radius:8px;border:1px dashed var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer;margin-bottom:8px">📷 Foto del ticket (opcional)</button>
       <div class="frow">
         <button class="btp" onclick="addExpense()">GUARDAR</button>
         <button class="btg" onclick="tf('fexp')">✕</button>
@@ -673,6 +680,13 @@ body {
     <input class="fi fi-monto" id="edit-exp-amt" type="text" inputmode="numeric" placeholder="0" oninput="formatMontoInput(this)">
     <label class="fl">Pagado por</label>
     <select class="fsel" id="edit-exp-payer"></select>
+    <input type="hidden" id="edit-exp-foto-url" value="">
+    <div id="edit-exp-foto-preview" style="display:none;margin-bottom:8px">
+      <img id="edit-exp-foto-img" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;border:1px solid var(--rim)">
+    </div>
+    <div id="edit-exp-upload-status" style="display:none;font-size:11px;margin-bottom:8px"></div>
+    <input type="file" accept="image/*" capture="environment" id="edit-exp-foto-file" style="display:none" onchange="uploadGastoFoto(this,'edit-exp')">
+    <button type="button" onclick="document.getElementById('edit-exp-foto-file').click()" style="width:100%;padding:9px;border-radius:8px;border:1px dashed var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer;margin-bottom:8px">📷 Foto del ticket</button>
     <div class="frow">
       <button class="btp" onclick="saveEditExpense()">GUARDAR</button>
       <button class="btg" style="color:var(--red);border-color:rgba(231,76,60,.3)" onclick="deleteExpense()">🗑 ELIMINAR</button>
@@ -1640,14 +1654,18 @@ async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
   const amt=montoNumerico('feamt');
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  document.getElementById('fedesc').value=''; document.getElementById('feamt').value=''; tf('fexp');
+  const foto_url = document.getElementById('fe-foto-url').value.trim() || null;
+  document.getElementById('fedesc').value=''; document.getElementById('feamt').value='';
+  document.getElementById('fe-foto-url').value=''; document.getElementById('fe-foto-preview').style.display='none';
+  document.getElementById('fe-upload-status').style.display='none'; document.getElementById('fe-foto-file').value='';
+  tf('fexp');
   // Actualizar UI inmediatamente
-  const tempExp = {id:'tmp_'+Date.now(), event_id:S.event.id, payer:me, description:desc, amount:amt, medio:'efectivo'};
+  const tempExp = {id:'tmp_'+Date.now(), event_id:S.event.id, payer:me, description:desc, amount:amt, medio:'efectivo', foto_url};
   S.expenses.push(tempExp);
   renderGastos();
   toast('✅ Gasto cargado!');
   // Sincronizar con Supabase en background
-  sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt})
+  sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt,foto_url})
     .then(()=>fetchAll());
 }
 
@@ -1863,7 +1881,9 @@ async function renderGastos() {
     ?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
     :[...S.expenses].reverse().map(e=>`
       <div class="er">
-        <div class="ei">🧾</div>
+        ${e.foto_url
+          ? `<img src="${e.foto_url}" onclick="window.open('${e.foto_url}','_blank')" style="width:30px;height:30px;border-radius:7px;object-fit:cover;flex-shrink:0;cursor:pointer;border:1px solid var(--rim)">`
+          : '<div class="ei">🧾</div>'}
         <div class="eb"><div class="en">${e.description.toUpperCase()}</div><div class="ew">${e.payer.toUpperCase()}</div></div>
         <div style="display:flex;align-items:center;gap:7px">
           <div class="ea">${fmt(e.amount)}</div>
@@ -2328,6 +2348,27 @@ async function eliminarLockerItem(id) {
   if (panelLocker?.classList.contains('active')) await renderLockerPanel();
   else await renderLocker();
   toast('Item eliminado');
+}
+
+// Sube la foto de un ticket de gasto. prefix: 'fe' (cargar) o 'edit-exp' (editar)
+async function uploadGastoFoto(input, prefix) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById(prefix + '-upload-status') || document.getElementById(prefix + '-foto-preview');
+  const statusElReal = document.getElementById(prefix === 'fe' ? 'fe-upload-status' : 'edit-exp-upload-status');
+  if (statusElReal) { statusElReal.style.display = 'block'; statusElReal.style.color = 'var(--muted)'; statusElReal.textContent = '⏳ Subiendo foto...'; }
+  try {
+    const fileName = Date.now() + '_' + file.name.replace(/\s/g, '_');
+    const { error } = await sb.storage.from('Gastos').upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
+    if (error) throw new Error(error.message);
+    const { data: urlData } = sb.storage.from('Gastos').getPublicUrl(fileName);
+    document.getElementById(prefix + '-foto-url').value = urlData.publicUrl;
+    document.getElementById(prefix + '-foto-img').src = urlData.publicUrl;
+    document.getElementById(prefix + '-foto-preview').style.display = 'block';
+    if (statusElReal) { statusElReal.style.color = 'var(--green)'; statusElReal.textContent = '✅ Foto subida!'; }
+  } catch(e) {
+    if (statusElReal) { statusElReal.style.color = 'var(--red)'; statusElReal.textContent = '❌ Error: ' + e.message; }
+  }
 }
 
 async function uploadLockerFoto(input) {
@@ -2856,6 +2897,14 @@ function openEditExpense(id) {
   // populate payer select
   const sel = document.getElementById('edit-exp-payer');
   sel.innerHTML = allP().slice().sort((a,b)=>a.localeCompare(b,'es')).map(p=>`<option value="${p}"${p===e.payer?' selected':''}>${p.toUpperCase()}</option>`).join('');
+  document.getElementById('edit-exp-foto-url').value = e.foto_url || '';
+  document.getElementById('edit-exp-upload-status').style.display = 'none';
+  if (e.foto_url) {
+    document.getElementById('edit-exp-foto-img').src = e.foto_url;
+    document.getElementById('edit-exp-foto-preview').style.display = 'block';
+  } else {
+    document.getElementById('edit-exp-foto-preview').style.display = 'none';
+  }
   openModal('modal-edit-expense');
 }
 
@@ -2864,8 +2913,9 @@ async function saveEditExpense() {
   const desc  = document.getElementById('edit-exp-desc').value.trim();
   const amt   = montoNumerico('edit-exp-amt');
   const payer = document.getElementById('edit-exp-payer').value;
+  const foto_url = document.getElementById('edit-exp-foto-url').value.trim() || null;
   if (!desc||isNaN(amt)||amt<=0) { toast('Completá los campos','var(--red)'); return; }
-  await sb.from('expenses').update({description:desc, amount:amt, payer}).eq('id',id);
+  await sb.from('expenses').update({description:desc, amount:amt, payer, foto_url}).eq('id',id);
   closeModal('modal-edit-expense');
   await fetchAll();
   toast('✅ Gasto actualizado!');
