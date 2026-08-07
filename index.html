@@ -2171,7 +2171,19 @@ const LOCKER_ESTADOS = [
 function renderLockerInfoCard() {
   const numero = S.lockerNumero || '';
   const clave  = S.lockerClave  || '';
-  if (!numero && !clave && !isAdmin()) return ''; // nada que mostrar y no es admin
+  const miPart = S.participants.find(p => p.name.toLowerCase() === me.toLowerCase());
+  const autorizado = isAdmin() || !!miPart?.locker_key_auth;
+
+  if (!numero && !clave && !isAdmin()) return ''; // nada cargado y no sos admin: no mostrar nada
+
+  if (!autorizado) {
+    // Hay datos cargados pero este usuario no está autorizado a verlos
+    return `<div class="card" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;background:rgba(255,165,0,.05);border-color:rgba(255,165,0,.2)">
+      <div style="font-size:20px">🔒</div>
+      <div style="font-size:12px;color:var(--muted)">Acceso a la clave del locker restringido. Pedile al admin que te autorice.</div>
+    </div>`;
+  }
+
   return `<div class="card" style="display:flex;align-items:center;gap:14px;margin-bottom:10px;background:rgba(255,165,0,.08);border-color:rgba(255,165,0,.3)">
     <div style="flex:1;display:flex;gap:18px;flex-wrap:wrap">
       <div>
@@ -2183,8 +2195,39 @@ function renderLockerInfoCard() {
         <div style="font-size:18px;font-weight:700;color:#FFA500;letter-spacing:1px">${clave || '—'}</div>
       </div>
     </div>
-    ${isAdmin() ? `<button onclick="editarLockerInfo()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer;flex-shrink:0">✏️</button>` : ''}
+    ${isAdmin() ? `<button onclick="abrirLockerAccessModal()" title="Gestionar quién puede ver la clave" style="padding:6px 8px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:14px;cursor:pointer;flex-shrink:0">🔑</button>
+    <button onclick="editarLockerInfo()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;cursor:pointer;flex-shrink:0">✏️</button>` : ''}
   </div>`;
+}
+
+async function abrirLockerAccessModal() {
+  if (!isAdmin()) return;
+  renderLockerAccessList();
+  openModal('modal-locker-access');
+}
+
+function renderLockerAccessList() {
+  const el = document.getElementById('locker-access-list');
+  if (!el) return;
+  const activos = allP().slice().sort((a,b)=>a.localeCompare(b,'es'));
+  el.innerHTML = activos.map(name => {
+    const p = S.participants.find(x => x.name === name);
+    const on = !!p?.locker_key_auth;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--rim)">
+      <span style="font-size:13px;font-weight:600;text-transform:uppercase">${name}</span>
+      <button onclick="toggleLockerAuth('${name}',${!on})" style="padding:5px 12px;border-radius:8px;border:1px solid ${on?'var(--green)':'var(--rim)'};background:${on?'rgba(39,174,96,.15)':'var(--ash)'};color:${on?'var(--green)':'var(--muted)'};font-size:11px;font-weight:700;cursor:pointer">${on?'✅ AUTORIZADO':'⬜ SIN ACCESO'}</button>
+    </div>`;
+  }).join('');
+}
+
+async function toggleLockerAuth(name, nuevoValor) {
+  const p = S.participants.find(x => x.name === name);
+  if (!p) return;
+  await sb.from('participants').update({ locker_key_auth: nuevoValor }).eq('id', p.id);
+  p.locker_key_auth = nuevoValor; // actualizar en memoria para no esperar otro fetch
+  renderLockerAccessList();
+  const panelLocker = document.getElementById('panel-locker');
+  if (panelLocker?.classList.contains('active')) renderLockerPanel();
 }
 
 async function editarLockerInfo() {
@@ -5429,6 +5472,17 @@ const F1_COLORES = {
       <button class="btp" style="width:100%;margin-bottom:0" onclick="openNuevoLockerItem()">+ AGREGAR ITEM</button>
     </div>
     <div id="locker-list" style="overflow-y:auto;flex:1;padding-bottom:8px"></div>
+  </div>
+</div>
+
+<!-- Modal Gestionar acceso a la clave del Locker -->
+<div class="modal-bg" id="modal-locker-access">
+  <div class="modal" style="max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-title">🔑 Acceso a la clave
+      <button class="modal-close" onclick="closeModal('modal-locker-access')">✕</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Elegí quiénes pueden ver el N° de locker y la clave. El resto solo va a ver que hay un locker, sin los datos.</p>
+    <div id="locker-access-list" style="overflow-y:auto;flex:1"></div>
   </div>
 </div>
 
