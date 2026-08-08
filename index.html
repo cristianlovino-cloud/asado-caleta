@@ -434,14 +434,21 @@ body {
 
   <!-- GASTOS -->
   <div class="panel" id="panel-gastos">
-    <div class="sg">
-      <div class="sb sbf"><div class="sl">TOTAL GASTADO</div><div class="sv cf" id="st">$0</div></div>
-      <div class="sb sbg"><div class="sl">POR PERSONA</div><div class="sv cg" id="spp">$0</div></div>
-      <div class="sb sbb">
-        <div class="sl">Comensales</div>
-        <div class="sv cb" id="sc">0</div>
+    <div class="gastos-financiero">
+      <div class="sg">
+        <div class="sb sbf"><div class="sl">TOTAL GASTADO</div><div class="sv cf" id="st">$0</div></div>
+        <div class="sb sbg"><div class="sl">POR PERSONA</div><div class="sv cg" id="spp">$0</div></div>
+        <div class="sb sbb">
+          <div class="sl">Comensales</div>
+          <div class="sv cb" id="sc">0</div>
+        </div>
+        <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
       </div>
-      <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
+    </div>
+    <div id="gastos-oculto-msg" style="display:none;text-align:center;padding:22px 16px;background:var(--ash);border:1px solid var(--rim);border-radius:14px;margin-bottom:12px">
+      <div style="font-size:32px;margin-bottom:8px">🔒</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">EL RESUMEN SE MUESTRA CUANDO SE CIERREN CUENTAS</div>
+      <div style="font-size:12px;color:var(--muted)">Cargá tu gasto tranquilo — el total, el reparto y quién debe qué se van a ver acá una vez que el admin cierre cuentas.</div>
     </div>
     <button class="bta" onclick="tf('fexp')">+ CARGAR MI GASTO</button>
     <div id="gastos-admin-controls" style="display:none;gap:8px;margin:10px 0">
@@ -465,11 +472,13 @@ body {
         <button class="btg" onclick="tf('fexp')">✕</button>
       </div>
     </div>
-    <div class="sh">👥 Balances</div>
-    <div class="card" id="ballist"></div>
-    <div class="div"></div>
-    <div class="sh">📋 Gastos registrados</div>
-    <div class="card" id="explist"><div class="empty"><div class="em">🧾</div>Sin gastos aún</div></div>
+    <div class="gastos-financiero">
+      <div class="sh">👥 Balances</div>
+      <div class="card" id="ballist"></div>
+      <div class="div"></div>
+      <div class="sh">📋 Gastos registrados</div>
+      <div class="card" id="explist"><div class="empty"><div class="em">🧾</div>Sin gastos aún</div></div>
+    </div>
   </div>
 
   <!-- TAREAS -->
@@ -1036,6 +1045,7 @@ async function fetchAll() {
     S.lockerClave  = cfg.data.find(r => r.key === 'locker_clave')?.value || '';
     // Cobro de deudas activo: forzar tab gastos a no-admin (una sola vez por cierre)
     const cuentasRow = cfg.data.find(r => r.key === 'cuentas_abiertas');
+    S.cuentasAbiertas = cuentasRow?.value === 'true';
     if (cuentasRow?.value === 'true' && !isAdmin()) {
       if (!window._cuentasAvisado) {
         window._cuentasAvisado = true;
@@ -1797,11 +1807,18 @@ async function renderGastos() {
   const payments = await fetchPayments();
   const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
   const pp=getPP(),total=getTotal(),mb=bal(me);
+  const puedeVerGastos = isAdmin() || !!S.cuentasAbiertas;
 
   // ── MODO INVITADO ──────────────────────────────────────────────────────
   if (isInvitado() && !isAdmin()) {
     const elEl = document.getElementById('panel-gastos');
-    if (elEl) elEl.innerHTML = `<div style="padding:16px">
+    if (elEl) elEl.innerHTML = !puedeVerGastos
+      ? `<div style="padding:16px"><div style="text-align:center;padding:22px 16px;background:var(--ash);border:1px solid var(--rim);border-radius:14px">
+          <div style="font-size:32px;margin-bottom:8px">🔒</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px">EL RESUMEN SE MUESTRA CUANDO SE CIERREN CUENTAS</div>
+          <div style="font-size:12px;color:var(--muted)">El admin todavía no cerró cuentas para este asado.</div>
+        </div></div>`
+      : `<div style="padding:16px">
       <div class="ov-card" style="text-align:center;margin-bottom:12px">
         <div class="ov-label">💰 Tu parte del asado</div>
         <div style="font-size:42px;font-weight:700;font-family:var(--font-title);color:var(--fire);letter-spacing:2px">${fmt(pp)}</div>
@@ -1818,6 +1835,10 @@ async function renderGastos() {
     return;
   }
   // ─────────────────────────────────────────────────────────────────────
+
+  document.querySelectorAll('.gastos-financiero').forEach(el => el.style.display = puedeVerGastos ? '' : 'none');
+  const ocultoMsg = document.getElementById('gastos-oculto-msg');
+  if (ocultoMsg) ocultoMsg.style.display = puedeVerGastos ? 'none' : 'block';
 
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
