@@ -1653,6 +1653,9 @@ async function createNewAsado() {
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
   // Archivar actual
   await sb.from('events').update({archived:true}).eq('id',S.event.id);
+  // Resetear el cobro de cuentas: el asado nuevo arranca limpio, no hereda el "cobrando" del anterior
+  await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'false' });
+  window._cuentasAvisado = false;
   // El rsvp ya está en tabla separada por event_id, no hay que resetear nada
   // Crear nuevo
   const {data} = await sb.from('events').insert({title,event_date:date,time_range:time,location:loc,creator:me}).select().single();
