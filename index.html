@@ -340,8 +340,10 @@ body {
   <div class="lcard">
     <label class="llabel">¿Cuál es tu nombre?</label>
     <input class="linput" id="cname" placeholder="TU NOMBRE..." maxlength="20" 
+      oninput="autocompleteNombre(this.value)"
       onkeydown="if(event.key==='Enter')doLogin()"
       style="text-transform:uppercase;letter-spacing:1px;font-weight:600">
+    <div id="sugerencias" style="display:none;background:var(--smoke);border:1px solid var(--rim);border-radius:14px;margin-top:6px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div>
     <button class="lbtn" id="login-btn" onclick="doLogin()">🔥 ENTRAR AL ASADO</button>
   </div>
   <div class="wnote">
@@ -432,6 +434,7 @@ body {
 
   <!-- GASTOS -->
   <div class="panel" id="panel-gastos">
+    <div id="pending-payments-block"></div>
     <div class="gastos-financiero">
       <div class="sg">
         <div class="sb sbf"><div class="sl">TOTAL GASTADO</div><div class="sv cf" id="st">$0</div></div>
@@ -763,6 +766,8 @@ body {
       <input class="fi" id="ep-birthday" placeholder="DD/MM" maxlength="5" style="max-width:110px;margin-bottom:0;font-size:16px;text-align:center;font-weight:700;letter-spacing:2px">
       <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">día/mes solamente</span>
     </div>
+    <label class="fl">📧 Email <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(opcional — para invitarlo a su calendario)</span></label>
+    <input class="fi" id="ep-email" type="email" placeholder="nombre@mail.com" style="margin-bottom:12px">
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">CANCELAR</button>
@@ -1076,6 +1081,20 @@ async function fetchAll() {
   if (vacv.data) S.votacion_votos     = vacv.data;
   if (pr.data)   S.paymentReqs        = pr.data;
 
+  // Avisar al admin de pagos pendientes de validar (una sola vez por tanda, igual que cuentas_abiertas)
+  const pagosPendientes = (S.paymentReqs || []).filter(r => r.estado === 'pendiente').length;
+  if (isAdmin() && pagosPendientes > 0) {
+    if (!window._pagosAvisado) {
+      window._pagosAvisado = true;
+      setTimeout(() => {
+        showTab('gastos');
+        toast('⏳ Tenés ' + pagosPendientes + ' pago(s) para validar', 'var(--fire)', 5000);
+      }, 800);
+    }
+  } else {
+    window._pagosAvisado = false; // se validaron todos, listo para avisar la próxima tanda
+  }
+
   // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
   S.rsvp = {};
   if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, id: r.id}; });
@@ -1156,6 +1175,29 @@ async function buildLogin() {
 }
 
 // selectN removed - free text login
+
+function autocompleteNombre(val) {
+  const sug = document.getElementById('sugerencias');
+  if (!val || val.length < 1) { sug.style.display='none'; return; }
+  const matches = S.participants.filter(p=>p.active && p.name!==ADMIN_USER && p.name.toLowerCase().startsWith(val.toLowerCase()));
+  if (!matches.length) { sug.style.display='none'; return; }
+  sug.style.display='block';
+  sug.innerHTML = matches.map(p => {
+    const letra = p.name[0].toUpperCase();
+    const nombre = p.name.toUpperCase();
+    return `<div onclick="elegirNombre('${p.name}')" style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim)">
+      <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;flex-shrink:0">${letra}</div>
+      <div style="flex:1;font-size:15px;font-weight:700;letter-spacing:.5px;color:var(--text)">${nombre}</div>
+      <div style="color:var(--fire);font-size:20px;opacity:.6">→</div>
+    </div>`;
+  }).join('');
+}
+
+function elegirNombre(nombre) {
+  document.getElementById('cname').value = nombre;
+  document.getElementById('sugerencias').style.display='none';
+  doLogin();
+}
 
 async function doLogin() {
   const raw = document.getElementById('cname').value.trim();
@@ -1391,10 +1433,27 @@ function renderParticipantsModal() {
       </div>
       <div style="display:flex;gap:5px">
         <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>
+        ${p.email?`<button class="abtn" onclick="invitarPorMail('${p.name.replace(/'/g,"\'")}')" title="Invitar por mail">📧</button>`:''}
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
   renderInvitadosList();
+}
+
+// Invitar a un participante por mail con los datos del asado (el .ics no se puede adjuntar vía mailto,
+// así que va el detalle en el cuerpo + se lo invita a entrar a la app y tocar "📅 agregar a mi calendario")
+function invitarPorMail(nombre) {
+  const p = S.participants.find(x => x.name === nombre);
+  if (!p?.email) { toast('Ese participante no tiene mail cargado', 'var(--red)'); return; }
+  if (!S.event) return;
+  const asunto = 'Invitación: ' + (S.event.title || 'Asado en La Caleta');
+  const cuerpo = `Hola ${nombre.split(' ')[0]}!\n\n` +
+    `Te esperamos en ${S.event.title || 'el asado'}:\n` +
+    `📅 ${S.event.event_date} · ${S.event.time_range || ''}\n` +
+    `📍 ${S.event.location || ''}\n\n` +
+    `Entrá a la app y confirmá tu asistencia. Una vez adentro, en "Mi estado" tenés un botón 📅 para agregarlo directo a tu calendario.\n\n` +
+    `Nos vemos!`;
+  window.open('mailto:' + encodeURIComponent(p.email) + '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo), '_blank');
 }
 
 function openRenameParticipant(id, currentName) {
@@ -1404,9 +1463,11 @@ function openRenameParticipant(id, currentName) {
 }
 
 function openEditParticipant(id, currentName, currentBirthday) {
+  const p = S.participants.find(x => x.id === id);
   document.getElementById('ep-id').value = id;
   document.getElementById('ep-name').value = currentName;
   document.getElementById('ep-birthday').value = currentBirthday || '';
+  document.getElementById('ep-email').value = p?.email || '';
   closeModal('modal-participants');
   openModal('modal-edit-participant');
 }
@@ -1415,14 +1476,18 @@ async function saveEditParticipant() {
   const id = parseInt(document.getElementById('ep-id').value);
   const newName = document.getElementById('ep-name').value.trim();
   const birthday = document.getElementById('ep-birthday').value.trim();
+  const email = document.getElementById('ep-email').value.trim();
   if (!newName) { toast('Escribí el nombre','var(--red)'); return; }
   // Validar formato DD/MM
   if (birthday && !/^\d{1,2}\/\d{2}$/.test(birthday)) {
     toast('Formato DD/MM (ej: 23/07)','var(--red)'); return;
   }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    toast('Ese email no parece válido','var(--red)'); return;
+  }
   try {
     const oldP = S.participants.find(p=>p.id===id);
-    await sb.from('participants').update({name: newName, birthday: birthday||null}).eq('id', id);
+    await sb.from('participants').update({name: newName, birthday: birthday||null, email: email||null}).eq('id', id);
     if (oldP && oldP.name !== newName) {
       await sb.from('tasks').update({assignee: newName}).ilike('assignee', oldP.name);
       await sb.from('expenses').update({payer: newName}).ilike('payer', oldP.name);
@@ -1776,26 +1841,27 @@ async function validarPago(id, estado) {
   }).eq('id', id);
 
   if (estado === 'aprobado') {
-    // Registrar el pago en la tabla payments existente
+    // Registrar el pago en la tabla payments existente (el receptor real es quien cobra, o sea el admin)
     const req = (await sb.from('payment_requests').select('*').eq('id', id).single()).data;
     if (req) {
-      // Encontrar el acreedor principal del evento
-      const payments = await fetchPayments();
-      const acreedores = allP().filter(p => bal(p) > 0.5);
-      if (acreedores.length) {
-        await sb.from('payments').insert({
-          event_id: S.event.id,
-          payer: req.participant_name,
-          receiver: acreedores[0],
-          amount: req.monto,
-          note: 'Pago via MP · ' + (req.nota || '')
-        });
+      const { error } = await sb.from('payments').insert({
+        event_id: S.event.id,
+        payer: req.participant_name,
+        receiver: ADMIN_USER,
+        amount: req.monto,
+        note: 'Pago via MP · ' + (req.nota || '')
+      });
+      if (error) {
+        toast('❌ No se pudo registrar el pago: ' + error.message, 'var(--red)');
+        await renderGastos();
+        return;
       }
     }
     toast('✅ Pago confirmado y registrado', 'var(--green)');
   } else {
     toast('❌ Pago rechazado', 'var(--red)');
   }
+  await fetchAll();
   renderGastos();
 }
 
@@ -1885,21 +1951,10 @@ async function renderGastos() {
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
     : '';
-  // Pagos pendientes de validar (solo admin)
+  // Pagos pendientes de validar (solo admin) — arriba de todo para que no se pierda
   if (isAdmin()) {
-    // Limpiar bloque anterior antes de reinsertar
-    document.getElementById('pending-payments-block')?.remove();
-    renderPendingPayments().then(html => {
-      if (html) {
-        const explistEl = document.getElementById('explist');
-        if (explistEl) {
-          const div = document.createElement('div');
-          div.id = 'pending-payments-block';
-          div.innerHTML = html;
-          explistEl.before(div);
-        }
-      }
-    });
+    const pendBlock = document.getElementById('pending-payments-block');
+    if (pendBlock) renderPendingPayments().then(html => { pendBlock.innerHTML = html; });
   }
 
   const el=document.getElementById('explist');
