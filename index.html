@@ -1691,8 +1691,8 @@ async function fetchPaymentRequests() {
 }
 
 function abrirMP() {
-  // mpago.la redirige a la app si está instalada, sino al sitio
-  window.open('https://mpago.la/' + MP_ALIAS, '_blank');
+  // mpago.la sin alias: abre la app/sitio de MP, el alias y monto ya quedaron copiados con los botones 📋 de arriba
+  window.open('https://mpago.la/', '_blank');
 }
 
 function abrirModo() {
@@ -5619,6 +5619,7 @@ const F1_COLORES = {
           <button onclick="navigator.clipboard.writeText(document.getElementById('mpc-monto-val').value);toast('✅ Monto copiado!','var(--green)')" style="padding:3px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:11px;cursor:pointer">📋</button>
         </div>
       </div>
+      <button onclick="abrirMP()" style="width:100%;padding:9px;border-radius:8px;border:none;background:#009EE3;color:white;font-size:12px;font-weight:700;cursor:pointer">🔵 Abrir Mercado Pago</button>
     </div>
     <!-- Efectivo -->
     <div style="background:var(--ash);border:1px solid var(--rim);border-radius:12px;padding:12px;margin-bottom:10px">
