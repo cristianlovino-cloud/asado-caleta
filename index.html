@@ -778,6 +778,7 @@ body {
 <div class="modal-bg" id="modal-participants">
   <div class="modal">
     <div class="modal-title">👥 Participantes <button class="modal-close" onclick="closeModal('modal-participants')">✕</button></div>
+    <button class="btp" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#4a90e2,#357abd)" onclick="invitarPorMailATodos()">📧 Enviar invite/recordatorio a todos</button>
     <div id="part-list"></div>
     <div class="div"></div>
     <label class="fl">Agregar participante</label>
@@ -1454,6 +1455,23 @@ function invitarPorMail(nombre) {
     `Entrá a la app y confirmá tu asistencia. Una vez adentro, en "Mi estado" tenés un botón 📅 para agregarlo directo a tu calendario.\n\n` +
     `Nos vemos!`;
   window.open('mailto:' + encodeURIComponent(p.email) + '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo), '_blank');
+}
+
+// Un solo mail, todos los participantes con mail cargado en BCC (no se ven los mails entre ellos)
+function invitarPorMailATodos() {
+  if (!S.event) return;
+  const conMail = S.participants.filter(p => p.active && p.email);
+  if (!conMail.length) { toast('Nadie tiene mail cargado todavía', 'var(--red)'); return; }
+  const asunto = 'Invitación: ' + (S.event.title || 'Asado en La Caleta');
+  const cuerpo = `Hola!\n\n` +
+    `Te esperamos en ${S.event.title || 'el asado'}:\n` +
+    `📅 ${S.event.event_date} · ${S.event.time_range || ''}\n` +
+    `📍 ${S.event.location || ''}\n\n` +
+    `Entrá a la app y confirmá tu asistencia. Una vez adentro, en "Mi estado" tenés un botón 📅 para agregarlo directo a tu calendario.\n\n` +
+    `Nos vemos!`;
+  const bcc = conMail.map(p => p.email).join(',');
+  toast('📧 Se armó para ' + conMail.length + ' persona(s)', 'var(--green)');
+  window.open('mailto:?bcc=' + encodeURIComponent(bcc) + '&subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo), '_blank');
 }
 
 function openRenameParticipant(id, currentName) {
