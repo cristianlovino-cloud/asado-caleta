@@ -3917,12 +3917,36 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
 });
 
 // ══ AUTO-REFRESH cada 30 segundos ════════════════
+function copiarTexto(texto, label) {
+  navigator.clipboard.writeText(texto)
+    .then(() => toast('✅ ' + (label || 'Copiado') + ' copiado!', 'var(--green)'))
+    .catch(() => toast('❌ No se pudo copiar', 'var(--red)'));
+}
+
+async function editarAliasParticipante(nombre) {
+  if (!isAdmin()) return;
+  const p = S.participants.find(x => x.name === nombre);
+  const actual = p?.mp_alias || '';
+  const nuevo = prompt('Alias de Mercado Pago de ' + nombre + ':', actual);
+  if (nuevo === null) return;
+  await sb.from('participants').update({ mp_alias: nuevo.trim() }).eq('id', p.id);
+  if (p) p.mp_alias = nuevo.trim();
+  toast('✅ Alias guardado', 'var(--green)');
+  await renderCuentas();
+}
+
 async function cerrarCuentasAll() {
-  if (!confirm('¿Cerrar cuentas? Todos los usuarios verán la pantalla de GASTOS al entrar hasta que cierres el estado.')) return;
-  await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'true' });
-  toast('💰 Cuentas cerradas — todos verán Gastos al entrar', 'var(--fire)', 4000);
-  // Notificar al instante a los que ya están conectados (mismo canal que escuchan en subscribe())
-  sb.channel('rt-all').send({ type: 'broadcast', event: 'cerrar_cuentas', payload: {} });
+  if (!(await showConfirm('Todos los usuarios verán la pantalla de GASTOS al entrar hasta que cierres el estado.', { title: '¿CERRAR CUENTAS?', icon: '🔒' }))) return;
+  toast('⏳ Cerrando cuentas...', 'var(--fire)', 2500);
+  S.cuentasAbiertas = true; // reflejar el cambio ya mismo en tu propia pantalla, sin esperar la red
+  try {
+    await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'true' });
+    toast('💰 Cuentas cerradas — todos verán Gastos al entrar', 'var(--fire)', 4000);
+    sb.channel('rt-all').send({ type: 'broadcast', event: 'cerrar_cuentas', payload: {} });
+  } catch(e) {
+    S.cuentasAbiertas = false;
+    toast('❌ No se pudo cerrar, probá de nuevo', 'var(--red)');
+  }
 }
 
 async function reabrirCuentas() {
@@ -5090,12 +5114,25 @@ async function renderCuentas() {
   }
   const ordenHtml = ordenPagos.length ? '<div class="sh" style="margin-bottom:8px">🔀 Orden de pagos sugerido</div>' +
     '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim);margin-bottom:12px">' +
-    ordenPagos.map(o => '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--rim)">' +
-      '<span style="font-size:13px"><strong>' + o.de.toUpperCase() + '</strong> → <strong>' + o.a.toUpperCase() + '</strong></span>' +
-      '<div style="display:flex;align-items:center;gap:8px">' +
-        '<span style="font-weight:700;color:var(--fire)">' + fmt(o.monto) + '</span>' +
-        (isAdmin() ? '<button onclick="abrirModalPago_btn(this)" data-payer="' + o.de + '" data-amount="' + Math.round(o.monto) + '" data-receiver="' + o.a + '" style="padding:5px 8px;border-radius:6px;border:none;background:rgba(245,197,24,.15);color:var(--fire);font-size:11px;cursor:pointer;font-weight:700">💰</button>' : '') +
-      '</div></div>').join('') +
+    ordenPagos.map(o => {
+      const receptor = S.participants.find(p => p.name === o.a);
+      const alias = receptor?.mp_alias || '';
+      const aliasHtml = alias
+        ? '<span style="font-size:11px;color:var(--muted)">' + alias + '</span>' +
+          '<button onclick="copiarTexto(\'' + alias + '\',\'Alias\')" style="padding:2px 6px;border-radius:5px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:10px;cursor:pointer">📋</button>' +
+          '<button onclick="editarAliasParticipante(\'' + o.a + '\')" style="padding:2px 5px;border-radius:5px;border:none;background:none;color:var(--muted);font-size:10px;cursor:pointer">✏️</button>'
+        : '<button onclick="editarAliasParticipante(\'' + o.a + '\')" style="padding:2px 8px;border-radius:5px;border:1px dashed var(--rim);background:none;color:var(--muted);font-size:10px;cursor:pointer">+ alias</button>';
+      return '<div style="padding:9px 12px;border-bottom:1px solid var(--rim)">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<span style="font-size:13px"><strong>' + o.de.toUpperCase() + '</strong> → <strong>' + o.a.toUpperCase() + '</strong></span>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
+          '<span style="font-weight:700;color:var(--fire)">' + fmt(o.monto) + '</span>' +
+          '<button onclick="copiarTexto(\'' + Math.round(o.monto) + '\',\'Monto\')" style="padding:4px 6px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:11px;cursor:pointer">📋</button>' +
+          (isAdmin() ? '<button onclick="abrirModalPago_btn(this)" data-payer="' + o.de + '" data-amount="' + Math.round(o.monto) + '" data-receiver="' + o.a + '" style="padding:5px 8px;border-radius:6px;border:none;background:rgba(245,197,24,.15);color:var(--fire);font-size:11px;cursor:pointer;font-weight:700">💰</button>' : '') +
+        '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">' + aliasHtml + '</div>' +
+      '</div>';
+    }).join('') +
     '</div>' : '';
 
   el.innerHTML =
@@ -5568,13 +5605,14 @@ const F1_COLORES = {
           <button onclick="navigator.clipboard.writeText('crilovino.mp');toast('✅ Alias copiado!','var(--green)')" style="padding:3px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:11px;cursor:pointer">📋</button>
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <span style="font-size:13px;color:var(--muted)">Monto</span>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:14px;font-weight:700;color:var(--green)" id="mpc-monto"></span>
           <button onclick="navigator.clipboard.writeText(document.getElementById('mpc-monto-val').value);toast('✅ Monto copiado!','var(--green)')" style="padding:3px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:11px;cursor:pointer">📋</button>
         </div>
       </div>
+      <button onclick="abrirMP()" style="width:100%;padding:9px;border-radius:8px;border:none;background:#009EE3;color:white;font-size:12px;font-weight:700;cursor:pointer">🔵 Abrir Mercado Pago</button>
     </div>
     <!-- Efectivo -->
     <div style="background:var(--ash);border:1px solid var(--rim);border-radius:12px;padding:12px;margin-bottom:10px">
