@@ -3776,11 +3776,11 @@ function renderOverview() {
   const miPart = S.participants.find(p=>p.name.toLowerCase()===me.toLowerCase());
   const miRsvp = getRsvp(me);
 
-  // Cumpleaños del mes
+  // Cumpleaños del mes (mes real de hoy, no el mes del asado)
   const cumples = S.participants.filter(p=>p.active&&p.birthday).map(p=>{
     const [d,m]=(p.birthday||'').split('/').map(Number);
     return {nombre:p.name,dia:d,mes:m};
-  }).filter(c=>!isNaN(c.mes)&&c.mes===(parts[1]?parseInt(parts[1]):mesActual)).sort((a,b)=>a.dia-b.dia);
+  }).filter(c=>!isNaN(c.mes)&&c.mes===mesActual).sort((a,b)=>a.dia-b.dia);
 
   // Card votación pendiente para no-admin
   const vacPendiente = !isAdmin() && S.votaciones.find(v => {
