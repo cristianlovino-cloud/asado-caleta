@@ -648,6 +648,16 @@ body {
   </div>
 </div>
 
+<!-- Modal selección entre varios candidatos ambiguos (ej: varios "Hernán") -->
+<div class="modal-bg" id="modal-elegir-nombre">
+  <div class="modal" style="text-align:center;padding:24px">
+    <div style="font-size:40px;margin-bottom:10px">🤔</div>
+    <div style="font-family:var(--font-title);font-size:22px;letter-spacing:1px;margin-bottom:16px">¿CUÁL SOS VOS?</div>
+    <div id="men-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <button id="men-otro" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:var(--font-title);font-size:14px;cursor:pointer;letter-spacing:1px">NO SOY NINGUNO DE ESTOS</button>
+  </div>
+</div>
+
 <!-- Modal Nueva Votacion -->
 <div class="modal-bg" id="modal-nueva-votacion">
   <div class="modal">
@@ -1230,6 +1240,15 @@ async function doLogin() {
         me = completo;
         localStorage.setItem('asado_user', completo);
         part = posibles[0];
+      }
+    } else if (posibles.length > 1) {
+      // Ambiguo (ej: varios "Hernán") — mostrar para elegir en vez de crear un fantasma nuevo
+      const elegido = await elegirEntreVarios(posibles.map(p => p.name));
+      if (elegido) {
+        document.getElementById('cname').value = elegido;
+        me = elegido;
+        localStorage.setItem('asado_user', elegido);
+        part = posibles.find(p => p.name === elegido);
       }
     }
   }
@@ -3959,6 +3978,29 @@ function showConfirm(msg, { title = '¿CONFIRMÁS?', icon = '🤔', okText = 'AC
   });
 }
 
+// Cuando el nombre tipeado matchea con VARIOS participantes (ej: 3 "Hernán"), que elija cuál es.
+// Devuelve el nombre completo elegido, o null si tocó "no soy ninguno de estos".
+function elegirEntreVarios(nombres) {
+  document.activeElement?.blur();
+  return new Promise(resolve => {
+    const list = document.getElementById('men-list');
+    list.innerHTML = nombres.map(n =>
+      `<button style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:15px;font-weight:700;cursor:pointer;text-transform:uppercase">${n}</button>`
+    ).join('');
+    const botones = list.querySelectorAll('button');
+    const otroBtn = document.getElementById('men-otro');
+    const cleanup = (result) => {
+      closeModal('modal-elegir-nombre');
+      botones.forEach(b => b.onclick = null);
+      otroBtn.onclick = null;
+      resolve(result);
+    };
+    botones.forEach((b, i) => { b.onclick = () => cleanup(nombres[i]); });
+    otroBtn.onclick = () => cleanup(null);
+    setTimeout(() => openModal('modal-elegir-nombre'), 250);
+  });
+}
+
 // Sonido de aviso "cierre de cuentas" (sintetizado, sin archivos externos)
 function playSonidoCierreCuentas() {
   try {
@@ -3986,6 +4028,7 @@ document.querySelectorAll('.modal-bg').forEach(bg=>{
     if (e.target===bg) {
       bg.classList.remove('open');
       if (bg.id === 'modal-confirm-generic') document.getElementById('mcg-cancel')?.click();
+      if (bg.id === 'modal-elegir-nombre') document.getElementById('men-otro')?.click();
     }
   });
 });
