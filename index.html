@@ -1188,10 +1188,17 @@ async function buildLogin() {
 
 // selectN removed - free text login
 
+// Matchea si "val" es el principio del nombre O de cualquier palabra dentro del nombre (nombre o apellido)
+function nombreMatchea(nombreCompleto, val) {
+  const v = val.toLowerCase().trim();
+  if (!v) return false;
+  return nombreCompleto.toLowerCase().split(/\s+/).some(palabra => palabra.startsWith(v));
+}
+
 function autocompleteNombre(val) {
   const sug = document.getElementById('sugerencias');
   if (!val || val.length < 1) { sug.style.display='none'; return; }
-  const matches = S.participants.filter(p=>p.active && p.name!==ADMIN_USER && p.name.toLowerCase().startsWith(val.toLowerCase()));
+  const matches = S.participants.filter(p=>p.active && p.name!==ADMIN_USER && nombreMatchea(p.name, val));
   if (!matches.length) { sug.style.display='none'; return; }
   sug.style.display='block';
   sug.innerHTML = matches.map(p => {
@@ -1228,7 +1235,7 @@ async function doLogin() {
 
   // ── NUEVO: usuario desconocido → buscar si es un nombre corto de alguien ya registrado ──
   if (!part) {
-    const posibles = S.participants.filter(p => p.active !== false && p.name !== ADMIN_USER && p.role !== 'pendiente' && p.name.toLowerCase().startsWith(v.toLowerCase()));
+    const posibles = S.participants.filter(p => p.active !== false && p.name !== ADMIN_USER && p.role !== 'pendiente' && nombreMatchea(p.name, v));
     if (posibles.length === 1) {
       const completo = posibles[0].name;
       const ok = await showConfirm('Tocá <b>ACEPTAR</b> para entrar con ese nombre, o <b>CANCELAR</b> si sos otra persona.', {
@@ -2519,7 +2526,6 @@ async function eliminarLockerItem(id) {
 async function uploadGastoFoto(input, prefix) {
   const file = input.files[0];
   if (!file) return;
-  const statusEl = document.getElementById(prefix + '-upload-status') || document.getElementById(prefix + '-foto-preview');
   const statusElReal = document.getElementById(prefix === 'fe' ? 'fe-upload-status' : 'edit-exp-upload-status');
   if (statusElReal) { statusElReal.style.display = 'block'; statusElReal.style.color = 'var(--muted)'; statusElReal.textContent = '⏳ Subiendo foto...'; }
   try {
@@ -2530,9 +2536,28 @@ async function uploadGastoFoto(input, prefix) {
     document.getElementById(prefix + '-foto-url').value = urlData.publicUrl;
     document.getElementById(prefix + '-foto-img').src = urlData.publicUrl;
     document.getElementById(prefix + '-foto-preview').style.display = 'block';
-    if (statusElReal) { statusElReal.style.color = 'var(--green)'; statusElReal.textContent = '✅ Foto subida!'; }
+    if (statusElReal) { statusElReal.style.color = 'var(--green)'; statusElReal.textContent = '✅ Foto subida! Leyendo el ticket... 🤖'; }
+    // Intentar leer el ticket con IA y autocompletar (siempre queda editable)
+    await leerTicketConIA(urlData.publicUrl, prefix, statusElReal);
   } catch(e) {
     if (statusElReal) { statusElReal.style.color = 'var(--red)'; statusElReal.textContent = '❌ Error: ' + e.message; }
+  }
+}
+
+// Manda la foto a la función de Supabase que la lee con IA y devuelve {monto, concepto}.
+// Si falla o no está configurada, no rompe nada: la carga sigue siendo manual.
+async function leerTicketConIA(imageUrl, prefix, statusEl) {
+  try {
+    const { data, error } = await sb.functions.invoke('leer-ticket', { body: { imageUrl } });
+    if (error || !data) throw new Error('sin respuesta');
+    const descEl = document.getElementById(prefix === 'fe' ? 'fedesc' : 'edit-exp-desc');
+    const amtEl  = document.getElementById(prefix === 'fe' ? 'feamt'  : 'edit-exp-amt');
+    if (data.concepto && descEl && !descEl.value.trim()) descEl.value = data.concepto.toUpperCase();
+    if (data.monto && amtEl && !amtEl.value.trim()) { amtEl.value = Number(data.monto).toLocaleString('es-AR'); }
+    if (statusEl) { statusEl.style.color = 'var(--green)'; statusEl.textContent = '🤖 Leído automático — revisá antes de guardar'; }
+  } catch(e) {
+    // Silencioso: si no está configurada la función o falla, seguís cargando a mano como siempre
+    if (statusEl) { statusEl.style.color = 'var(--green)'; statusEl.textContent = '✅ Foto subida!'; }
   }
 }
 
