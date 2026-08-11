@@ -3260,18 +3260,12 @@ async function rsvpCalendario(fechaISO, resp) {
 }
 
 function renderOvHero(conf, pendientes, cumples, fechaStr) {
-  const inv = !isInvitado()||isAdmin();
   return '<div class="ov-hero">' +
     '<div class="ov-title">' + (S.event.title||'ASADO').toUpperCase() + '</div>' +
     '<div class="ov-date">📍 ' + (S.event.location||'') + ' · ' + fechaStr + ' · ' + (S.event.time_range||'') + '</div>' +
     '<div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:var(--font-title);letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>' +
-    '<div style="height:5px;background:rgba(0,0,0,.25);border-radius:4px;margin-top:8px;overflow:hidden;max-width:280px"><div id="ov-clock-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#fff8,#fff);border-radius:4px;transition:width .6s ease"></div></div>' +
-    '<div class="ov-stats" style="margin-top:14px">' +
-      '<div class="ov-stat"><div class="ov-stat-icon">✅</div><div class="ov-stat-n">' + conf + '</div><div class="ov-stat-l">Van</div></div>' +
-      (inv ? (cumples.length > 0
-        ? '<div class="ov-stat"><div class="ov-stat-icon">🎂</div><div class="ov-stat-n">' + cumples.length + '</div><div class="ov-stat-l">Cumples</div></div>'
-        : '<div class="ov-stat"><div class="ov-stat-icon">📋</div><div class="ov-stat-n">' + pendientes + '</div><div class="ov-stat-l">Tareas</div></div>') : '') +
-      '<div class="ov-stat" id="ov-weather-stat"><div class="ov-stat-icon" id="ov-weather-icon">' + climaIcon(_climaCache.temp) + '</div><div class="ov-stat-n" id="ov-weather-temp">'+ climaNum(_climaCache.temp) +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>' +
+    '<div style="display:flex;justify-content:center;margin-top:14px">' +
+      '<div class="ov-stat" id="ov-weather-stat" style="max-width:150px"><div class="ov-stat-icon" id="ov-weather-icon">' + climaIcon(_climaCache.temp) + '</div><div class="ov-stat-n" id="ov-weather-temp">'+ climaNum(_climaCache.temp) +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>' +
     '</div></div>';
 }
 
@@ -3835,7 +3829,6 @@ function startClock() {
 }
 function updateClock() {
   const el = document.getElementById('ov-clock');
-  const bar = document.getElementById('ov-clock-bar');
   if (!el || !S.event) return;
   const parts = (S.event.event_date||'').split('/');
   if (parts.length < 3) return;
@@ -3847,17 +3840,6 @@ function updateClock() {
   const esHoy = now.getDate() === target.getDate()
              && now.getMonth() === target.getMonth()
              && now.getFullYear() === target.getFullYear();
-
-  // Barra de progreso: desde que se creó el asado hasta la fecha del evento
-  if (bar) {
-    const creado = S.event.created_at ? new Date(S.event.created_at) : null;
-    let pct = 100;
-    if (creado && target > creado) {
-      pct = ((now - creado) / (target - creado)) * 100;
-      pct = Math.max(0, Math.min(100, pct));
-    }
-    bar.style.width = (diff <= 0 ? 100 : pct) + '%';
-  }
 
   if (diff <= 0) {
     // Ya arrancó el asado
