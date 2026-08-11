@@ -15,7 +15,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="🔥 Asado">
   <meta name="theme-color" content="var(--fire)">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=Anton&family=Inter:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
   // ── Timezone Argentina ─────────────────
   function ahoraAR() {
@@ -47,7 +47,6 @@
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
   const ADMIN_USER   = 'Cris';
-  const GH_TOKEN     = 'PEGAR_TOKEN_AQUI'; // Personal Access Token de GitHub
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -84,21 +83,23 @@
 html { font-size:16px; }
 
 /* ══════════════════════════════════════════════════════════
-   TIPOGRAFÍA — 3 combinaciones para elegir.
-   Para cambiar: dejá activas (sin //) SOLO las 2 líneas de UNA opción
-   y poné // adelante de las otras 4 líneas. Nada más hay que tocar acá.
+   TIPOGRAFÍA — quedó solo la Opción 1 cargada (por rendimiento: antes se
+   descargaban 6 familias de Google Fonts aunque solo se usan 2 a la vez).
+   Si en algún momento querés probar la Opción 2 o 3, hay que:
+   1) activar esas 2 líneas acá abajo (sacarles el comentario)
+   2) agregar esa familia tipográfica al <link> de Google Fonts en el <head>
    ══════════════════════════════════════════════════════════ */
 :root {
-  /* OPCIÓN 1 (actual) — Bebas Neue + DM Sans: la de siempre, cartel/afiche + texto limpio */
+  /* OPCIÓN 1 (activa) — Bebas Neue + DM Sans: la de siempre, cartel/afiche + texto limpio */
   --font-title: 'Bebas Neue', cursive;
   --font-body: 'DM Sans', sans-serif;
 
-  /* OPCIÓN 2 — Anton + Inter: títulos bien gruesos/impacto, texto muy legible y moderno
+  /* OPCIÓN 2 — Anton + Inter (requiere agregar Anton e Inter al <link> de fonts)
   --font-title: 'Anton', sans-serif;
   --font-body: 'Inter', sans-serif;
   */
 
-  /* OPCIÓN 3 — Oswald + Nunito: títulos condensados estilo deportivo, texto redondeado/amigable
+  /* OPCIÓN 3 — Oswald + Nunito (requiere agregar Oswald y Nunito al <link> de fonts)
   --font-title: 'Oswald', sans-serif;
   --font-body: 'Nunito', sans-serif;
   */
@@ -3263,9 +3264,9 @@ function renderOvHero(conf, pendientes, cumples, fechaStr) {
   return '<div class="ov-hero">' +
     '<div class="ov-title">' + (S.event.title||'ASADO').toUpperCase() + '</div>' +
     '<div class="ov-date">📍 ' + (S.event.location||'') + ' · ' + fechaStr + ' · ' + (S.event.time_range||'') + '</div>' +
-    '<div id="ov-clock" style="font-size:22px;font-weight:700;margin-top:8px;font-family:var(--font-title);letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>' +
-    '<div style="display:flex;justify-content:center;margin-top:14px">' +
-      '<div class="ov-stat" id="ov-weather-stat" style="max-width:150px"><div class="ov-stat-icon" id="ov-weather-icon">' + climaIcon(_climaCache.temp) + '</div><div class="ov-stat-n" id="ov-weather-temp">'+ climaNum(_climaCache.temp) +'</div><div class="ov-stat-l" id="ov-weather-desc">'+ _climaCache.desc +'</div></div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">' +
+      '<div id="ov-clock" style="font-size:22px;font-weight:700;font-family:var(--font-title);letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:inline-block;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4)"></div>' +
+      '<div class="ov-stat" id="ov-weather-stat" style="width:auto;min-width:64px;padding:6px 10px"><div class="ov-stat-icon" id="ov-weather-icon" style="font-size:16px;margin-bottom:1px">' + climaIcon(_climaCache.temp) + '</div><div class="ov-stat-n" id="ov-weather-temp" style="font-size:18px">'+ climaNum(_climaCache.temp) +'</div><div class="ov-stat-l" id="ov-weather-desc" style="font-size:8px">'+ _climaCache.desc +'</div></div>' +
     '</div></div>';
 }
 
