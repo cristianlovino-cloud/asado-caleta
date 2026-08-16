@@ -1033,7 +1033,7 @@ async function fetchAll() {
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
     sb.from('menu_items').select('*').eq('event_id',eid).order('created_at'),
     sb.from('calendar_rsvp').select('*'),
-    sb.from('sponsors').select('*').eq('active',true).order('id'),
+    sb.from('sponsors').select('*').eq('active',true).order('orden', { ascending: true }).order('id', { ascending: true }),
     sb.from('rsvp').select('*').eq('event_id',eid),
     sb.from('votos').select('*').eq('event_id',eid),
     sb.from('votos_opciones').select('*').eq('event_id',eid).order('orden'),
@@ -3552,7 +3552,7 @@ function startSpCarousel() {
 
 // ── Sponsor admin (multi) ─────────────────────────────────────────────────
 async function openSponsorModal() {
-  const {data} = await sb.from('sponsors').select('*').order('id');
+  const {data} = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
   renderSpList(data || []);
   cancelEditSponsor();
   openModal('modal-sponsor');
@@ -3561,11 +3561,15 @@ async function openSponsorModal() {
 function renderSpList(sponsors) {
   const el = document.getElementById('sp-list');
   if (!sponsors.length) { el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0">Sin sponsors aún</div>'; return; }
-  el.innerHTML = sponsors.map(sp => {
+  el.innerHTML = sponsors.map((sp, i) => {
     const hoy = ahoraAR();
     const parseF = s => { if (!s) return null; const [d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); };
     const activo = sp.active && (!parseF(sp.desde)||hoy>=parseF(sp.desde)) && (!parseF(sp.hasta)||hoy<=parseF(sp.hasta));
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--rim)">' +
+      '<div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">' +
+        '<button onclick="moverSponsor('+sp.id+',-1)" '+(i===0?'disabled':'')+' style="width:22px;height:22px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:'+(i===0?'var(--rim)':'var(--muted)')+';font-size:11px;cursor:pointer;line-height:1;padding:0">▲</button>' +
+        '<button onclick="moverSponsor('+sp.id+',1)" '+(i===sponsors.length-1?'disabled':'')+' style="width:22px;height:22px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:'+(i===sponsors.length-1?'var(--rim)':'var(--muted)')+';font-size:11px;cursor:pointer;line-height:1;padding:0">▼</button>' +
+      '</div>' +
       (sp.logo_url ? '<img src="'+sp.logo_url+'" style="width:36px;height:36px;border-radius:50%;object-fit:contain;flex-shrink:0">' : '<div style="width:36px;height:36px;border-radius:50%;background:#1a3a6e;display:flex;align-items:center;justify-content:center;font-size:16px">🌍</div>') +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:13px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + sp.nombre + '</div>' +
@@ -3580,6 +3584,26 @@ function renderSpList(sponsors) {
         '<button onclick="deleteSponsor('+sp.id+')" style="padding:4px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.15);font-size:11px;cursor:pointer;color:var(--red)">✕</button>' +
       '</div></div>';
   }).join('');
+}
+
+// Sube o baja un sponsor de posición (delta: -1 sube, 1 baja), intercambiando el campo "orden" con el vecino
+async function moverSponsor(id, delta) {
+  const { data: sponsors } = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
+  const idx = sponsors.findIndex(s => s.id === id);
+  const vecinoIdx = idx + delta;
+  if (idx === -1 || vecinoIdx < 0 || vecinoIdx >= sponsors.length) return;
+  const actual = sponsors[idx];
+  const vecino = sponsors[vecinoIdx];
+  // Si nunca se seteó "orden" en ninguno de los dos, usar la posición actual como base antes de intercambiar
+  const ordenActual = actual.orden ?? idx;
+  const ordenVecino = vecino.orden ?? vecinoIdx;
+  await Promise.all([
+    sb.from('sponsors').update({ orden: ordenVecino }).eq('id', actual.id),
+    sb.from('sponsors').update({ orden: ordenActual }).eq('id', vecino.id),
+  ]);
+  const { data } = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
+  renderSpList(data);
+  await fetchAll(); // refresca S.sponsors para que el carrusel del Inicio respete el nuevo orden
 }
 
 async function editSponsor(id) {
@@ -3611,7 +3635,7 @@ function cancelEditSponsor() {
 async function toggleSpActive(id, current) {
   await sb.from('sponsors').update({active: !current}).eq('id', id);
   await fetchAll();
-  const {data} = await sb.from('sponsors').select('*').order('id');
+  const {data} = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
   renderSpList(data || []);
   toast((current ? '⚫ Sponsor desactivado' : '🟢 Sponsor activado'));
 }
@@ -3620,7 +3644,7 @@ async function deleteSponsor(id) {
   if (!confirm('¿Eliminar este sponsor?')) return;
   await sb.from('sponsors').delete().eq('id', id);
   await fetchAll();
-  const {data} = await sb.from('sponsors').select('*').order('id');
+  const {data} = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
   renderSpList(data || []);
   toast('Sponsor eliminado');
 }
@@ -3641,7 +3665,7 @@ async function saveSponsor() {
     await sb.from('sponsors').insert(payload);
   }
   await fetchAll();
-  const {data} = await sb.from('sponsors').select('*').order('id');
+  const {data} = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
   renderSpList(data || []);
   cancelEditSponsor();
   renderOverview();
