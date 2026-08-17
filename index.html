@@ -3508,7 +3508,7 @@ function renderOvSponsor() {
 
 function renderSpCard(sp) {
   const logo = sp.logo_url
-    ? `<img src="${sp.logo_url}" alt="${sp.nombre}" style="width:72px;height:72px;object-fit:contain;border-radius:12px;border:2px solid rgba(255,255,255,.15);flex-shrink:0">`
+    ? `<div style="width:72px;height:72px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(255,255,255,.15);padding:8px;box-sizing:border-box"><img src="${sp.logo_url}" alt="${sp.nombre}" style="max-width:100%;max-height:100%;object-fit:contain"></div>`
     : `<div style="width:72px;height:72px;border-radius:12px;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🌍</div>`;
   const clickAttr = sp.url ? `onclick="window.open('${sp.url}','_blank')" ` : '';
   return `<div ${clickAttr}style="border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative${sp.url?';cursor:pointer':''}">
@@ -3570,7 +3570,7 @@ function renderSpList(sponsors) {
         '<button onclick="moverSponsor('+sp.id+',-1)" '+(i===0?'disabled':'')+' style="width:22px;height:22px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:'+(i===0?'var(--rim)':'var(--muted)')+';font-size:11px;cursor:pointer;line-height:1;padding:0">▲</button>' +
         '<button onclick="moverSponsor('+sp.id+',1)" '+(i===sponsors.length-1?'disabled':'')+' style="width:22px;height:22px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:'+(i===sponsors.length-1?'var(--rim)':'var(--muted)')+';font-size:11px;cursor:pointer;line-height:1;padding:0">▼</button>' +
       '</div>' +
-      (sp.logo_url ? '<img src="'+sp.logo_url+'" style="width:36px;height:36px;border-radius:50%;object-fit:contain;flex-shrink:0">' : '<div style="width:36px;height:36px;border-radius:50%;background:#1a3a6e;display:flex;align-items:center;justify-content:center;font-size:16px">🌍</div>') +
+      (sp.logo_url ? '<div style="width:36px;height:36px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:4px;box-sizing:border-box"><img src="'+sp.logo_url+'" style="max-width:100%;max-height:100%;object-fit:contain"></div>' : '<div style="width:36px;height:36px;border-radius:50%;background:#1a3a6e;display:flex;align-items:center;justify-content:center;font-size:16px">🌍</div>') +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:13px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + sp.nombre + '</div>' +
         '<div style="font-size:10px;color:'+(activo?'var(--green)':'var(--muted)')+'">'+
