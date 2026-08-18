@@ -877,7 +877,13 @@ body {
         </label>
         <div id="sp-upload-status" style="font-size:11px;color:var(--muted);text-align:center;display:none"></div>
       </div>
-      <label class="fl" style="margin-top:8px">Zoom del logo <span id="sp-zoom-val" style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">100%</span></label>
+      <label class="fl" style="margin-top:8px">Marco del logo</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button type="button" id="sp-frame-placa" onclick="setSpFrame('placa')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--fire);color:#000;font-size:12px;font-weight:700;cursor:pointer">🔲 Placa blanca</button>
+        <button type="button" id="sp-frame-sin" onclick="setSpFrame('sin_marco')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer">⭕ Sin marco</button>
+      </div>
+      <input type="hidden" id="sp-frame" value="placa">
+      <label class="fl">Zoom del logo <span id="sp-zoom-val" style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">100%</span></label>
       <input type="range" id="sp-zoom" min="100" max="220" value="100" style="width:100%;margin-bottom:8px" oninput="document.getElementById('sp-zoom-val').textContent=this.value+'%';spPreview()">
       <div style="font-size:10px;color:var(--muted);margin:-4px 0 8px;line-height:1.4">Subilo si el logo tiene un fondo propio (negro, blanco) que querés recortar y que se vea solo el dibujo.</div>
       <div style="display:flex;gap:8px;margin-top:12px">
@@ -3513,8 +3519,9 @@ function renderOvSponsor() {
 
 function renderSpCard(sp) {
   const zoom = sp.logo_zoom || 100;
+  const sinMarco = sp.logo_frame === 'sin_marco';
   const logo = sp.logo_url
-    ? `<div style="width:72px;height:72px;border-radius:12px;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(255,255,255,.15)"><img src="${sp.logo_url}" alt="${sp.nombre}" style="width:100%;height:100%;object-fit:contain;transform:scale(${zoom/100})"></div>`
+    ? `<div style="width:72px;height:72px;border-radius:12px;background:${sinMarco?'transparent':'#fff'};overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:${sinMarco?'none':'2px solid rgba(255,255,255,.15)'}"><img src="${sp.logo_url}" alt="${sp.nombre}" style="width:100%;height:100%;object-fit:contain;transform:scale(${zoom/100})"></div>`
     : `<div style="width:72px;height:72px;border-radius:12px;background:linear-gradient(135deg,#1a3a6e,#0d2144);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🌍</div>`;
   const clickAttr = sp.url ? `onclick="window.open('${sp.url}','_blank')" ` : '';
   return `<div ${clickAttr}style="border-radius:14px;overflow:hidden;border:1px solid rgba(100,160,255,.2);background:linear-gradient(135deg,rgba(10,30,70,.9),rgba(5,15,40,.95));position:relative${sp.url?';cursor:pointer':''}">
@@ -3576,7 +3583,7 @@ function renderSpList(sponsors) {
         '<button onclick="moverSponsor('+sp.id+',-1)" '+(i===0?'disabled':'')+' style="width:22px;height:22px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:'+(i===0?'var(--rim)':'var(--muted)')+';font-size:11px;cursor:pointer;line-height:1;padding:0">▲</button>' +
         '<button onclick="moverSponsor('+sp.id+',1)" '+(i===sponsors.length-1?'disabled':'')+' style="width:22px;height:22px;border-radius:5px;border:1px solid var(--rim);background:var(--ash);color:'+(i===sponsors.length-1?'var(--rim)':'var(--muted)')+';font-size:11px;cursor:pointer;line-height:1;padding:0">▼</button>' +
       '</div>' +
-      (sp.logo_url ? '<div style="width:36px;height:36px;border-radius:50%;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0"><img src="'+sp.logo_url+'" style="width:100%;height:100%;object-fit:contain;transform:scale('+((sp.logo_zoom||100)/100)+')"></div>' : '<div style="width:36px;height:36px;border-radius:50%;background:#1a3a6e;display:flex;align-items:center;justify-content:center;font-size:16px">🌍</div>') +
+      (sp.logo_url ? '<div style="width:36px;height:36px;border-radius:50%;background:'+(sp.logo_frame==='sin_marco'?'transparent':'#fff')+';overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0"><img src="'+sp.logo_url+'" style="width:100%;height:100%;object-fit:contain;transform:scale('+((sp.logo_zoom||100)/100)+')"></div>' : '<div style="width:36px;height:36px;border-radius:50%;background:#1a3a6e;display:flex;align-items:center;justify-content:center;font-size:16px">🌍</div>') +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-size:13px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + sp.nombre + '</div>' +
         '<div style="font-size:10px;color:'+(activo?'var(--green)':'var(--muted)')+'">'+
@@ -3624,6 +3631,7 @@ async function editSponsor(id) {
   document.getElementById('sp-hasta').value    = data.hasta    || '';
   document.getElementById('sp-zoom').value = data.logo_zoom || 100;
   document.getElementById('sp-zoom-val').textContent = (data.logo_zoom || 100) + '%';
+  setSpFrame(data.logo_frame || 'placa');
   document.getElementById('sp-form-title').textContent = '✏️ EDITAR SPONSOR';
   spPreview();
 }
@@ -3638,6 +3646,7 @@ function cancelEditSponsor() {
   document.getElementById('sp-hasta').value = '';
   document.getElementById('sp-zoom').value = 100;
   document.getElementById('sp-zoom-val').textContent = '100%';
+  setSpFrame('placa');
   document.getElementById('sp-form-title').textContent = '➕ NUEVO SPONSOR';
   spPreview();
 }
@@ -3668,8 +3677,9 @@ async function saveSponsor() {
   const desde   = document.getElementById('sp-desde').value.trim();
   const hasta   = document.getElementById('sp-hasta').value.trim();
   const logoZoom = parseInt(document.getElementById('sp-zoom').value) || 100;
+  const logoFrame = document.getElementById('sp-frame').value || 'placa';
   if (!nombre) { toast('Ingresá un nombre','var(--red)'); return; }
-  const payload = { nombre, tagline, url, logo_url: logoUrl, desde, hasta, active: true, logo_zoom: logoZoom };
+  const payload = { nombre, tagline, url, logo_url: logoUrl, desde, hasta, active: true, logo_zoom: logoZoom, logo_frame: logoFrame };
   if (id) {
     await sb.from('sponsors').update(payload).eq('id', id);
   } else {
@@ -3686,16 +3696,33 @@ async function saveSponsor() {
 function setSponsorToggle(active) {}
 function toggleSponsorActive() {}
 
+function setSpFrame(tipo) {
+  document.getElementById('sp-frame').value = tipo;
+  const placaBtn = document.getElementById('sp-frame-placa');
+  const sinBtn = document.getElementById('sp-frame-sin');
+  if (tipo === 'placa') {
+    placaBtn.style.background = 'var(--fire)'; placaBtn.style.color = '#000';
+    sinBtn.style.background = 'var(--ash)'; sinBtn.style.color = 'var(--muted)';
+  } else {
+    sinBtn.style.background = 'var(--fire)'; sinBtn.style.color = '#000';
+    placaBtn.style.background = 'var(--ash)'; placaBtn.style.color = 'var(--muted)';
+  }
+  spPreview();
+}
+
 function spPreview() {
   const nombre  = document.getElementById('sp-nombre').value.trim();
   const tagline = document.getElementById('sp-tagline').value.trim();
   const logoUrl = document.getElementById('sp-logo-url').value.trim();
   const zoom    = document.getElementById('sp-zoom').value || 100;
+  const frame   = document.getElementById('sp-frame').value || 'placa';
   document.getElementById('sp-prev-nombre').textContent  = nombre  || 'NOMBRE SPONSOR';
   document.getElementById('sp-prev-tagline').textContent = tagline || 'Tagline...';
   const img  = document.getElementById('sp-prev-logo');
   const wrap = document.getElementById('sp-prev-logo-wrap');
   const icon = document.getElementById('sp-prev-icon');
+  wrap.style.background = frame === 'sin_marco' ? 'transparent' : '#fff';
+  wrap.style.border = frame === 'sin_marco' ? 'none' : '2px solid rgba(255,255,255,.15)';
   if (logoUrl) { img.src = logoUrl; img.style.transform = 'scale(' + (zoom/100) + ')'; wrap.style.display='flex'; icon.style.display='none'; }
   else         { wrap.style.display='none'; icon.style.display='flex'; }
 }
