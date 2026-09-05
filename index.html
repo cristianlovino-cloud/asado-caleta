@@ -1146,6 +1146,7 @@ async function fetchAll() {
 
 function subscribe() {
   if (!sbOk) return;
+  sb.removeAllChannels(); // por si subscribe() ya se había llamado antes en esta sesión (ej: al cambiar RSVP)
   sb.channel('rt-all')
     .on('postgres_changes',{event:'*',schema:'public',table:'events'},      ()=>fetchAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'participants'}, ()=>fetchAll())
@@ -4239,8 +4240,10 @@ async function forceLogoutAll() {
   toast('✅ Sesiones cerradas — todos deberán loguearse de nuevo', 'var(--green)');
 }
 
+let _autoRefreshInterval = null;
 function startAutoRefresh() {
-  setInterval(() => {
+  if (_autoRefreshInterval) clearInterval(_autoRefreshInterval); // evita duplicar el polling si entrarApp() se llama de nuevo
+  _autoRefreshInterval = setInterval(() => {
     // Chequear expiración de sesión 24hs
     const ts = parseInt(localStorage.getItem('asado_login_ts') || '0');
     if (ts && (Date.now() - ts) > 24 * 60 * 60 * 1000) {
