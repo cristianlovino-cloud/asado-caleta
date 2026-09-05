@@ -2896,7 +2896,7 @@ function renderTasks() {
                         <button onclick="rechazarTarea(${t.id})" style="font-size:11px;padding:3px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.15);color:var(--red);cursor:pointer;font-weight:700">❌ RECHAZAR</button>
                         <button onclick="reasignarTarea(${t.id})" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #4a90e2;background:rgba(74,144,226,.15);color:#6bb0ff;cursor:pointer;font-weight:600">🔄 REASIGNAR</button>
                       </div>`
-                    :`<span style="font-size:11px;color:var(--fire)">TUYA 🔥</span><span onclick="reasignarTarea(${t.id})" style="font-size:11px;color:var(--fire);cursor:pointer;margin-left:8px;text-decoration:underline;font-weight:600">reasignar</span>`)
+                    :`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11px;color:var(--fire)">TUYA 🔥</span><button onclick="reasignarTarea(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(245,197,24,.08);color:var(--fire);cursor:pointer;font-weight:600">🔄 REASIGNAR</button></div>`)
                   :`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(245,197,24,.08);color:var(--fire);cursor:pointer;font-weight:600">TOMAR TAREA</button>`
             }
             ${isAdmin()&&!done?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:14px;cursor:pointer;padding:0 6px;margin-left:auto">✏️</span>`:''}
