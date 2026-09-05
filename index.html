@@ -30,7 +30,7 @@
 
   // ── Publicar versión (admin) ─────────────
   window.publicarVersion = async function() {
-    if (!confirm('Publicar v' + APP_VERSION + ' para todos?')) return;
+    if (!(await showConfirm('Publicar v' + APP_VERSION + ' para todos?', { icon: '🤔' }))) return;
     try {
       const url = 'https://tppffkngfncybwkmmbjc.supabase.co';
       const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
@@ -39,9 +39,9 @@
         headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
         body:JSON.stringify({key:'appVersion',value:APP_VERSION})
       });
-      if (r.ok) alert('✅ v'+APP_VERSION+' publicada!');
-      else alert('❌ Error al publicar.');
-    } catch(e) { alert('❌ Sin conexión: '+e.message); }
+      if (r.ok) await showAlert('v'+APP_VERSION+' publicada!', { icon: '✅', title: 'LISTO' });
+      else await showAlert('Error al publicar.', { icon: '❌', title: 'ERROR' });
+    } catch(e) { await showAlert('Sin conexión: '+e.message, { icon: '❌', title: 'ERROR' }); }
   };
 
   const SUPABASE_URL = 'https://tppffkngfncybwkmmbjc.supabase.co';
@@ -1152,14 +1152,14 @@ function subscribe() {
     .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},     ()=>fetchAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},        ()=>{ if(!S.tasks.some(t=>t._saving)) fetchAll(); })
     .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},   ()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'app_config',filter:'key=eq.force_logout_ts'}, payload => {
+    .on('postgres_changes',{event:'*',schema:'public',table:'app_config',filter:'key=eq.force_logout_ts'}, async payload => {
       // Expulsión instantánea — no espera refresh ni reapertura de la app
       const flTs = parseInt(payload.new?.value || '0');
       const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
       if (flTs > 0 && myLoginTs < flTs && me !== ADMIN_USER) {
         localStorage.removeItem('asado_user');
         localStorage.removeItem('asado_login_ts');
-        alert('Tu sesión fue cerrada por el administrador. Volvé a ingresar tu nombre.');
+        await showAlert('Tu sesión fue cerrada por el administrador. Volvé a ingresar tu nombre.', { icon: '🔐', title: 'SESIÓN CERRADA' });
         location.reload();
       }
     })
@@ -1587,7 +1587,7 @@ async function aceptarInvitado(id, nombre) {
   toast(`✅ ${nombre.toUpperCase()} aceptado como invitado`,'var(--green)');
 }
 async function rechazarInvitado(id) {
-  if (!confirm('¿Rechazar y eliminar a este invitado?')) return;
+  if (!(await showConfirm('¿Rechazar y eliminar a este invitado?', { icon: '🗑️' }))) return;
   await sb.from('participants').delete().eq('id',id);
   await fetchAll();
   renderOverview();
@@ -1658,7 +1658,7 @@ function renderInvitadosList() {
 }
 
 async function quitarInvitado(id) {
-  if (!confirm('¿Quitar a este invitado?')) return;
+  if (!(await showConfirm('¿Quitar a este invitado?', { icon: '🗑️' }))) return;
   await sb.from('participants').delete().eq('id',id);
   await fetchAll();
   renderParticipantsModal();
@@ -1722,7 +1722,7 @@ async function createNewAsado() {
 
 // ══ HISTORIAL ═════════════════════════════════════
 async function desarchivarAsado(id) {
-  if (!confirm('¿Activar este asado? El actual quedará archivado.')) return;
+  if (!(await showConfirm('¿Activar este asado? El actual quedará archivado.', { icon: '🤔' }))) return;
   // Archivar todos los activos primero
   await sb.from('events').update({archived: true}).eq('archived', false);
   // Activar el seleccionado
@@ -2055,7 +2055,7 @@ async function renderLockerPanel() {
     data.map(item => {
       const est = ESTADOS[item.estado] || ESTADOS.disponible;
       const fotoHtml = item.foto_url
-        ? `<img src="${item.foto_url}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim)">`
+        ? `<img src="${item.foto_url}" onclick="window.open('${item.foto_url}','_blank')" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim);cursor:pointer">`
         : `<div style="width:64px;height:64px;border-radius:10px;background:var(--ash);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📦</div>`;
       const updStr = item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) : '';
       return `<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
@@ -2294,7 +2294,7 @@ async function cerrarSugerencia(id, estado) {
 }
 
 async function eliminarSugerencia(id) {
-  if (!confirm('¿Eliminar esta sugerencia?')) return;
+  if (!(await showConfirm('¿Eliminar esta sugerencia?', { icon: '🗑️' }))) return;
   await sb.from('sugerencias').update({ active: false }).eq('id', id);
   await renderSugerencias();
   toast('Sugerencia eliminada');
@@ -2411,7 +2411,7 @@ async function renderLocker() {
   el.innerHTML = infoCard + data.map(item => {
     const est = LOCKER_ESTADOS.find(e => e.key === item.estado) || LOCKER_ESTADOS[0];
     const fotoHtml = item.foto_url
-      ? `<img src="${item.foto_url}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim)">`
+      ? `<img src="${item.foto_url}" onclick="window.open('${item.foto_url}','_blank')" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim);cursor:pointer">`
       : `<div style="width:56px;height:56px;border-radius:10px;background:var(--ash);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">📦</div>`;
     const updStr = item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '';
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--rim)">
@@ -2525,7 +2525,7 @@ async function guardarLockerItem() {
 }
 
 async function eliminarLockerItem(id) {
-  if (!confirm('¿Eliminar este item del locker?')) return;
+  if (!(await showConfirm('¿Eliminar este item del locker?', { icon: '🗑️' }))) return;
   await sb.from('locker_items').update({ active: false }).eq('id', id);
   const panelLocker = document.getElementById('panel-locker');
   if (panelLocker?.classList.contains('active')) await renderLockerPanel();
@@ -2632,7 +2632,7 @@ async function restablecerTareas() {
       toast('📚 ' + rows.length + ' tarea' + (rows.length!==1?'s':'') + ' migrada' + (rows.length!==1?'s':'') + ' a biblioteca', 'var(--muted)');
     }
   }
-  if (!confirm('¿Borrar todas las tareas del asado actual? Podés volver a cargarlas desde Biblioteca.')) return;
+  if (!(await showConfirm('¿Borrar todas las tareas del asado actual? Podés volver a cargarlas desde Biblioteca.', { icon: '🗑️' }))) return;
   await sb.from('tasks').delete().eq('event_id', S.event.id);
   await fetchAll();
   toast('🗑️ Tareas borradas — usá Biblioteca para cargar las del próximo asado', 'var(--muted)');
@@ -2753,7 +2753,7 @@ async function guardarBiblioteca() {
 }
 
 async function eliminarBiblioteca(id) {
-  if (!confirm('¿Eliminar esta plantilla?')) return;
+  if (!(await showConfirm('¿Eliminar esta plantilla?', { icon: '🗑️' }))) return;
   await sb.from('task_templates').delete().eq('id', id);
   await renderBiblioteca();
   toast('Plantilla eliminada');
@@ -2799,7 +2799,7 @@ async function assignToMe(id) {
 }
 
 async function deleteTask(id) {
-  if (!confirm('¿Eliminar tarea?')) return;
+  if (!(await showConfirm('¿Eliminar tarea?', { icon: '🗑️' }))) return;
   await sb.from('tasks').delete().eq('id',id);
 }
 
@@ -3008,7 +3008,7 @@ async function saveEditTask() {
 
 async function deleteTask2() {
   const id = parseInt(document.getElementById('edit-task-id').value);
-  if (!confirm('¿Eliminar esta tarea?')) return;
+  if (!(await showConfirm('¿Eliminar esta tarea?', { icon: '🗑️' }))) return;
   await sb.from('tasks').delete().eq('id', id);
   closeModal('modal-edit-task');
   await fetchAll();
@@ -3124,7 +3124,7 @@ async function saveEditExpense() {
 
 async function deleteExpense() {
   const id = parseInt(document.getElementById('edit-exp-id').value);
-  if (!confirm('¿Eliminar este gasto?')) return;
+  if (!(await showConfirm('¿Eliminar este gasto?', { icon: '🗑️' }))) return;
   await sb.from('expenses').delete().eq('id',id);
   closeModal('modal-edit-expense');
   await fetchAll();
@@ -3660,7 +3660,7 @@ async function toggleSpActive(id, current) {
 }
 
 async function deleteSponsor(id) {
-  if (!confirm('¿Eliminar este sponsor?')) return;
+  if (!(await showConfirm('¿Eliminar este sponsor?', { icon: '🗑️' }))) return;
   await sb.from('sponsors').delete().eq('id', id);
   await fetchAll();
   const {data} = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
@@ -4067,6 +4067,29 @@ function showConfirm(msg, { title = '¿CONFIRMÁS?', icon = '🤔', okText = 'AC
   });
 }
 
+// Reemplazo estilizado de alert() nativo: un solo botón, sin opción de cancelar. Uso: await showAlert('Listo!')
+function showAlert(msg, { title = 'AVISO', icon = 'ℹ️', okText = 'ENTENDIDO' } = {}) {
+  document.activeElement?.blur();
+  return new Promise(resolve => {
+    document.getElementById('mcg-icon').textContent = icon;
+    document.getElementById('mcg-title').textContent = title;
+    document.getElementById('mcg-msg').innerHTML = msg;
+    const okBtn = document.getElementById('mcg-ok');
+    const cancelBtn = document.getElementById('mcg-cancel');
+    okBtn.textContent = okText;
+    cancelBtn.style.display = 'none';
+    const cleanup = () => {
+      closeModal('modal-confirm-generic');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      cancelBtn.style.display = '';
+      resolve();
+    };
+    okBtn.onclick = cleanup;
+    cancelBtn.onclick = cleanup; // por si tocan el fondo (dispara el click de "cancelar" internamente)
+    setTimeout(() => openModal('modal-confirm-generic'), 250);
+  });
+}
+
 // Cuando el nombre tipeado matchea con VARIOS participantes (ej: 3 "Hernán"), que elija cuál es.
 // Devuelve el nombre completo elegido, o null si tocó "no soy ninguno de estos".
 function elegirEntreVarios(nombres) {
@@ -4161,7 +4184,7 @@ async function reabrirCuentas() {
 }
 
 async function forceLogoutAll() {
-  if (!confirm('¿Cerrar sesión a TODOS los usuarios? (vos no te ves afectado)')) return;
+  if (!(await showConfirm('¿Cerrar sesión a TODOS los usuarios? (vos no te ves afectado)', { icon: '🤔' }))) return;
   const ts = Date.now().toString();
   await sb.from('app_config').update({value: ts}).eq('key', 'force_logout_ts');
   toast('✅ Sesiones cerradas — todos deberán loguearse de nuevo', 'var(--green)');
@@ -4279,7 +4302,7 @@ async function ejecutarFusion() {
   const principal = document.getElementById('fusionar-principal').textContent;
   const otro = document.getElementById('fusionar-select').value;
   if (!principal || !otro) return;
-  if (!confirm(`¿Fusionar "${otro}" → "${principal}"? El nombre "${otro}" se desactivará.`)) return;
+  if (!(await showConfirm(`¿Fusionar "${otro}" → "${principal}"? El nombre "${otro}" se desactivará.`, { icon: '🤔' }))) return;
   if (!sbOk) return;
   try {
     // Reasignar tareas del otro al principal
@@ -4450,7 +4473,7 @@ async function agregarOpcionVoto(nombre, emoji) {
 }
 
 async function eliminarOpcionVoto(opcionId) {
-  if (!confirm('¿Eliminar esta opción y sus votos?')) return;
+  if (!(await showConfirm('¿Eliminar esta opción y sus votos?', { icon: '🗑️' }))) return;
   await sb.from('votos').delete().eq('event_id', S.event.id).eq('opcion_id', opcionId);
   await sb.from('votos_opciones').delete().eq('id', opcionId);
   S.votos = S.votos.filter(v => v.opcion_id !== opcionId);
@@ -4841,7 +4864,7 @@ async function editarVotacion(id) {
 }
 
 async function eliminarVotacion(id) {
-  if (!confirm('¿Eliminar esta votación y todos sus votos?')) return;
+  if (!(await showConfirm('¿Eliminar esta votación y todos sus votos?', { icon: '🗑️' }))) return;
   await sb.from('votacion_votos').delete().eq('votacion_id', id);
   await sb.from('votacion_opciones').delete().eq('votacion_id', id);
   await sb.from('votaciones').delete().eq('id', id);
@@ -4851,7 +4874,7 @@ async function eliminarVotacion(id) {
 }
 
 async function cerrarVotacion(id) {
-  if (!confirm('¿Cerrar esta votación?')) return;
+  if (!(await showConfirm('¿Cerrar esta votación?', { icon: '🤔' }))) return;
   await sb.from('votaciones').update({ activa: false }).eq('id', id);
   await fetchAll();
   renderAll();
@@ -5097,7 +5120,7 @@ async function registrarPago(payer, amount, method, receiver) {
 }
 
 async function deshacerPago(id) {
-  if (!confirm('¿Deshacer este pago?')) return;
+  if (!(await showConfirm('¿Deshacer este pago?', { icon: '🤔' }))) return;
   await sb.from('payments').delete().eq('id', id);
   await renderCuentas();
   toast('↩️ Pago deshecho', 'var(--muted)');
