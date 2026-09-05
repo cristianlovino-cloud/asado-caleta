@@ -651,8 +651,8 @@ body {
 <!-- Modal selección entre varios candidatos ambiguos (ej: varios "Hernán") -->
 <div class="modal-bg" id="modal-elegir-nombre">
   <div class="modal" style="text-align:center;padding:24px">
-    <div style="font-size:40px;margin-bottom:10px">🤔</div>
-    <div style="font-family:var(--font-title);font-size:22px;letter-spacing:1px;margin-bottom:16px">¿CUÁL SOS VOS?</div>
+    <div style="font-size:40px;margin-bottom:10px" id="men-icon">🤔</div>
+    <div style="font-family:var(--font-title);font-size:22px;letter-spacing:1px;margin-bottom:16px" id="men-title">¿CUÁL SOS VOS?</div>
     <div id="men-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
     <button id="men-otro" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:var(--font-title);font-size:14px;cursor:pointer;letter-spacing:1px">NO SOY NINGUNO DE ESTOS</button>
   </div>
@@ -2768,7 +2768,8 @@ async function addTask() {
   document.getElementById('ftname').value='';
   document.getElementById('ftqty').value='';
   tf('ftask');
-  await sb.from('tasks').insert({event_id:S.event.id,name,category:cat,assignee,done:false,qty});
+  const assigneeConfirmed = !assignee || assignee.toLowerCase() === me.toLowerCase();
+  await sb.from('tasks').insert({event_id:S.event.id,name,category:cat,assignee,done:false,qty,assignee_confirmed:assigneeConfirmed});
   await fetchAll();
   toast('✅ Tarea agregada!');
 }
@@ -2792,9 +2793,46 @@ async function assignToMe(id) {
   const t = S.tasks.find(t=>String(t.id)===String(id));
   if (!t) return;
   t.assignee = me;
+  t.assignee_confirmed = true;
   renderTasks();
-  if (sbOk) await sb.from('tasks').update({assignee:me}).eq('id',id);
+  if (sbOk) await sb.from('tasks').update({assignee:me, assignee_confirmed:true}).eq('id',id);
   toast('✅ Tarea asignada a vos!', 'var(--green)');
+  await fetchAll();
+}
+
+async function aceptarTarea(id) {
+  const t = S.tasks.find(t=>String(t.id)===String(id));
+  if (!t) return;
+  t.assignee_confirmed = true;
+  renderTasks();
+  await sb.from('tasks').update({assignee_confirmed:true}).eq('id',id);
+  toast('✅ Aceptaste la tarea', 'var(--green)');
+}
+
+async function rechazarTarea(id) {
+  const t = S.tasks.find(t=>String(t.id)===String(id));
+  if (!t) return;
+  if (!(await showConfirm('La tarea "' + t.name.split('\n')[0] + '" va a quedar sin asignar.', { title: '¿RECHAZAR TAREA?', icon: '🙅' }))) return;
+  t.assignee = null;
+  t.assignee_confirmed = true;
+  renderTasks();
+  await sb.from('tasks').update({assignee:null, assignee_confirmed:true}).eq('id',id);
+  toast('Tarea rechazada, quedó sin asignar', 'var(--muted)');
+  await fetchAll();
+}
+
+async function reasignarTarea(id) {
+  const t = S.tasks.find(t=>String(t.id)===String(id));
+  if (!t) return;
+  const otros = allP().filter(n => n.toLowerCase() !== me.toLowerCase());
+  if (!otros.length) { toast('No hay otro participante para reasignar', 'var(--red)'); return; }
+  const elegido = await elegirEntreVarios(otros, { title: '¿A QUIÉN SE LA PASÁS?', icon: '🔄', otroText: 'CANCELAR' });
+  if (!elegido) return;
+  t.assignee = elegido;
+  t.assignee_confirmed = false;
+  renderTasks();
+  await sb.from('tasks').update({assignee:elegido, assignee_confirmed:false}).eq('id',id);
+  toast('✅ Reasignada a ' + elegido, 'var(--green)');
   await fetchAll();
 }
 
@@ -2852,7 +2890,13 @@ function renderTasks() {
               :!group.nombre
                 ?`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(245,197,24,.08);color:var(--fire);cursor:pointer">✋ YO ME ENCARGO</button>`
                 :isMe
-                  ?`<span style="font-size:11px;color:var(--fire)">TUYA 🔥</span>`
+                  ?(t.assignee_confirmed===false
+                    ?`<div style="display:flex;gap:5px;flex-wrap:wrap">
+                        <button onclick="aceptarTarea(${t.id})" style="font-size:11px;padding:3px 8px;border-radius:6px;border:none;background:rgba(39,174,96,.15);color:var(--green);cursor:pointer;font-weight:700">✅ ACEPTAR</button>
+                        <button onclick="rechazarTarea(${t.id})" style="font-size:11px;padding:3px 8px;border-radius:6px;border:none;background:rgba(231,76,60,.15);color:var(--red);cursor:pointer;font-weight:700">❌ RECHAZAR</button>
+                        <button onclick="reasignarTarea(${t.id})" style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);cursor:pointer">🔄 REASIGNAR</button>
+                      </div>`
+                    :`<span style="font-size:11px;color:var(--fire)">TUYA 🔥</span><span onclick="reasignarTarea(${t.id})" style="font-size:10px;color:var(--muted);cursor:pointer;margin-left:8px;text-decoration:underline">reasignar</span>`)
                   :`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);cursor:pointer">TOMAR TAREA</button>`
             }
             ${isAdmin()&&!done?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:14px;cursor:pointer;padding:0 6px;margin-left:auto">✏️</span>`:''}
@@ -3000,7 +3044,9 @@ async function saveEditTask() {
   const category = document.getElementById('edit-task-cat').value;
   const is_template = document.getElementById('edit-task-template').checked;
   if (!name) { toast('Escribí el nombre','var(--red)'); return; }
-  await sb.from('tasks').update({name, assignee, category, is_template}).eq('id', id);
+  const t = S.tasks.find(x=>x.id===id);
+  const assigneeConfirmed = !assignee || assignee.toLowerCase() === me.toLowerCase() || (t && t.assignee === assignee && t.assignee_confirmed);
+  await sb.from('tasks').update({name, assignee, category, is_template, assignee_confirmed: assigneeConfirmed}).eq('id', id);
   closeModal('modal-edit-task');
   await fetchAll();
   toast('✅ Tarea actualizada!');
@@ -3248,7 +3294,7 @@ function renderCumples() {
       const mes = parseInt(parts[1]);
       return { id: p.id, nombre: p.name, dia, mes };
     })
-    .filter(c => !isNaN(c.mes) && c.mes === mesActual && c.dia >= diaActual)
+    .filter(c => !isNaN(c.mes) && c.mes === mesActual && c.dia === diaActual)
     .sort((a,b) => a.dia - b.dia);
   if (!cumples.length) {
     banner.style.display = 'none';
@@ -4092,15 +4138,18 @@ function showAlert(msg, { title = 'AVISO', icon = 'ℹ️', okText = 'ENTENDIDO'
 
 // Cuando el nombre tipeado matchea con VARIOS participantes (ej: 3 "Hernán"), que elija cuál es.
 // Devuelve el nombre completo elegido, o null si tocó "no soy ninguno de estos".
-function elegirEntreVarios(nombres) {
+function elegirEntreVarios(nombres, { title = '¿CUÁL SOS VOS?', icon = '🤔', otroText = 'NO SOY NINGUNO DE ESTOS' } = {}) {
   document.activeElement?.blur();
   return new Promise(resolve => {
+    document.getElementById('men-title').textContent = title;
+    document.getElementById('men-icon').textContent = icon;
     const list = document.getElementById('men-list');
     list.innerHTML = nombres.map(n =>
       `<button style="width:100%;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:15px;font-weight:700;cursor:pointer;text-transform:uppercase">${n}</button>`
     ).join('');
     const botones = list.querySelectorAll('button');
     const otroBtn = document.getElementById('men-otro');
+    otroBtn.textContent = otroText;
     const cleanup = (result) => {
       closeModal('modal-elegir-nombre');
       botones.forEach(b => b.onclick = null);
