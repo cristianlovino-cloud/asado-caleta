@@ -289,7 +289,7 @@ body {
 .modal-close{background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--muted);font-size:14px}
 
 /* UTILS */
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:9px 20px;border-radius:30px;font-weight:600;font-size:13px;opacity:0;transition:opacity .3s;z-index:999;pointer-events:none;white-space:nowrap}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:9px 20px;border-radius:16px;font-weight:600;font-size:13px;opacity:0;transition:opacity .3s;z-index:999;pointer-events:none;max-width:88vw;width:max-content;white-space:pre-wrap;text-align:center;line-height:1.4}
 .toast.show{opacity:1}
 .empty{text-align:center;padding:26px 14px;color:var(--muted);font-size:13px}
 .empty .em{font-size:36px;margin-bottom:7px}
@@ -451,6 +451,7 @@ body {
       <div style="font-size:32px;margin-bottom:8px">🔒</div>
       <div style="font-size:13px;font-weight:700;margin-bottom:4px">EL RESUMEN SE MUESTRA CUANDO SE CIERREN CUENTAS</div>
       <div style="font-size:12px;color:var(--muted)">Cargá tu gasto tranquilo — el total, el reparto y quién debe qué se van a ver acá una vez que el admin cierre cuentas.</div>
+      <div id="mis-gastos-oculto"></div>
     </div>
     <button class="bta" onclick="tf('fexp')">+ CARGAR MI GASTO</button>
     <div id="gastos-admin-controls" style="display:none;gap:8px;margin:10px 0">
@@ -1834,6 +1835,7 @@ function openModalPagoConfirm(deudor, monto) {
   document.getElementById('mpc-nombre').textContent = deudor.toUpperCase();
   document.getElementById('mpc-monto').textContent = fmt(monto);
   document.getElementById('mpc-monto-val').value = monto;
+  document.getElementById('mpc-efectivo').value = Math.round(monto);
   document.getElementById('mpc-nota').value = '';
   modal.classList.add('open');
 }
@@ -1936,13 +1938,21 @@ async function renderGastos() {
   // ── MODO INVITADO ──────────────────────────────────────────────────────
   if (isInvitado() && !isAdmin()) {
     const elEl = document.getElementById('panel-gastos');
-    if (elEl) elEl.innerHTML = !puedeVerGastos
-      ? `<div style="padding:16px"><div style="text-align:center;padding:22px 16px;background:var(--ash);border:1px solid var(--rim);border-radius:14px">
+    if (elEl) {
+      if (!puedeVerGastos) {
+        const mios = S.expenses.filter(e => e.payer.toLowerCase() === me.toLowerCase());
+        elEl.innerHTML = `<div style="padding:16px"><div style="text-align:center;padding:22px 16px;background:var(--ash);border:1px solid var(--rim);border-radius:14px">
           <div style="font-size:32px;margin-bottom:8px">🔒</div>
           <div style="font-size:13px;font-weight:700;margin-bottom:4px">EL RESUMEN SE MUESTRA CUANDO SE CIERREN CUENTAS</div>
           <div style="font-size:12px;color:var(--muted)">El admin todavía no cerró cuentas para este asado.</div>
-        </div></div>`
-      : `<div style="padding:16px">
+          ${!mios.length ? '' : '<div style="text-align:left;margin-top:14px;padding-top:14px;border-top:1px solid var(--rim)">' +
+            '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Lo que cargaste vos</div>' +
+            mios.map(e => '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px">' +
+              '<span style="text-transform:uppercase">' + e.description + '</span><span style="font-weight:700">' + fmt(e.amount) + '</span></div>').join('') +
+          '</div>'}
+        </div></div>`;
+      } else {
+        elEl.innerHTML = `<div style="padding:16px">
       <div class="ov-card" style="text-align:center;margin-bottom:12px">
         <div class="ov-label">💰 Tu parte del asado</div>
         <div style="font-size:42px;font-weight:700;font-family:var(--font-title);color:var(--fire);letter-spacing:2px">${fmt(pp)}</div>
@@ -1956,6 +1966,8 @@ async function renderGastos() {
             <div style="font-size:14px;font-weight:700;color:var(--text)">${fmt(e.amount)}</div>
           </div>`).join('')}
       </div></div>`;
+      }
+    }
     return;
   }
   // ─────────────────────────────────────────────────────────────────────
@@ -1963,6 +1975,19 @@ async function renderGastos() {
   document.querySelectorAll('.gastos-financiero').forEach(el => el.style.display = puedeVerGastos ? '' : 'none');
   const ocultoMsg = document.getElementById('gastos-oculto-msg');
   if (ocultoMsg) ocultoMsg.style.display = puedeVerGastos ? 'none' : 'block';
+  if (!puedeVerGastos) {
+    const misGastosEl = document.getElementById('mis-gastos-oculto');
+    if (misGastosEl) {
+      const mios = S.expenses.filter(e => e.payer.toLowerCase() === me.toLowerCase());
+      misGastosEl.innerHTML = !mios.length ? '' :
+        '<div style="text-align:left;margin-top:14px;padding-top:14px;border-top:1px solid var(--rim)">' +
+          '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Lo que cargaste vos</div>' +
+          mios.map(e => '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px">' +
+            '<span style="text-transform:uppercase">' + e.description + '</span><span style="font-weight:700">' + fmt(e.amount) + '</span></div>').join('') +
+          '<div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:4px;border-top:1px solid var(--rim);font-size:13px;font-weight:700"><span>TOTAL TUYO</span><span style="color:var(--fire)">' + fmt(mios.reduce((a,e)=>a+parseFloat(e.amount),0)) + '</span></div>' +
+        '</div>';
+    }
+  }
 
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
@@ -2101,8 +2126,11 @@ async function checkMenciones() {
     tabIdeas.appendChild(badge);
   }
 
-  // Toast con la primera mención nueva
-  const s = nuevas[0];
+  // Toast con la primera mención nueva (solo una vez por sesión, no repetir en cada refresh)
+  window._mencionesToasteadas = window._mencionesToasteadas || new Set();
+  const s = nuevas.find(x => !window._mencionesToasteadas.has(x.id));
+  if (!s) return;
+  window._mencionesToasteadas.add(s.id);
   const preview = s.texto.substring(0, 60) + (s.texto.length > 60 ? '...' : '');
   toast(`💡 ${s.autor} te mencionó: "${preview}"`, 'var(--fire)', 5000);
 }
@@ -3957,7 +3985,8 @@ function renderOverview() {
       '</div>'
     : '';
 
-  el.innerHTML = renderOvHero(conf, pendientes, cumples, fechaStr) +
+  el.innerHTML = (diff === 0 ? renderModoDiaAsado(conf, noVan, sinResp, pendientes) : '') +
+    renderOvHero(conf, pendientes, cumples, fechaStr) +
     renderOvSponsor() +
     vacCard +
     renderOvMiEstado(miRsvp) +
@@ -3969,6 +3998,34 @@ function renderOverview() {
     renderOvCalendario(meses);
   startSpCarousel();
   fetchClima();
+}
+
+// ── Modo día del asado: lo esencial de un vistazo, solo el día del evento ──
+function renderModoDiaAsado(conf, noVan, sinResp, pendientes) {
+  const clima = _climaCache.temp ? climaIcon(_climaCache.temp) + ' ' + climaNum(_climaCache.temp) : '';
+  const faltanConfirmar = sinResp > 0 ? sinResp + ' sin responder' : '¡todos respondieron!';
+  return `<div style="background:linear-gradient(135deg,#c0392b,#e67e22);border-radius:16px;padding:14px 16px;margin-bottom:12px;color:white">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="font-size:20px">🔥</span>
+      <span style="font-family:var(--font-title);font-size:18px;letter-spacing:1px">HOY ES EL ASADO</span>
+      ${clima ? `<span style="margin-left:auto;font-size:14px;font-weight:700">${clima}</span>` : ''}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:700;font-family:var(--font-title)">${conf}</div>
+        <div style="font-size:9px;text-transform:uppercase;opacity:.85">Confirmados</div>
+      </div>
+      <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:700;font-family:var(--font-title)">${noVan}</div>
+        <div style="font-size:9px;text-transform:uppercase;opacity:.85">No van</div>
+      </div>
+      <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:8px;text-align:center;cursor:pointer" onclick="showTab('tareas')">
+        <div style="font-size:20px;font-weight:700;font-family:var(--font-title)">${pendientes}</div>
+        <div style="font-size:9px;text-transform:uppercase;opacity:.85">Tareas x hacer</div>
+      </div>
+    </div>
+    ${sinResp > 0 ? `<div style="margin-top:8px;font-size:11px;opacity:.9">⏳ ${faltanConfirmar}</div>` : ''}
+  </div>`;
 }
 
 function enviarFelizCumple(nombre) {
@@ -5868,10 +5925,11 @@ const F1_COLORES = {
     <!-- Efectivo -->
     <div style="background:var(--ash);border:1px solid var(--rim);border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💵 Pagué en efectivo</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input class="fi" id="mpc-efectivo" type="number" placeholder="Monto en efectivo..." style="margin-bottom:0;flex:1">
-        <button onclick="confirmarPagoEfectivo()" style="padding:9px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">✅ CONFIRMAR</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;color:var(--muted)">Monto en efectivo</span>
+        <input class="fi" id="mpc-efectivo" type="number" placeholder="0" style="margin-bottom:0;width:110px;text-align:right;font-weight:700;font-size:14px;color:var(--green)">
       </div>
+      <button onclick="confirmarPagoEfectivo()" style="width:100%;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer">✅ CONFIRMAR PAGO EN EFECTIVO</button>
     </div>
     <label class="fl">Nota (opcional)</label>
     <input class="fi" id="mpc-nota" placeholder="ej: transferí ayer a las 18hs">
