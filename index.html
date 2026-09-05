@@ -145,7 +145,7 @@ body {
 .lbtn:active{transform:scale(.98)}
 .wnote{margin-top:20px;background:rgba(114,47,55,.2);border:1px solid rgba(114,47,55,.4);border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:9px}
 .wnote-i{font-size:20px;flex-shrink:0}
-.wnote-t{font-size:12px;color:#C9A0A5;line-height:1.5}
+.wnote-t{font-size:12px;color:#C9A0A5;line-height:1.5;text-transform:uppercase}
 .wnote-t strong{color:#E8C4C8;display:block;margin-bottom:1px}
 
 /* ── SHELL ──────────────────────── */
@@ -313,7 +313,7 @@ body {
 .ov-muted{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600}
 .ov-btn{display:block;width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-family:var(--font-title);font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.3)}
 .ov-btn-sec{display:block;width:100%;padding:11px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-family:var(--font-title);font-size:16px;letter-spacing:1px;cursor:pointer;margin-bottom:8px;text-align:center}
-.sh,.sl,.fl,.tab,.modal-title,.en,.blbl,.psub,.pname,.tknm,.ec-title,.ec-meta,.ov-label,.ov-row span,.admin-bar span,.abtn,.bta,.btp,.btg,.ltitle,.ov-btn,.ov-btn-sec,.ov-stat-l,.ov-muted { text-transform:uppercase }
+.sh,.sl,.fl,.tab,.modal-title,.en,.blbl,.psub,.pname,.tknm,.ec-title,.ec-meta,.ov-label,.ov-row span,.admin-bar span,.abtn,.bta,.btp,.btg,.ltitle,.ov-btn,.ov-btn-sec,.ov-stat-l,.ov-muted,.ov-date { text-transform:uppercase }
 @keyframes splashPulse {
   0%,100% { transform:scale(1); opacity:1; }
   50% { transform:scale(1.05); opacity:.85; }
@@ -395,7 +395,7 @@ body {
       </div>
     </div>
   </div>
-  <div id="user-menu" style="display:none;position:absolute;top:56px;right:12px;background:var(--smoke);border:1px solid var(--rim);border-radius:12px;z-index:300;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.5)">
+  <div id="user-menu" style="display:none;position:absolute;top:56px;right:12px;background:var(--smoke);border:1px solid var(--rim);border-radius:12px;z-index:300;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.5);text-transform:uppercase">
     <div onclick="openModal('modal-asistencia');toggleUserMenu()" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">👥 Ver asistentes</div>
     <div onclick="cambiarRsvp()" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">🔄 Cambiar confirmación</div>
     <div onclick="logout()" style="padding:12px 16px;cursor:pointer;font-size:14px;color:var(--red)">🚪 Salir</div>
@@ -628,7 +628,7 @@ body {
   <div class="modal" style="text-align:center;padding:24px">
     <div style="font-size:48px;margin-bottom:12px">🚪</div>
     <div style="font-family:var(--font-title);font-size:28px;letter-spacing:2px;margin-bottom:8px">SALIR</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Vas a cerrar tu sesion.<br>Vas a tener que volver a ingresar tu nombre.</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:24px;text-transform:uppercase">Vas a cerrar tu sesion.<br>Vas a tener que volver a ingresar tu nombre.</div>
     <div style="display:flex;gap:10px">
       <button onclick="closeModal('modal-logout')" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
       <button onclick="confirmarLogout()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--red,#e74c3c);color:white;font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px">SALIR</button>
@@ -795,7 +795,7 @@ body {
     <div class="div"></div>
     <label class="fl">Agregar participante</label>
     <div class="frow">
-      <input class="fi" id="new-part" placeholder="Nombre..." style="margin-bottom:0">
+      <input class="fi" id="new-part" placeholder="Nombre..." style="margin-bottom:0;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
       <button class="btp" style="flex:none;padding:10px 14px" onclick="addParticipant()">+</button>
     </div>
     <div class="div" style="margin-top:16px"></div>
@@ -912,7 +912,7 @@ body {
     <label class="fl">Nueva categoría</label>
     <div class="frow">
       <input class="fi" id="new-cat-emoji" placeholder="🛒" style="max-width:60px;text-align:center;margin-bottom:0;flex:none">
-      <input class="fi" id="new-cat-name" placeholder="Nombre..." style="margin-bottom:0">
+      <input class="fi" id="new-cat-name" placeholder="Nombre..." style="margin-bottom:0;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
       <button class="btp" style="flex:none;padding:10px 14px" onclick="addCategory()">+</button>
     </div>
   </div>
@@ -2034,7 +2034,7 @@ async function renderGastos() {
   const faltanPagar = allP().filter(p => bal(p) < -0.5 && pagadoPorGastos(p) < Math.abs(bal(p)) - 0.5);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
-    ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
+    ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px;text-transform:uppercase">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
     : '';
   // Pagos pendientes de validar (solo admin) — arriba de todo para que no se pierda
   if (isAdmin()) {
@@ -2088,8 +2088,8 @@ async function renderLockerPanel() {
         ${fotoHtml}
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:700;text-transform:uppercase">${item.nombre}</div>
-          <div style="font-size:13px;color:var(--muted);margin-top:2px">${item.cantidad} ${item.unidad}</div>
-          <div style="font-size:11px;color:${est.color};font-weight:600;margin-top:3px">${est.label}${item.updated_by ? ' · ' + item.updated_by + ' ' + updStr : ''}</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:2px;text-transform:uppercase">${item.cantidad} ${item.unidad}</div>
+          <div style="font-size:11px;color:${est.color};font-weight:600;margin-top:3px;text-transform:uppercase">${est.label}${item.updated_by ? ' · ' + item.updated_by + ' ' + updStr : ''}</div>
           ${item.notas ? `<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic">${item.notas}</div>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
@@ -2447,8 +2447,8 @@ async function renderLocker() {
       ${fotoHtml}
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:700;text-transform:uppercase">${item.nombre}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${item.cantidad} ${item.unidad}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;text-transform:uppercase">${item.cantidad} ${item.unidad}</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:3px;text-transform:uppercase">
           <span style="font-size:10px;color:${est.color};font-weight:700">${est.label}</span>
           ${item.updated_by ? `<span style="font-size:10px;color:var(--muted)">· ${item.updated_by} ${updStr}</span>` : ''}
         </div>
@@ -3609,7 +3609,7 @@ function renderSpCard(sp) {
       ${logo}
       <div style="flex:1;min-width:0">
         <div style="font-size:15px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.5px;line-height:1.2">${sp.nombre}</div>
-        ${sp.tagline ? `<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px">${sp.tagline}</div>` : ''}
+        ${sp.tagline ? `<div style="font-size:11px;color:rgba(180,200,255,.7);margin-top:3px;text-transform:uppercase">${sp.tagline}</div>` : ''}
       </div>
     </div>
   </div>`;
