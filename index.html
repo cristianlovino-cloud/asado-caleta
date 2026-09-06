@@ -77,7 +77,10 @@
   --shadow: 0 2px 12px rgba(0,0,0,.4);
 }
 
-/* ── LIGHT ──────────────────────────────── */
+/* ── LIGHT (desactivado a propósito: la app siempre es oscura,
+   independientemente del tema del sistema del celular. Esto era
+   la causa de la mezcla de estilos clara/oscura) ────────────── */
+/*
 @media (prefers-color-scheme: light) {
   :root {
     --fire:#2B7FC1; --ember:#5BB8E8;
@@ -94,6 +97,7 @@
   .wnote-t { color: #6B3439 !important; }
   .wnote-t strong { color: #8B4A52 !important; }
 }
+*/
 
 /* ── RESET ──────────────────────────────── */
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
