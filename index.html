@@ -17,6 +17,32 @@
   <meta name="theme-color" content="var(--fire)">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
+  // ── Tema por usuario (se guarda en este celular, no afecta a los demás) ──
+  const TEMAS = {
+    petroleo: { coal:'#0E1A1B', smoke:'#16292B', ash:'#223638', rim:'#34494B', muted:'#9FADAD', card:'#16292B', nombre:'Petróleo' },
+    brasa:    { coal:'#1A1210', smoke:'#241B17', ash:'#302420', rim:'#4A3A33', muted:'#B5A99E', card:'#241B17', nombre:'Brasa' },
+    acero:    { coal:'#0C1420', smoke:'#152238', ash:'#1F3048', rim:'#33475F', muted:'#9DAEC2', card:'#152238', nombre:'Acero' },
+  };
+  function aplicarTema(key) {
+    const t = TEMAS[key] || TEMAS.petroleo;
+    const r = document.documentElement.style;
+    r.setProperty('--coal', t.coal); r.setProperty('--smoke', t.smoke);
+    r.setProperty('--ash', t.ash); r.setProperty('--rim', t.rim);
+    r.setProperty('--muted', t.muted); r.setProperty('--card', t.card);
+    localStorage.setItem('tema_elegido', key);
+    const item = document.getElementById('tema-menu-item');
+    if (item) item.textContent = '🎨 Tema: ' + t.nombre;
+  }
+  function ciclarTema() {
+    const keys = Object.keys(TEMAS);
+    const actual = localStorage.getItem('tema_elegido') || 'petroleo';
+    const siguiente = keys[(keys.indexOf(actual) + 1) % keys.length];
+    aplicarTema(siguiente);
+    toast('🎨 Tema: ' + TEMAS[siguiente].nombre);
+  }
+  // Aplicar apenas carga, antes del primer render, para que no titile
+  aplicarTema(localStorage.getItem('tema_elegido') || 'petroleo');
+
   // ── Timezone Argentina ─────────────────
   function ahoraAR() {
     // Hora actual en Argentina (UTC-3), sin depender de toLocaleString
@@ -62,14 +88,14 @@
      no cambian entre opciones, son la identidad del club.
      ══════════════════════════════════════════════════════════ */
   /* OPCIÓN 1 (activa) — "Petróleo": negro con tinte azul-verdoso */
-  --coal:#0E1A1B; --smoke:#16292B; --ash:#223638; --rim:#34494B; --muted:#9FADAD;
+  --coal:#0E1A1B; --smoke:#16292B; --ash:#223638; --rim:#34494B; --muted:#9FADAD; --card:#16292B;
 
   /* OPCIÓN 2 — "Brasa": negro cálido, tono carbón/ceniza de asado
-  --coal:#1A1210; --smoke:#241B17; --ash:#302420; --rim:#4A3A33; --muted:#B5A99E;
+  --coal:#1A1210; --smoke:#241B17; --ash:#302420; --rim:#4A3A33; --muted:#B5A99E; --card:#241B17;
   */
 
   /* OPCIÓN 3 — "Acero": azul marino profundo, look más tech/premium
-  --coal:#0C1420; --smoke:#152238; --ash:#1F3048; --rim:#33475F; --muted:#9DAEC2;
+  --coal:#0C1420; --smoke:#152238; --ash:#1F3048; --rim:#33475F; --muted:#9DAEC2; --card:#152238;
   */
 
   --text:#F0EBE3; --wine:#722F37;
@@ -419,6 +445,7 @@ body {
   <div id="user-menu" style="display:none;position:absolute;top:56px;right:12px;background:var(--smoke);border:1px solid var(--rim);border-radius:12px;z-index:300;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.5);text-transform:uppercase">
     <div onclick="openModal('modal-asistencia');toggleUserMenu()" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">👥 Ver asistentes</div>
     <div onclick="cambiarRsvp()" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">🔄 Cambiar confirmación</div>
+    <div id="tema-menu-item" onclick="ciclarTema()" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">🎨 Tema: Petróleo</div>
     <div onclick="logout()" style="padding:12px 16px;cursor:pointer;font-size:14px;color:var(--red)">🚪 Salir</div>
   </div>
 
@@ -4542,6 +4569,8 @@ async function setRsvpAdmin(nombre, resp) {
 function toggleUserMenu() {
   const m = document.getElementById('user-menu');
   if (m) m.style.display = m.style.display==='none' ? 'block' : 'none';
+  const item = document.getElementById('tema-menu-item');
+  if (item) { const k = localStorage.getItem('tema_elegido') || 'petroleo'; item.textContent = '🎨 Tema: ' + (TEMAS[k]?.nombre || 'Petróleo'); }
 }
 // Cerrar menú al tocar afuera
 document.addEventListener('click', function(e) {
