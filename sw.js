@@ -1,6 +1,6 @@
 // sw.js — Service Worker para Asado en la Caleta
-// Versión: cambiá este número para forzar actualización en todos los dispositivos
-const VERSION = 'v1.0.5';
+// Versión: cambiá este número cada vez que subas un index.html nuevo, para forzar actualización en todos los dispositivos
+const VERSION = 'v1.0.6';
 const CACHE_NAME = 'asado-caleta-' + VERSION;
 
 // Archivos a cachear
