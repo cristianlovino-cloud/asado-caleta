@@ -828,6 +828,8 @@ body {
     </div>
     <label class="fl">📧 Email <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(opcional — para invitarlo a su calendario)</span></label>
     <input class="fi" id="ep-email" type="email" placeholder="nombre@mail.com" style="margin-bottom:12px">
+    <label class="fl">📱 Teléfono <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(opcional — con código de país, ej: 5493411234567)</span></label>
+    <input class="fi" id="ep-phone" type="tel" placeholder="5493411234567" style="margin-bottom:12px">
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btp" onclick="saveEditParticipant()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-edit-participant');openModal('modal-participants')">CANCELAR</button>
@@ -838,7 +840,8 @@ body {
 <div class="modal-bg" id="modal-participants">
   <div class="modal">
     <div class="modal-title">👥 Participantes <button class="modal-close" onclick="closeModal('modal-participants')">✕</button></div>
-    <button class="btp" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#4a90e2,#357abd)" onclick="invitarPorMailATodos()">📧 Enviar invite/recordatorio a todos</button>
+    <button class="btp" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#4a90e2,#357abd)" onclick="invitarPorMailATodos()">📧 Enviar invite/recordatorio a todos</button>
+    <button class="btp" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#25D366,#128C7E)" onclick="recordarGrupoWhatsapp()">📱 Recordatorio para el grupo de WhatsApp</button>
     <div id="part-list"></div>
     <div class="div"></div>
     <label class="fl">Agregar participante</label>
@@ -1523,10 +1526,38 @@ function renderParticipantsModal() {
       <div style="display:flex;gap:5px">
         <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>
         ${p.email?`<button class="abtn" onclick="invitarPorMail('${p.name.replace(/'/g,"\'")}')" title="Invitar por mail">📧</button>`:''}
+        ${p.phone?`<button class="abtn" onclick="recordarPorWhatsapp('${p.name.replace(/'/g,"\'")}')" title="Recordar por WhatsApp">📱</button>`:''}
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
   renderInvitadosList();
+}
+
+// Recordatorio a un participante por WhatsApp (wa.me sí funciona 1 a 1, con un número)
+function recordarPorWhatsapp(nombre) {
+  const p = S.participants.find(x => x.name === nombre);
+  if (!p?.phone) { toast('Ese participante no tiene teléfono cargado', 'var(--red)'); return; }
+  if (!S.event) return;
+  const numero = p.phone.replace(/\D/g, ''); // wa.me necesita solo dígitos (con código de país)
+  const msg = `Hola ${nombre.split(' ')[0]}! 🔥 Te esperamos en ${S.event.title || 'el asado'}:\n` +
+    `📅 ${S.event.event_date} · ${S.event.time_range || ''}\n📍 ${S.event.location || ''}\n\n` +
+    `Entrá a la app y confirmá tu asistencia. Nos vemos!`;
+  window.open('https://wa.me/' + numero + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+// Recordatorio para el grupo: WhatsApp no permite mandar directo a un grupo desde la web,
+// así que se comparte con el selector nativo del celu (elegís el grupo vos) o se copia el texto.
+async function recordarGrupoWhatsapp() {
+  if (!S.event) return;
+  const msg = `🔥 *${(S.event.title || 'Asado en La Caleta').toUpperCase()}*\n\n` +
+    `📅 ${S.event.event_date} · ${S.event.time_range || ''}\n📍 ${S.event.location || ''}\n\n` +
+    `Che, recordatorio del asado — entrá a la app y confirmá tu asistencia si todavía no lo hiciste!`;
+  if (navigator.share) {
+    try { await navigator.share({ text: msg }); return; } catch(e) { /* canceló, no hacer nada */ return; }
+  }
+  navigator.clipboard.writeText(msg)
+    .then(() => toast('📋 Mensaje copiado — pegalo en el grupo de WhatsApp', 'var(--green)', 4000))
+    .catch(() => toast('❌ No se pudo copiar', 'var(--red)'));
 }
 
 // Invitar a un participante por mail con los datos del asado (el .ics no se puede adjuntar vía mailto,
@@ -1574,6 +1605,7 @@ function openEditParticipant(id, currentName, currentBirthday) {
   document.getElementById('ep-name').value = currentName;
   document.getElementById('ep-birthday').value = currentBirthday || '';
   document.getElementById('ep-email').value = p?.email || '';
+  document.getElementById('ep-phone').value = p?.phone || '';
   closeModal('modal-participants');
   openModal('modal-edit-participant');
 }
@@ -1583,6 +1615,7 @@ async function saveEditParticipant() {
   const newName = document.getElementById('ep-name').value.trim();
   const birthday = document.getElementById('ep-birthday').value.trim();
   const email = document.getElementById('ep-email').value.trim();
+  const phone = document.getElementById('ep-phone').value.trim();
   if (!newName) { toast('Escribí el nombre','var(--red)'); return; }
   // Validar formato DD/MM
   if (birthday && !/^\d{1,2}\/\d{2}$/.test(birthday)) {
@@ -1591,9 +1624,12 @@ async function saveEditParticipant() {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     toast('Ese email no parece válido','var(--red)'); return;
   }
+  if (phone && !/^\d{8,15}$/.test(phone.replace(/\D/g,''))) {
+    toast('Ese teléfono no parece válido (solo números, con código de país)','var(--red)'); return;
+  }
   try {
     const oldP = S.participants.find(p=>p.id===id);
-    await sb.from('participants').update({name: newName, birthday: birthday||null, email: email||null}).eq('id', id);
+    await sb.from('participants').update({name: newName, birthday: birthday||null, email: email||null, phone: phone||null}).eq('id', id);
     if (oldP && oldP.name !== newName) {
       await sb.from('tasks').update({assignee: newName}).ilike('assignee', oldP.name);
       await sb.from('expenses').update({payer: newName}).ilike('payer', oldP.name);
