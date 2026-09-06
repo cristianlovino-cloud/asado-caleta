@@ -54,8 +54,25 @@
 :root {
   --fire:#F5C518; --ember:#D4A017; --gold:#FFBF00;
   --club1:#5BB8E8; --club2:#F5C518; /* Colores 7:45 */
-  --coal:#0E1A1B; --smoke:#16292B; --ash:#223638; --rim:#34494B;
-  --text:#F0EBE3; --muted:#9FADAD; --wine:#722F37;
+
+  /* ══════════════════════════════════════════════════════════
+     FONDO — 3 paletas para elegir.
+     Para cambiar: dejá activa (sin /* */) SOLO la línea de UNA opción
+     y comentá las otras 2. El fuego/dorado y el celeste del escudo
+     no cambian entre opciones, son la identidad del club.
+     ══════════════════════════════════════════════════════════ */
+  /* OPCIÓN 1 (activa) — "Petróleo": negro con tinte azul-verdoso */
+  --coal:#0E1A1B; --smoke:#16292B; --ash:#223638; --rim:#34494B; --muted:#9FADAD;
+
+  /* OPCIÓN 2 — "Brasa": negro cálido, tono carbón/ceniza de asado
+  --coal:#1A1210; --smoke:#241B17; --ash:#302420; --rim:#4A3A33; --muted:#B5A99E;
+  */
+
+  /* OPCIÓN 3 — "Acero": azul marino profundo, look más tech/premium
+  --coal:#0C1420; --smoke:#152238; --ash:#1F3048; --rim:#33475F; --muted:#9DAEC2;
+  */
+
+  --text:#F0EBE3; --wine:#722F37;
   --green:#27AE60; --red:#E74C3C; --blue:#2E86DE;
   --shadow: 0 2px 12px rgba(0,0,0,.4);
 }
@@ -2870,37 +2887,21 @@ async function deleteTask(id) {
   await sb.from('tasks').delete().eq('id',id);
 }
 
-function renderTasks() {
-  const el=document.getElementById('tasklist');
-  if (!S.tasks.length) { el.innerHTML='<div class="empty"><div class="em">📋</div>Sin tareas</div>'; return; }
+let _taskViewMode = localStorage.getItem('taskViewMode') || 'persona';
+function setTaskView(mode) {
+  _taskViewMode = mode;
+  localStorage.setItem('taskViewMode', mode);
+  renderTasks();
+}
 
-  // Agrupar por persona (pending primero, done al fondo)
-  const byPerson = {};
-  const meKey = '__yo__';
-
-  S.tasks.forEach(t=>{
-    const key = t.assignee ? t.assignee.toLowerCase() : '__sin__';
-    if (!byPerson[key]) byPerson[key] = {nombre: t.assignee||null, tasks:[]};
-    byPerson[key].tasks.push(t);
-  });
-
-  // Orden: yo primero, luego otros asignados, sin asignar al final
-  const ordered = [];
-  if (byPerson[me.toLowerCase()]) ordered.push(byPerson[me.toLowerCase()]);
-  Object.entries(byPerson).forEach(([k,v])=>{
-    if (k!==me.toLowerCase() && k!=='__sin__') ordered.push(v);
-  });
-  if (byPerson['__sin__']) ordered.push(byPerson['__sin__']);
-
-  el.innerHTML = ordered.map(group=>{
-    const isMe = group.nombre&&group.nombre.toLowerCase()===me.toLowerCase();
-    const header = group.nombre
-      ? `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${isMe?'var(--fire)':'var(--muted)'};border-bottom:1px solid var(--rim)">👤 ${group.nombre.toUpperCase()}${isMe?' (VOS)':''}</div>`
-      : `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)">🙋 SIN ASIGNAR</div>`;
-
-    const items = group.tasks.map(t=>{
-      const done = t.done;
-      return `<div class="tkr${done?' dn':''}" style="${isMe&&!done?'background:rgba(245,197,24,.04)':''}">
+// Fila de una tarea, self-contenida (usada por las 3 vistas). showAssignee: mostrar quién la tiene
+// cuando el agrupado no lo deja claro (vistas por categoría / kanban).
+function renderTaskRow(t, { showAssignee = false } = {}) {
+  const done = t.done;
+  const isMe = t.assignee && t.assignee.toLowerCase() === me.toLowerCase();
+  const sinAsignar = !t.assignee;
+  const asigneeTag = (showAssignee && t.assignee && !isMe && !done) ? `<span style="font-size:10px;color:var(--muted);margin-right:6px">👤 ${t.assignee.toUpperCase()}</span>` : '';
+  return `<div class="tkr${done?' dn':''}" style="${isMe&&!done?'background:rgba(245,197,24,.04)':''}">
         <div class="tkc${done?' ck':''}" onclick="toggleTask(${t.id},${t.done})" style="margin-top:2px;flex-shrink:0"></div>
         <div class="tkbody" style="flex:1">
           <div class="tknm" style="${done?'color:var(--muted);':''}">
@@ -2914,9 +2915,10 @@ function renderTasks() {
             })()}
           </div>
           <div class="tkfoot">
+            ${asigneeTag}
             ${done
               ?`<span style="font-size:11px;color:var(--green)">✅ LISTO</span>`
-              :!group.nombre
+              :sinAsignar
                 ?`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(245,197,24,.08);color:var(--fire);cursor:pointer">✋ YO ME ENCARGO</button>`
                 :isMe
                   ?(t.assignee_confirmed===false
@@ -2928,15 +2930,99 @@ function renderTasks() {
                     :`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:11px;color:var(--fire)">TUYA 🔥</span><button onclick="reasignarTarea(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(245,197,24,.08);color:var(--fire);cursor:pointer;font-weight:600">🔄 REASIGNAR</button></div>`)
                   :`<button onclick="assignToMe(${t.id})" style="font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--fire);background:rgba(245,197,24,.08);color:var(--fire);cursor:pointer;font-weight:600">TOMAR TAREA</button>`
             }
-            ${isAdmin()&&!done?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:14px;cursor:pointer;padding:0 6px;margin-left:auto">✏️</span>`:''}
+            ${isAdmin()?`<span onclick="openEditTask(${t.id})" style="color:var(--muted);font-size:14px;cursor:pointer;padding:0 6px;margin-left:auto">✏️</span>`:''}
           </div>
         </div>
       </div>`;
-    }).join('');
+}
+
+function renderTasks() {
+  const el=document.getElementById('tasklist');
+  if (!S.tasks.length) { el.innerHTML='<div class="empty"><div class="em">📋</div>Sin tareas</div>'; return; }
+
+  const switcher = `<div style="display:flex;gap:6px;margin-bottom:10px">
+    <button onclick="setTaskView('persona')" style="flex:1;padding:7px;border-radius:8px;border:1px solid ${_taskViewMode==='persona'?'var(--fire)':'var(--rim)'};background:${_taskViewMode==='persona'?'rgba(245,197,24,.12)':'var(--ash)'};color:${_taskViewMode==='persona'?'var(--fire)':'var(--muted)'};font-size:11px;font-weight:700;cursor:pointer">👤 PERSONA</button>
+    <button onclick="setTaskView('categoria')" style="flex:1;padding:7px;border-radius:8px;border:1px solid ${_taskViewMode==='categoria'?'var(--fire)':'var(--rim)'};background:${_taskViewMode==='categoria'?'rgba(245,197,24,.12)':'var(--ash)'};color:${_taskViewMode==='categoria'?'var(--fire)':'var(--muted)'};font-size:11px;font-weight:700;cursor:pointer">🏷️ CATEGORÍA</button>
+    <button onclick="setTaskView('kanban')" style="flex:1;padding:7px;border-radius:8px;border:1px solid ${_taskViewMode==='kanban'?'var(--fire)':'var(--rim)'};background:${_taskViewMode==='kanban'?'rgba(245,197,24,.12)':'var(--ash)'};color:${_taskViewMode==='kanban'?'var(--fire)':'var(--muted)'};font-size:11px;font-weight:700;cursor:pointer">📊 KANBAN</button>
+  </div>`;
+
+  if (_taskViewMode === 'categoria') { el.innerHTML = switcher + renderTasksPorCategoria(); return; }
+  if (_taskViewMode === 'kanban')    { el.innerHTML = switcher + renderTasksKanban(); return; }
+
+  // ── Vista por persona (la de siempre) ──────────────────────────────────
+  // Agrupar por persona (pending primero, done al fondo)
+  const byPerson = {};
+  const meKey = '__yo__';
+
+  S.tasks.forEach(t=>{
+    const key = t.assignee ? t.assignee.toLowerCase() : '__sin__';
+    if (!byPerson[key]) byPerson[key] = {nombre: t.assignee||null, tasks:[]};
+    byPerson[key].tasks.push(t);
+  });
+  // El comentario decía "pending primero, done al fondo" pero no se aplicaba — ahora sí
+  Object.values(byPerson).forEach(g => g.tasks.sort((a,b) => (a.done?1:0) - (b.done?1:0)));
+
+  // Orden: yo primero, luego otros asignados, sin asignar al final
+  const ordered = [];
+  if (byPerson[me.toLowerCase()]) ordered.push(byPerson[me.toLowerCase()]);
+  Object.entries(byPerson).forEach(([k,v])=>{
+    if (k!==me.toLowerCase() && k!=='__sin__') ordered.push(v);
+  });
+  if (byPerson['__sin__']) ordered.push(byPerson['__sin__']);
+
+  el.innerHTML = switcher + ordered.map(group=>{
+    const isMe = group.nombre&&group.nombre.toLowerCase()===me.toLowerCase();
+    const header = group.nombre
+      ? `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${isMe?'var(--fire)':'var(--muted)'};border-bottom:1px solid var(--rim)">👤 ${group.nombre.toUpperCase()}${isMe?' (VOS)':''}</div>`
+      : `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)">🙋 SIN ASIGNAR</div>`;
+
+    const items = group.tasks.map(t => renderTaskRow(t)).join('');
 
     return `<div style="background:var(--smoke);border-radius:12px;overflow:hidden;border:1px solid var(--rim);margin-bottom:10px">${header}${items}</div>`;
   }).join('');
 }
+
+// ── Vista por categoría: agrupa por rubro (Carnes, Fuego, etc.) en vez de por persona ──
+function renderTasksPorCategoria() {
+  const byCat = {};
+  S.tasks.forEach(t => {
+    const key = t.category || '📋 Sin categoría';
+    if (!byCat[key]) byCat[key] = [];
+    byCat[key].push(t);
+  });
+  Object.values(byCat).forEach(list => list.sort((a,b) => (a.done?1:0) - (b.done?1:0)));
+
+  return Object.entries(byCat).map(([cat, tasks]) => {
+    const header = `<div style="padding:10px 13px 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--rim)">${cat.toUpperCase()}</div>`;
+    const items = tasks.map(t => renderTaskRow(t, { showAssignee: true })).join('');
+    return `<div style="background:var(--smoke);border-radius:12px;overflow:hidden;border:1px solid var(--rim);margin-bottom:10px">${header}${items}</div>`;
+  }).join('');
+}
+
+// ── Vista Kanban: 2 columnas, Por hacer / Listo ─────────────────────────
+function renderTasksKanban() {
+  const pendientes = S.tasks.filter(t => !t.done);
+  const listas = S.tasks.filter(t => t.done);
+  const card = t => {
+    const isMe = t.assignee && t.assignee.toLowerCase() === me.toLowerCase();
+    const catEmoji = t.category ? t.category.split(' ')[0] : '📋';
+    return `<div onclick="toggleTask(${t.id},${t.done})" style="background:var(--ash);border:1px solid ${isMe&&!t.done?'var(--fire)':'var(--rim)'};border-radius:10px;padding:8px;margin-bottom:8px;cursor:pointer">
+      <div style="font-size:12px;font-weight:600;${t.done?'color:var(--muted);text-decoration:line-through':''}">${catEmoji} ${t.name.split('\n')[0]}</div>
+      <div style="font-size:10px;color:${isMe?'var(--fire)':'var(--muted)'};margin-top:4px;text-transform:uppercase">${t.assignee ? (isMe?'vos':t.assignee) : 'sin asignar'}</div>
+    </div>`;
+  };
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;text-align:center">🔧 Por hacer (${pendientes.length})</div>
+      ${pendientes.length ? pendientes.map(card).join('') : '<div style="font-size:11px;color:var(--muted);text-align:center;padding:10px">Nada pendiente</div>'}
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;text-align:center">✅ Listo (${listas.length})</div>
+      ${listas.length ? listas.map(card).join('') : '<div style="font-size:11px;color:var(--muted);text-align:center;padding:10px">Todavía nada</div>'}
+    </div>
+  </div>`;
+}
+
 
 
 // ══ CATEGORÍAS ════════════════════════════════════
