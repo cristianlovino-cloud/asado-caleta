@@ -3263,20 +3263,20 @@ async function saveEditTask() {
 
 async function deleteTask2() {
   const id = parseInt(document.getElementById('edit-task-id').value);
-  if (!(await showConfirm('¿Eliminar esta tarea? Esta acción no se puede deshacer.', { icon: '🗑️' }))) return;
+  closeModal('modal-edit-task');
+  if (!(await showConfirm('¿Eliminar esta tarea? Esta acción no se puede deshacer.', { icon: '🗑️' }))) { openModal('modal-edit-task'); return; }
   const { error } = await sb.from('tasks').delete().eq('id', id);
   if (error) { toast('❌ No se pudo eliminar: ' + error.message, 'var(--red)', 5000); return; }
-  closeModal('modal-edit-task');
   await fetchAll();
   toast('🗑 Tarea eliminada');
 }
 
 async function archivarTask() {
   const id = parseInt(document.getElementById('edit-task-id').value);
-  if (!(await showConfirm('La tarea desaparece de las listas, pero queda guardada (se puede recuperar).', { icon: '📦', title: '¿ARCHIVAR TAREA?' }))) return;
+  closeModal('modal-edit-task');
+  if (!(await showConfirm('La tarea desaparece de las listas, pero queda guardada (se puede recuperar).', { icon: '📦', title: '¿ARCHIVAR TAREA?' }))) { openModal('modal-edit-task'); return; }
   const { error } = await sb.from('tasks').update({ archived: true }).eq('id', id);
   if (error) { toast('❌ No se pudo archivar: ' + error.message, 'var(--red)', 5000); return; }
-  closeModal('modal-edit-task');
   await fetchAll();
   toast('📦 Tarea archivada');
 }
@@ -3390,9 +3390,10 @@ async function saveEditExpense() {
 
 async function deleteExpense() {
   const id = parseInt(document.getElementById('edit-exp-id').value);
-  if (!(await showConfirm('¿Eliminar este gasto?', { icon: '🗑️' }))) return;
-  await sb.from('expenses').delete().eq('id',id);
   closeModal('modal-edit-expense');
+  if (!(await showConfirm('¿Eliminar este gasto?', { icon: '🗑️' }))) { openModal('modal-edit-expense'); return; }
+  const { error } = await sb.from('expenses').delete().eq('id',id);
+  if (error) { toast('❌ No se pudo eliminar: ' + error.message, 'var(--red)', 5000); return; }
   await fetchAll();
   toast('🗑 Gasto eliminado');
 }
