@@ -992,6 +992,7 @@ body {
     </div>
     <div class="frow">
       <button class="btp" onclick="saveEditTask()">GUARDAR</button>
+      <button class="btg" style="color:var(--fire);border-color:rgba(245,197,24,.3)" onclick="archivarTask()">📦 ARCHIVAR</button>
       <button class="btg" style="color:var(--red);border-color:rgba(231,76,60,.3)" onclick="deleteTask2()">🗑 ELIMINAR</button>
     </div>
   </div>
@@ -1111,7 +1112,7 @@ async function fetchAll() {
   ]);
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
-  if (tk.data) S.tasks        = tk.data;
+  if (tk.data) S.tasks        = tk.data.filter(t => !t.archived);
   if (mn.data) S.menu         = mn.data;
   // Categorias
   if (ca.data?.length) S.cats = ca.data;
@@ -3262,11 +3263,22 @@ async function saveEditTask() {
 
 async function deleteTask2() {
   const id = parseInt(document.getElementById('edit-task-id').value);
-  if (!(await showConfirm('¿Eliminar esta tarea?', { icon: '🗑️' }))) return;
-  await sb.from('tasks').delete().eq('id', id);
+  if (!(await showConfirm('¿Eliminar esta tarea? Esta acción no se puede deshacer.', { icon: '🗑️' }))) return;
+  const { error } = await sb.from('tasks').delete().eq('id', id);
+  if (error) { toast('❌ No se pudo eliminar: ' + error.message, 'var(--red)', 5000); return; }
   closeModal('modal-edit-task');
   await fetchAll();
   toast('🗑 Tarea eliminada');
+}
+
+async function archivarTask() {
+  const id = parseInt(document.getElementById('edit-task-id').value);
+  if (!(await showConfirm('La tarea desaparece de las listas, pero queda guardada (se puede recuperar).', { icon: '📦', title: '¿ARCHIVAR TAREA?' }))) return;
+  const { error } = await sb.from('tasks').update({ archived: true }).eq('id', id);
+  if (error) { toast('❌ No se pudo archivar: ' + error.message, 'var(--red)', 5000); return; }
+  closeModal('modal-edit-task');
+  await fetchAll();
+  toast('📦 Tarea archivada');
 }
 
 // ══ MENÚ ══════════════════════════════════════════
