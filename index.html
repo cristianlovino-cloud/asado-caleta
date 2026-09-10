@@ -1067,6 +1067,7 @@ const isPendiente= () => { const p = S.participants.find(x=>x.name.toLowerCase()
 // ── RSVP helpers (por evento) ─────────────────────────────────────────────
 const getRsvp  = name => S.rsvp[name.toLowerCase()]?.rsvp || null;
 const getRsvpAt= name => S.rsvp[name.toLowerCase()]?.rsvp_at || null;
+const getRsvpSetBy = name => S.rsvp[name.toLowerCase()]?.set_by || null;
 // ─────────────────────────────────────────────────────────────────────────
 
 const allP = () => [...new Set(S.participants.filter(p=>(p.active && getRsvp(p.name)==='si') || (p.role==='invitado' && getRsvp(p.name)==='si')).map(p=>p.name))];
@@ -1175,7 +1176,7 @@ async function fetchAll() {
 
   // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
   S.rsvp = {};
-  if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, id: r.id}; });
+  if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, set_by: r.set_by, id: r.id}; });
 
   if (sp.data?.length) {
     const hoy = ahoraAR();
@@ -4574,11 +4575,11 @@ async function upsertRsvp(name, resp) {
   if (!S.event) return;             // recién ahí, si sigue sin haber evento, corta
   const existing = S.rsvp[name.toLowerCase()];
   if (existing?.id) {
-    await sb.from('rsvp').update({rsvp: resp, rsvp_at: new Date().toISOString()}).eq('id', existing.id);
+    await sb.from('rsvp').update({rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me}).eq('id', existing.id);
   } else {
-    await sb.from('rsvp').insert({event_id: S.event.id, participant_name: name, rsvp: resp, rsvp_at: new Date().toISOString()});
+    await sb.from('rsvp').insert({event_id: S.event.id, participant_name: name, rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me});
   }
-  S.rsvp[name.toLowerCase()] = {rsvp: resp, rsvp_at: new Date().toISOString()};
+  S.rsvp[name.toLowerCase()] = {rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me};
 }
 
 // ══ ASISTENCIA ADMIN ═══════════════════════════════
@@ -4624,9 +4625,14 @@ function renderAsistencia() {
     [...todos].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
       const r = getRsvp(p.name);
       const cuando = getRsvpAt(p.name) ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(getRsvpAt(p.name))}</div>` : '';
+      const setBy = getRsvpSetBy(p.name);
+      const esAuto = setBy && setBy.toLowerCase() === p.name.toLowerCase();
+      const badge = !r ? '' : esAuto
+        ? '<span style="font-weight:800;font-size:10px;color:var(--blue);background:rgba(46,134,222,.15);border:1px solid var(--blue);border-radius:5px;padding:1px 5px;margin-left:6px" title="Lo confirmó la propia persona">U</span>'
+        : setBy ? `<span style="font-weight:800;font-size:10px;color:var(--gold);background:rgba(255,191,0,.15);border:1px solid var(--gold);border-radius:5px;padding:1px 5px;margin-left:6px" title="Lo marcó ${setBy}">${setBy.charAt(0).toUpperCase()}</span>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">
         <div>
-          <span style="font-weight:500;text-transform:uppercase">${p.name}</span>
+          <span style="font-weight:500;text-transform:uppercase">${p.name}</span>${badge}
           ${cuando}
         </div>
         <div style="display:flex;gap:6px;align-items:center">
