@@ -4603,8 +4603,10 @@ function renderAsistencia() {
   
   const fmtRsvpAt = (iso) => {
     if (!iso) return '';
-    const d = new Date(iso);
-    return d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+    // Fuerza UTC-3 fijo (Argentina), sin depender de la zona horaria del dispositivo que mira la lista
+    const utcMs = new Date(iso).getTime();
+    const d = new Date(utcMs - (3 * 3600000));
+    return d.getUTCDate().toString().padStart(2,'0')+'/'+(d.getUTCMonth()+1).toString().padStart(2,'0')+' '+d.getUTCHours().toString().padStart(2,'0')+':'+d.getUTCMinutes().toString().padStart(2,'0');
   };
 
   el.innerHTML = 
