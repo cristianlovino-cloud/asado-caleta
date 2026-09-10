@@ -4264,7 +4264,7 @@ function updateClock() {
     // Lejos: solo días, sin detalle de horas/minutos que no aporta a esa distancia
     el.textContent = `⏳ FALTAN ${dias} DÍAS`;
   } else {
-    el.textContent = `⏳ ${dias}D ${String(horas).padStart(2,'0')}H ${String(mins).padStart(2,'0')}M ${String(segs).padStart(2,'0')}S`;
+    el.textContent = `⏳ ${dias}D ${String(horas).padStart(2,'0')}H ${String(mins).padStart(2,'0')}M`;
   }
 }
 
