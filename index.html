@@ -1748,11 +1748,15 @@ function renderInvitadosList() {
 }
 
 async function quitarInvitado(id) {
-  if (!(await showConfirm('¿Quitar a este invitado?', { icon: '🗑️' }))) return;
-  await sb.from('participants').delete().eq('id',id);
+  closeModal('modal-participants');
+  if (!(await showConfirm('¿Quitar a este invitado?', { icon: '🗑️' }))) { openModal('modal-participants'); return; }
+  const { error } = await sb.from('participants').delete().eq('id',id);
+  if (error) { toast('❌ No se pudo quitar: ' + error.message, 'var(--red)', 5000); openModal('modal-participants'); return; }
   await fetchAll();
   renderParticipantsModal();
   renderOverview();
+  openModal('modal-participants');
+  toast('✅ Invitado quitado');
 }
 // ─────────────────────────────────────────────────────────────────────────
 
