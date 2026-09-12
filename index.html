@@ -869,7 +869,10 @@ body {
   <div class="modal">
     <div class="modal-title">💰 Registrar Pago <button class="modal-close" onclick="closeModal('modal-pago')">✕</button></div>
     <label class="fl">Quién pagó</label>
-    <select class="fi" id="mp-payer" style="margin-bottom:8px"></select>
+    <button type="button" id="mp-payer-btn" onclick="elegirPagoPersona('payer')" style="width:100%;text-align:left;margin-bottom:8px;padding:11px 14px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+      <span id="mp-payer-label">Elegir...</span><span style="color:var(--muted)">▾</span>
+    </button>
+    <input type="hidden" id="mp-payer">
     <label class="fl">Cuánto</label>
     <input class="fi fi-monto" id="mp-amount" type="text" inputmode="numeric" placeholder="$0" style="margin-bottom:8px" oninput="formatMontoInput(this)">
     <label class="fl">Cómo pagó</label>
@@ -882,7 +885,10 @@ body {
       </label>
     </div>
     <label class="fl">A quién le pagó</label>
-    <select class="fi" id="mp-receiver" style="margin-bottom:14px"></select>
+    <button type="button" id="mp-receiver-btn" onclick="elegirPagoPersona('receiver')" style="width:100%;text-align:left;margin-bottom:14px;padding:11px 14px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+      <span id="mp-receiver-label">Elegir...</span><span style="color:var(--muted)">▾</span>
+    </button>
+    <input type="hidden" id="mp-receiver">
     <button class="btp" style="width:100%" onclick="confirmarPago()">✅ CONFIRMAR PAGO</button>
   </div>
 </div>
@@ -1935,6 +1941,8 @@ function openModalPagoConfirm(deudor, monto) {
   document.getElementById('mpc-monto-val').value = monto;
   document.getElementById('mpc-efectivo').value = Math.round(monto);
   document.getElementById('mpc-nota').value = '';
+  const btn = document.getElementById('btn-notificar-transfer');
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '📲 YA TRANSFERÍ — NOTIFICAR AL ADMIN'; }
   modal.classList.add('open');
 }
 
@@ -1957,9 +1965,12 @@ async function confirmarPagoEfectivo() {
 }
 
 async function confirmarPagoUsuario() {
+  const btn = document.getElementById('btn-notificar-transfer');
+  if (btn?.disabled) return; // ya se está procesando, ignorar toques de más
   const monto = parseFloat(document.getElementById('mpc-monto-val').value);
   const nota = document.getElementById('mpc-nota').value.trim();
   if (!monto || !me || !S.event) return;
+  if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Enviando...'; }
   const { error } = await sb.from('payment_requests').insert({
     participant_name: me,
     monto,
@@ -1967,9 +1978,14 @@ async function confirmarPagoUsuario() {
     estado: 'pendiente',
     nota: nota || null
   });
-  if (error) { toast('❌ Error: ' + error.message, 'var(--red)'); return; }
+  if (error) {
+    toast('❌ Error: ' + error.message, 'var(--red)');
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '📲 YA TRANSFERÍ — NOTIFICAR AL ADMIN'; }
+    return;
+  }
   closeModal('modal-pago-confirm');
   toast('✅ ¡Pago notificado! El admin lo va a confirmar', 'var(--green)', 4000);
+  await fetchAll();
   renderGastos();
 }
 
@@ -2128,6 +2144,7 @@ async function renderGastos() {
     const b=bal(p), im=p.toLowerCase()===me.toLowerCase();
     const yaPago = pagadoPorGastos(p);
     const saldado = b < -0.5 && yaPago >= Math.abs(b) - 0.5;
+    const tieneNotifPendiente = (S.paymentReqs||[]).some(r => r.estado === 'pendiente' && r.participant_name.toLowerCase() === p.toLowerCase());
     // Para acreedores: mostrar lo que aún falta cobrar
     const cobradoP = payments.filter(x => x.receiver.toLowerCase()===p.toLowerCase()).reduce((a,x)=>a+x.amount,0);
     const pendienteCobrar = b > 0.5 ? Math.max(0, b - cobradoP) : 0;
@@ -2148,7 +2165,10 @@ async function renderGastos() {
       <div>
         <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':acrCobrado?'✅':b>=0?'+':'-'}${saldado||acrCobrado?'':b>0.5?fmt(pendienteCobrar):fmt(b)}</div>
         <div class="blbl">${saldado?'saldado':acrCobrado?'cobrado':b>=0?'a cobrar':esMoroso?'🐌 moroso':'debe pagar'}</div>
-        ${im && b < -0.5 && !saldado ? `<button onclick="abrirPagoMP('${p}',${Math.abs(b)})" style="margin-top:4px;padding:5px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:11px;font-weight:700;cursor:pointer;width:100%">💳 PAGAR</button>` : ''}
+        ${im && b < -0.5 && !saldado ? (tieneNotifPendiente
+          ? `<div style="margin-top:4px;padding:5px 10px;border-radius:8px;background:rgba(245,197,24,.1);border:1px solid var(--fire);color:var(--fire);font-size:10px;font-weight:700;text-align:center">⏳ AVISADO, FALTA CONFIRMAR</div>`
+          : `<button onclick="abrirPagoMP('${p}',${Math.abs(b)})" style="margin-top:4px;padding:5px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:11px;font-weight:700;cursor:pointer;width:100%">💳 PAGAR</button>`
+        ) : ''}
       </div>
     </div>`;
   }).join('');
@@ -5532,21 +5552,28 @@ function abrirModalPago_btn(btn) {
 function abrirModalPago(payerName, amount, receiverName) {
   // Pre-fill y abrir modal-pago
   document.getElementById('mp-payer').value   = payerName  || '';
+  document.getElementById('mp-payer-label').textContent = payerName ? payerName.toUpperCase() : 'Elegir...';
   document.getElementById('mp-amount').value  = amount     || '';
-  document.getElementById('mp-receiver').value = receiverName || '';
-  // Populate receiver select
-  const recSel = document.getElementById('mp-receiver');
+  // Si solo hay UN acreedor (lo más común: recaudás todo vos), lo dejamos preseleccionado directo
   const acreedores = allP().filter(p => bal(p) > 0.5);
-  recSel.innerHTML = acreedores.map(p =>
-    '<option value="' + p + '"' + (p === receiverName ? ' selected' : '') + '>' + p.toUpperCase() + '</option>'
-  ).join('');
-  // Populate payer select - todos los participantes pueden pagar
-  const payerSel = document.getElementById('mp-payer');
-  payerSel.innerHTML = allP().sort((a,b)=>a.localeCompare(b,'es')).map(p =>
-    '<option value="' + p + '"' + (p === payerName ? ' selected' : '') + '>' + p.toUpperCase() + '</option>'
-  ).join('');
+  const receiverFinal = receiverName || (acreedores.length === 1 ? acreedores[0] : '');
+  document.getElementById('mp-receiver').value = receiverFinal;
+  document.getElementById('mp-receiver-label').textContent = receiverFinal ? receiverFinal.toUpperCase() : 'Elegir...';
   if (amount) document.getElementById('mp-amount').value = Number(Math.round(amount)).toLocaleString('es-AR');
   openModal('modal-pago');
+}
+
+// Reemplaza los <select> nativos (que en mobile se ven como un menú del sistema, no de la app)
+async function elegirPagoPersona(campo) {
+  const esPayer = campo === 'payer';
+  const opciones = esPayer ? allP().sort((a,b)=>a.localeCompare(b,'es')) : allP().filter(p => bal(p) > 0.5);
+  if (!opciones.length) { toast('No hay opciones para elegir', 'var(--red)'); return; }
+  closeModal('modal-pago');
+  const elegido = await elegirEntreVarios(opciones, { title: esPayer ? '¿QUIÉN PAGÓ?' : '¿A QUIÉN LE PAGÓ?', icon: '💰', otroText: 'CANCELAR' });
+  openModal('modal-pago');
+  if (!elegido) return;
+  document.getElementById('mp-' + campo).value = elegido;
+  document.getElementById('mp-' + campo + '-label').textContent = elegido.toUpperCase();
 }
 
 async function confirmarPago() {
@@ -6215,7 +6242,7 @@ const F1_COLORES = {
     </div>
     <label class="fl">Nota (opcional)</label>
     <input class="fi" id="mpc-nota" placeholder="ej: transferí ayer a las 18hs">
-    <button class="btp" style="width:100%;margin-top:4px" onclick="confirmarPagoUsuario()">📲 YA TRANSFERÍ — NOTIFICAR AL ADMIN</button>
+    <button class="btp" id="btn-notificar-transfer" style="width:100%;margin-top:4px" onclick="confirmarPagoUsuario()">📲 YA TRANSFERÍ — NOTIFICAR AL ADMIN</button>
     <button onclick="closeModal('modal-pago-confirm')" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--rim);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;text-transform:uppercase">Cancelar</button>
   </div>
 </div>
