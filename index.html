@@ -2201,7 +2201,7 @@ async function renderGastos() {
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
         <div><div class="pname">${p.toUpperCase()}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}${esMoroso?' <span style="font-size:10px;color:var(--red)">🐌 MOROSO</span>':''}</div>
-        <div class="psub">Pagó: ${fmt(paid(p))}${saldado?' · <span style="color:var(--green)">✅ Saldado</span>':acrCobrado?' · <span style="color:var(--green)">✅ Cobrado</span>':''}</div></div>
+        <div class="psub">Gastó: ${fmt(paid(p))}${saldado?' · <span style="color:var(--green)">✅ Saldado</span>':acrCobrado?' · <span style="color:var(--green)">✅ Cobrado</span>':''}</div></div>
       </div>
       <div>
         <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':acrCobrado?'✅':b>=0?'+':'-'}${saldado||acrCobrado?'':b>0.5?fmt(pendienteCobrar):fmt(b)}</div>
