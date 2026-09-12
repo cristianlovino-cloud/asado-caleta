@@ -699,6 +699,19 @@ body {
   </div>
 </div>
 
+<!-- Reemplazo estilizado de prompt() nativo -->
+<div class="modal-bg" id="modal-prompt-generic">
+  <div class="modal" style="text-align:center;padding:24px">
+    <div style="font-size:40px;margin-bottom:10px" id="mpg-icon">✏️</div>
+    <div style="font-family:var(--font-title);font-size:20px;letter-spacing:1px;margin-bottom:14px" id="mpg-title">EDITAR</div>
+    <input class="fi" id="mpg-input" style="margin-bottom:16px;text-align:center">
+    <div style="display:flex;gap:10px">
+      <button id="mpg-cancel" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px">CANCELAR</button>
+      <button id="mpg-ok" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--fire);color:#000;font-family:var(--font-title);font-size:16px;cursor:pointer;letter-spacing:1px;font-weight:700">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal selección entre varios candidatos ambiguos (ej: varios "Hernán") -->
 <div class="modal-bg" id="modal-elegir-nombre">
   <div class="modal" style="text-align:center;padding:24px">
@@ -1607,12 +1620,6 @@ function invitarPorMailATodos() {
   const bcc = conMail.map(p => p.email).join(',');
   toast('📧 Se armó para ' + conMail.length + ' persona(s)', 'var(--green)');
   window.open('mailto:?bcc=' + encodeURIComponent(bcc) + '&subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo), '_blank');
-}
-
-function openRenameParticipant(id, currentName) {
-  const nuevo = prompt('NUEVO NOMBRE:', currentName);
-  if (!nuevo || nuevo.trim()===currentName.trim()) return;
-  renameParticipant(id, nuevo.trim());
 }
 
 function openEditParticipant(id, currentName, currentBirthday) {
@@ -2543,9 +2550,9 @@ async function toggleLockerAuth(name, nuevoValor) {
 
 async function editarLockerInfo() {
   if (!isAdmin()) return;
-  const numero = prompt('N° de locker:', S.lockerNumero || '');
+  const numero = await showPrompt('N° de locker', S.lockerNumero || '', { title: 'N° DE LOCKER' });
   if (numero === null) return;
-  const clave = prompt('Clave del locker:', S.lockerClave || '');
+  const clave = await showPrompt('Clave del locker', S.lockerClave || '', { title: 'CLAVE DEL LOCKER' });
   if (clave === null) return;
   try {
     await Promise.all([
@@ -4484,6 +4491,28 @@ function showAlert(msg, { title = 'AVISO', icon = 'ℹ️', okText = 'ENTENDIDO'
   });
 }
 
+// Reemplazo estilizado de prompt() nativo. Uso: const v = await showPrompt('Nombre:', valorActual)
+function showPrompt(msg, defaultValue = '', { title, icon = '✏️', placeholder = '' } = {}) {
+  document.activeElement?.blur();
+  return new Promise(resolve => {
+    document.getElementById('mpg-icon').textContent = icon;
+    document.getElementById('mpg-title').textContent = title || msg;
+    const input = document.getElementById('mpg-input');
+    input.value = defaultValue || '';
+    input.placeholder = placeholder;
+    const okBtn = document.getElementById('mpg-ok');
+    const cancelBtn = document.getElementById('mpg-cancel');
+    const cleanup = (result) => {
+      closeModal('modal-prompt-generic');
+      okBtn.onclick = null; cancelBtn.onclick = null;
+      resolve(result);
+    };
+    okBtn.onclick = () => cleanup(input.value);
+    cancelBtn.onclick = () => cleanup(null);
+    setTimeout(() => { openModal('modal-prompt-generic'); input.focus(); }, 250);
+  });
+}
+
 // Cuando el nombre tipeado matchea con VARIOS participantes (ej: 3 "Hernán"), que elija cuál es.
 // Devuelve el nombre completo elegido, o null si tocó "no soy ninguno de estos".
 function elegirEntreVarios(nombres, { title = '¿CUÁL SOS VOS?', icon = '🤔', otroText = 'NO SOY NINGUNO DE ESTOS' } = {}) {
@@ -4553,7 +4582,9 @@ async function editarAliasParticipante(nombre) {
   if (!isAdmin()) return;
   const p = S.participants.find(x => x.name === nombre);
   const actual = p?.mp_alias || '';
-  const nuevo = prompt('Alias de Mercado Pago de ' + nombre + ':', actual);
+  closeModal('modal-cuentas');
+  const nuevo = await showPrompt('Alias de Mercado Pago de ' + nombre, actual, { title: 'ALIAS DE MP', placeholder: 'alias.mp' });
+  openModal('modal-cuentas');
   if (nuevo === null) return;
   await sb.from('participants').update({ mp_alias: nuevo.trim() }).eq('id', p.id);
   if (p) p.mp_alias = nuevo.trim();
@@ -5359,10 +5390,10 @@ function renderVotos() {
   </div>` : '');
 }
 
-function abrirEditOpcion(id, nombre, emoji) {
-  const nuevoNombre = prompt('Nombre:', nombre);
+async function abrirEditOpcion(id, nombre, emoji) {
+  const nuevoNombre = await showPrompt('Nombre de la opción', nombre, { title: 'EDITAR OPCIÓN' });
   if (!nuevoNombre) return;
-  const nuevoEmoji = prompt('Emoji:', emoji) || emoji;
+  const nuevoEmoji = await showPrompt('Emoji', emoji, { title: 'EMOJI', icon: emoji || '✏️' }) || emoji;
   editarOpcionVoto(id, nuevoNombre, nuevoEmoji);
 }
 
@@ -5634,6 +5665,17 @@ async function renderCuentas() {
         if (deudas.length) debeDevolver = deudas.join(' · ');
       }
 
+      const misPagosRecibidos = payments.filter(x => x.receiver.toLowerCase() === p.toLowerCase());
+      const pagosRecibidosHtml = misPagosRecibidos.length ? '<div style="margin:4px 0 2px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
+        misPagosRecibidos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0">' +
+          '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' ' + x.payer.toUpperCase() + ' →</span>' +
+          '<div style="display:flex;align-items:center;gap:6px">' +
+            '<span style="color:var(--green)">' + fmt(x.amount) + '</span>' +
+            (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="color:var(--muted);cursor:pointer;font-size:10px;text-decoration:underline">↩️ deshacer</span>' : '') +
+          '</div></div>'
+        ).join('') +
+        '</div>' : '';
+
       return '<div style="background:' + (cobroDemas ? 'rgba(231,76,60,.08)' : saldado ? 'rgba(39,174,96,.06)' : 'rgba(245,197,24,.06)') + ';border:1px solid ' + (cobroDemas ? 'rgba(231,76,60,.3)' : saldado ? 'rgba(39,174,96,.3)' : 'rgba(245,197,24,.25)') + ';border-radius:10px;padding:10px 12px;margin-bottom:7px">' +
         '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
           '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + '</span>' +
@@ -5643,6 +5685,7 @@ async function renderCuentas() {
         '</div>' +
         (cobrado > 0 ? '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">Cobrado: <span style="color:' + (cobroDemas?'var(--red)':'var(--green)') + ';font-weight:700">' + fmt(cobrado) + '</span> / Le correspondía: ' + fmt(saldo) + '</div>' : '') +
         (cobroDemas ? '<div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:2px">Debe devolver: ' + fmt(cobradoDemas) + (debeDevolver ? ' → ' + debeDevolver : '') + '</div>' : '') +
+        pagosRecibidosHtml +
       '</div>';
     }).join('') : '';
 
