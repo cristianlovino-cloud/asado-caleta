@@ -331,6 +331,9 @@ body {
 
 /* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:flex-end;justify-content:center;display:none}
+/* Modales utilitarios (confirmar, prompt, elegir entre varios): siempre arriba de cualquier otro modal,
+   sin importar el orden en el HTML, porque a veces se abren con otro modal todavía abierto detrás */
+#modal-confirm-generic, #modal-prompt-generic, #modal-elegir-nombre { z-index: 400; }
 .modal-bg.open{display:flex}
 .modal{background:var(--smoke);border-radius:20px 20px 0 0;border:1px solid var(--rim);padding:24px 20px 32px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto}
 .modal-title{font-family:var(--font-title);font-size:22px;letter-spacing:2px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;text-transform:uppercase}
@@ -5667,11 +5670,11 @@ async function renderCuentas() {
 
       const misPagosRecibidos = payments.filter(x => x.receiver.toLowerCase() === p.toLowerCase());
       const pagosRecibidosHtml = misPagosRecibidos.length ? '<div style="margin:4px 0 2px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
-        misPagosRecibidos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0">' +
+        misPagosRecibidos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
           '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' ' + x.payer.toUpperCase() + ' →</span>' +
-          '<div style="display:flex;align-items:center;gap:6px">' +
-            '<span style="color:var(--green)">' + fmt(x.amount) + '</span>' +
-            (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="color:var(--muted);cursor:pointer;font-size:10px;text-decoration:underline">↩️ deshacer</span>' : '') +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<span style="color:var(--green);font-weight:700">' + fmt(x.amount) + '</span>' +
+            (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="cursor:pointer;font-size:18px;padding:2px 4px">↩️</span>' : '') +
           '</div></div>'
         ).join('') +
         '</div>' : '';
@@ -5711,11 +5714,11 @@ async function renderCuentas() {
     const falta = deudaRestante(p);
     const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase());
     const pagosHtml = misPagos.length ? '<div style="margin:4px 0 6px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
-      misPagos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:2px 0">' +
+      misPagos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
         '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + x.receiver.toUpperCase() + '</span>' +
-        '<div style="display:flex;align-items:center;gap:6px">' +
-          '<span style="color:var(--green)">' + fmt(x.amount) + '</span>' +
-          (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="color:var(--muted);cursor:pointer;font-size:10px;text-decoration:underline">↩️</span>' : '') +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<span style="color:var(--green);font-weight:700">' + fmt(x.amount) + '</span>' +
+          (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="cursor:pointer;font-size:18px;padding:2px 4px">↩️</span>' : '') +
         '</div></div>'
       ).join('') +
       '<div style="border-top:1px solid var(--rim);margin-top:3px;padding-top:3px;display:flex;justify-content:space-between;font-size:11px">' +
