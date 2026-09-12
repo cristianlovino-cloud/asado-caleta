@@ -2750,11 +2750,12 @@ async function eliminarLockerItem(id) {
 
 // Sube la foto de un ticket de gasto. prefix: 'fe' (cargar) o 'edit-exp' (editar)
 async function uploadGastoFoto(input, prefix) {
-  const file = input.files[0];
-  if (!file) return;
+  const rawFile = input.files[0];
+  if (!rawFile) return;
   const statusElReal = document.getElementById(prefix === 'fe' ? 'fe-upload-status' : 'edit-exp-upload-status');
   if (statusElReal) { statusElReal.style.display = 'block'; statusElReal.style.color = 'var(--muted)'; statusElReal.textContent = '⏳ Subiendo foto...'; }
   try {
+    const file = await convertirFotoSiHaceFalta(rawFile);
     const fileName = Date.now() + '_' + file.name.replace(/\s/g, '_');
     const { error } = await sb.storage.from('Gastos').upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
     if (error) throw new Error(error.message);
@@ -2787,14 +2788,34 @@ async function leerTicketConIA(imageUrl, prefix, statusEl) {
   }
 }
 
+// Si la foto viene en HEIC/HEIF (cámara de iPhone/Samsung en "alta eficiencia"), la convierte a
+// JPEG antes de subir — HEIC no se puede mostrar en la mayoría de los navegadores.
+async function convertirFotoSiHaceFalta(file) {
+  const esHeic = /\.hei[cf]$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+  if (!esHeic) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('conversión falló');
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch(e) {
+    throw new Error('Esta foto es HEIC y tu navegador no la puede procesar. Cambiá el formato de cámara a JPEG (o subí una captura de pantalla) e intentá de nuevo.');
+  }
+}
+
 async function uploadLockerFoto(input) {
-  const file = input.files[0];
-  if (!file) return;
+  const rawFile = input.files[0];
+  if (!rawFile) return;
   const statusEl = document.getElementById('li-upload-status');
   statusEl.style.display = 'block';
   statusEl.style.color = 'var(--muted)';
   statusEl.textContent = '⏳ Subiendo foto...';
   try {
+    const file = await convertirFotoSiHaceFalta(rawFile);
     const fileName = Date.now() + '_' + file.name.replace(/\s/g, '_');
     const { error } = await sb.storage.from('Locker').upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
     if (error) throw new Error(error.message);
