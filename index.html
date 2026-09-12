@@ -1925,6 +1925,9 @@ const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
 const getPP    = ()=> { const n = allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()).reduce((a,e)=>a+parseFloat(e.amount),0);
 const bal      = n => paid(n)-getPP();
+// Margen de tolerancia para considerar una deuda/cobro como saldado (diferencias chicas por
+// redondeo o pagos en efectivo "cerrados" no deberían seguir marcando a alguien como pendiente).
+const TOLERANCIA_SALDO = 500;
 
 async function addExpense() {
   const desc=document.getElementById('fedesc').value.trim();
@@ -2171,7 +2174,7 @@ async function renderGastos() {
   const gAdminCtrls = document.getElementById('gastos-admin-controls');
   if (gAdminCtrls) gAdminCtrls.style.display = isAdmin() ? 'flex' : 'none';
   const miPago = pagadoPorGastos(me);
-  const miSaldado = mb < -0.5 && miPago >= Math.abs(mb) - 0.5;
+  const miSaldado = mb < -0.5 && miPago >= Math.abs(mb) - TOLERANCIA_SALDO;
   const cobradoYo = payments.filter(p => p.receiver.toLowerCase()===me.toLowerCase()).reduce((a,p)=>a+p.amount,0);
   const mbDisplay = mb < -0.5 ? Math.max(0, Math.abs(mb) - miPago) : Math.max(0, mb - cobradoYo);
   const sm=document.getElementById('sm');
@@ -2181,12 +2184,12 @@ async function renderGastos() {
   document.getElementById('ballist').innerHTML = allP().map(p=>{
     const b=bal(p), im=p.toLowerCase()===me.toLowerCase();
     const yaPago = pagadoPorGastos(p);
-    const saldado = b < -0.5 && yaPago >= Math.abs(b) - 0.5;
+    const saldado = b < -0.5 && yaPago >= Math.abs(b) - TOLERANCIA_SALDO;
     const tieneNotifPendiente = (S.paymentReqs||[]).some(r => r.estado === 'pendiente' && r.participant_name.toLowerCase() === p.toLowerCase());
     // Para acreedores: mostrar lo que aún falta cobrar
     const cobradoP = payments.filter(x => x.receiver.toLowerCase()===p.toLowerCase()).reduce((a,x)=>a+x.amount,0);
     const pendienteCobrar = b > 0.5 ? Math.max(0, b - cobradoP) : 0;
-    const acrCobrado = b > 0.5 && pendienteCobrar <= 0.5;
+    const acrCobrado = b > 0.5 && pendienteCobrar <= TOLERANCIA_SALDO;
     // 🐌 Si ya pasó la fecha del asado y todavía debe, lo cargamos de moroso (es joda, pero motiva)
     let yaVencioElAsado = false;
     if (S.event?.event_date) {
@@ -2211,7 +2214,7 @@ async function renderGastos() {
     </div>`;
   }).join('');
 
-  const faltanPagar = allP().filter(p => bal(p) < -0.5 && pagadoPorGastos(p) < Math.abs(bal(p)) - 0.5);
+  const faltanPagar = allP().filter(p => bal(p) < -0.5 && pagadoPorGastos(p) < Math.abs(bal(p)) - TOLERANCIA_SALDO);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px;text-transform:uppercase">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
@@ -5677,8 +5680,8 @@ async function renderCuentas() {
 
   // Deudores: cuánto pagaron vs cuánto deben
   const deudaRestante = p => Math.max(0, Math.abs(bal(p)) - pagadoPor(p));
-  const pendientes = deudores.filter(p => deudaRestante(p) > 0.5);
-  const saldados   = deudores.filter(p => deudaRestante(p) <= 0.5);
+  const pendientes = deudores.filter(p => deudaRestante(p) > TOLERANCIA_SALDO);
+  const saldados   = deudores.filter(p => deudaRestante(p) <= TOLERANCIA_SALDO);
 
   // HTML acreedores
   const acrHtml = acreedores.length ? '<div class="sh" style="margin-bottom:8px">💸 A COBRAR</div>' +
@@ -5687,8 +5690,8 @@ async function renderCuentas() {
       const cobrado = cobradoPor(p);
       const pendAcr = Math.max(0, saldo - cobrado);
       const cobradoDemas = cobrado - saldo; // positivo = cobró de más
-      const saldado = pendAcr <= 0.5;
-      const cobroDemas = cobradoDemas > 0.5;
+      const saldado = pendAcr <= TOLERANCIA_SALDO;
+      const cobroDemas = cobradoDemas > TOLERANCIA_SALDO;
 
       // Si cobró de más, calcular a quién le debe
       let debeDevolver = '';
@@ -5728,7 +5731,7 @@ async function renderCuentas() {
     }).join('') : '';
 
   // Acreedores que cobraron de más aparecen también en DEBEN PAGAR
-  const acrDeudores = acreedores.filter(p => cobradoPor(p) - bal(p) > 0.5);
+  const acrDeudores = acreedores.filter(p => cobradoPor(p) - bal(p) > TOLERANCIA_SALDO);
   const acrDeudoresHtml = acrDeudores.map(p => {
     const debeDevolver = cobradoPor(p) - bal(p);
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);background:rgba(231,76,60,.04)">' +
