@@ -54,12 +54,32 @@
   const APP_VERSION = '2.18';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
+  // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
+  // Devuelve >0 si a es más nueva que b, 0 si son iguales, <0 si a es más vieja.
+  function compararVersiones(a, b) {
+    const pa = String(a).split('.').map(n => parseInt(n, 10) || 0);
+    const pb = String(b).split('.').map(n => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const na = pa[i] || 0, nb = pb[i] || 0;
+      if (na !== nb) return na - nb;
+    }
+    return 0;
+  }
+
   // ── Publicar versión (admin) ─────────────
   window.publicarVersion = async function() {
+    const url = 'https://tppffkngfncybwkmmbjc.supabase.co';
+    const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
+    try {
+      const rActual = await fetch(url+'/rest/v1/app_config?key=eq.appVersion&select=value', { headers:{'apikey':key,'Authorization':'Bearer '+key} });
+      const actual = (await rActual.json())?.[0]?.value;
+      if (actual && compararVersiones(APP_VERSION, actual) <= 0) {
+        await showAlert('Ya hay publicada la v'+actual+', igual o más nueva que esta (v'+APP_VERSION+'). No se publicó nada.', { icon: '⚠️', title: 'VERSIÓN NO PUBLICADA' });
+        return;
+      }
+    } catch(e) { /* si falla la verificación, seguimos y dejamos que confirme igual */ }
     if (!(await showConfirm('Publicar v' + APP_VERSION + ' para todos?', { icon: '🤔' }))) return;
     try {
-      const url = 'https://tppffkngfncybwkmmbjc.supabase.co';
-      const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwcGZma25nZm5jeWJ3a21tYmpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjIyMTIsImV4cCI6MjA5MDc5ODIxMn0.8yBlL6vDqIuKGlcbuPW_emziMg88ZknFqargEXIdlU0';
       const r = await fetch(url+'/rest/v1/app_config', {
         method:'POST',
         headers:{'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
@@ -1166,7 +1186,7 @@ async function fetchAll() {
     const myLoginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
     // Versión nueva publicada: avisar con un banner fijo (el toast se pierde y nadie se entera)
     const versionServer = cfg.data.find(r => r.key === 'appVersion')?.value;
-    if (versionServer && versionServer !== APP_VERSION && !window._banVersionMostrado) {
+    if (versionServer && compararVersiones(versionServer, APP_VERSION) > 0 && !window._banVersionMostrado) {
       window._banVersionMostrado = true;
       mostrarBannerNuevaVersion(versionServer);
     }
@@ -1237,6 +1257,14 @@ function subscribe() {
     .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},     ()=>fetchAll())
     .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},        ()=>{ if(!S.tasks.some(t=>t._saving)) fetchAll(); })
     .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},   ()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'app_config',filter:'key=eq.appVersion'}, payload => {
+      // Aviso instantáneo a todos los que ya están adentro, sin esperar otro fetchAll
+      const v = payload.new?.value;
+      if (v && compararVersiones(v, APP_VERSION) > 0 && !window._banVersionMostrado) {
+        window._banVersionMostrado = true;
+        mostrarBannerNuevaVersion(v);
+      }
+    })
     .on('postgres_changes',{event:'*',schema:'public',table:'app_config',filter:'key=eq.force_logout_ts'}, async payload => {
       // Expulsión instantánea — no espera refresh ni reapertura de la app
       const flTs = parseInt(payload.new?.value || '0');
@@ -4434,13 +4462,16 @@ function dispararConfetti() {
 }
 
 function mostrarBannerNuevaVersion(v) {
+  if (document.getElementById('banner-nueva-version')) return; // ya se está mostrando
   const el = document.createElement('div');
   el.id = 'banner-nueva-version';
   el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9998;background:linear-gradient(135deg,var(--club1),var(--club2));color:#000;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 -4px 16px rgba(0,0,0,.3);font-family:var(--font-body)';
   el.innerHTML = `<span style="font-size:20px">🆕</span>
-    <span style="flex:1;font-size:12px;font-weight:700">Hay una versión nueva (v${v}) — recargá para actualizar</span>
-    <button onclick="location.reload()" style="padding:8px 14px;border-radius:8px;border:none;background:#000;color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">RECARGAR</button>`;
+    <span id="ban-version-txt" style="flex:1;font-size:12px;font-weight:700">Hay una versión nueva (v${v}) — actualizando en 6s…</span>
+    <button onclick="location.reload()" style="padding:8px 14px;border-radius:8px;border:none;background:#000;color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">AHORA</button>`;
   document.body.appendChild(el);
+  // Se actualiza sola: nadie tiene que acordarse de tocar el botón
+  setTimeout(() => location.reload(), 6000);
 }
 
 function toast(msg,bg='var(--green)',dur=3000) {
@@ -5551,6 +5582,10 @@ async function fetchPayments() {
 // Pago registrado por admin: quién pagó, cuánto, cómo, a quién
 async function registrarPago(payer, amount, method, receiver) {
   if (!S.event) return;
+  if (payer.toLowerCase() === receiver.toLowerCase()) {
+    toast('❌ El que pagó y el que cobra no pueden ser la misma persona', 'var(--red)');
+    return;
+  }
   await sb.from('payments').insert({
     event_id: S.event.id,
     payer: payer,
@@ -5668,7 +5703,7 @@ async function renderCuentas() {
         if (deudas.length) debeDevolver = deudas.join(' · ');
       }
 
-      const misPagosRecibidos = payments.filter(x => x.receiver.toLowerCase() === p.toLowerCase());
+      const misPagosRecibidos = payments.filter(x => x.receiver.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
       const pagosRecibidosHtml = misPagosRecibidos.length ? '<div style="margin:4px 0 2px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
         misPagosRecibidos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
           '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' ' + x.payer.toUpperCase() + ' →</span>' +
@@ -5712,7 +5747,7 @@ async function renderCuentas() {
     const debe = Math.abs(bal(p));
     const yaPago = pagadoPor(p);
     const falta = deudaRestante(p);
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase());
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
     const pagosHtml = misPagos.length ? '<div style="margin:4px 0 6px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
       misPagos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
         '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + x.receiver.toUpperCase() + '</span>' +
@@ -5742,7 +5777,7 @@ async function renderCuentas() {
 
   // HTML saldados
   const saldHtml = saldados.map(p => {
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase());
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
     const total = misPagos.reduce((a,x) => a+x.amount, 0);
     const medios = [...new Set(misPagos.map(x=>x.method))].map(m => m==='efectivo'?'💵':'📲').join('+');
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75">' +
@@ -5756,9 +5791,9 @@ async function renderCuentas() {
     '</div>';
   }).join('');
 
-  const totalCobrado = payments.reduce((a,p) => a+p.amount, 0);
-  const totalEfectivo = payments.filter(p=>p.method==='efectivo').reduce((a,p)=>a+p.amount,0);
-  const totalTransf = payments.filter(p=>p.method==='transferencia').reduce((a,p)=>a+p.amount,0);
+  const totalCobrado = payments.filter(p => p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p) => a+p.amount, 0);
+  const totalEfectivo = payments.filter(p=>p.method==='efectivo' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
+  const totalTransf = payments.filter(p=>p.method==='transferencia' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
   const totalPendiente = pendientes.reduce((a,p) => a + deudaRestante(p), 0);
 
   // Orden de pagos sugerido: mínimas transacciones entre quien debe y quien tiene que cobrar
