@@ -1822,13 +1822,13 @@ async function createNewAsado() {
 
 // ══ HISTORIAL ═════════════════════════════════════
 async function desarchivarAsado(id) {
-  if (!(await showConfirm('¿Activar este asado? El actual quedará archivado.', { icon: '🤔' }))) return;
+  closeModal('modal-history');
+  if (!(await showConfirm('¿Activar este asado? El actual quedará archivado.', { icon: '🤔' }))) { openModal('modal-history'); return; }
   // Archivar todos los activos primero
   await sb.from('events').update({archived: true}).eq('archived', false);
   // Activar el seleccionado
   await sb.from('events').update({archived: false}).eq('id', id);
   await fetchAll();
-  closeModal('modal-history');
   toast('✅ Asado activado!');
 }
 
@@ -2676,11 +2676,14 @@ async function guardarLockerItem() {
 }
 
 async function eliminarLockerItem(id) {
-  if (!(await showConfirm('¿Eliminar este item del locker?', { icon: '🗑️' }))) return;
+  const modalAbierto = document.getElementById('modal-locker')?.classList.contains('open');
+  if (modalAbierto) closeModal('modal-locker');
+  if (!(await showConfirm('¿Eliminar este item del locker?', { icon: '🗑️' }))) { if (modalAbierto) openModal('modal-locker'); return; }
   await sb.from('locker_items').update({ active: false }).eq('id', id);
   const panelLocker = document.getElementById('panel-locker');
   if (panelLocker?.classList.contains('active')) await renderLockerPanel();
   else await renderLocker();
+  if (modalAbierto) openModal('modal-locker');
   toast('Item eliminado');
 }
 
@@ -2904,9 +2907,11 @@ async function guardarBiblioteca() {
 }
 
 async function eliminarBiblioteca(id) {
-  if (!(await showConfirm('¿Eliminar esta plantilla?', { icon: '🗑️' }))) return;
+  closeModal('modal-biblioteca');
+  if (!(await showConfirm('¿Eliminar esta plantilla?', { icon: '🗑️' }))) { openModal('modal-biblioteca'); return; }
   await sb.from('task_templates').delete().eq('id', id);
   await renderBiblioteca();
+  openModal('modal-biblioteca');
   toast('Plantilla eliminada');
 }
 
@@ -2985,11 +2990,6 @@ async function reasignarTarea(id) {
   await sb.from('tasks').update({assignee:elegido, assignee_confirmed:false}).eq('id',id);
   toast('✅ Reasignada a ' + elegido, 'var(--green)');
   await fetchAll();
-}
-
-async function deleteTask(id) {
-  if (!(await showConfirm('¿Eliminar tarea?', { icon: '🗑️' }))) return;
-  await sb.from('tasks').delete().eq('id',id);
 }
 
 let _taskViewMode = localStorage.getItem('taskViewMode') || 'persona';
@@ -3938,11 +3938,13 @@ async function toggleSpActive(id, current) {
 }
 
 async function deleteSponsor(id) {
-  if (!(await showConfirm('¿Eliminar este sponsor?', { icon: '🗑️' }))) return;
+  closeModal('modal-sponsor');
+  if (!(await showConfirm('¿Eliminar este sponsor?', { icon: '🗑️' }))) { openModal('modal-sponsor'); return; }
   await sb.from('sponsors').delete().eq('id', id);
   await fetchAll();
   const {data} = await sb.from('sponsors').select('*').order('orden', { ascending: true }).order('id', { ascending: true });
   renderSpList(data || []);
+  openModal('modal-sponsor');
   toast('Sponsor eliminado');
 }
 
@@ -4686,7 +4688,8 @@ async function ejecutarFusion() {
   const principal = document.getElementById('fusionar-principal').textContent;
   const otro = document.getElementById('fusionar-select').value;
   if (!principal || !otro) return;
-  if (!(await showConfirm(`¿Fusionar "${otro}" → "${principal}"? El nombre "${otro}" se desactivará.`, { icon: '🤔' }))) return;
+  closeModal('modal-fusionar');
+  if (!(await showConfirm(`¿Fusionar "${otro}" → "${principal}"? El nombre "${otro}" se desactivará.`, { icon: '🤔' }))) { openModal('modal-fusionar'); return; }
   if (!sbOk) return;
   try {
     // Reasignar tareas del otro al principal
@@ -4696,9 +4699,9 @@ async function ejecutarFusion() {
     // Desactivar el duplicado
     await sb.from('participants').update({active: false}).ilike('name', otro);
     await fetchAll();
-    closeModal('modal-fusionar');
     toast(`✅ "${otro}" fusionado con "${principal}"`);
     renderAsistencia();
+    openModal('modal-asistencia');
   } catch(e) { toast('Error al fusionar','var(--red)'); }
 }
 
@@ -5506,9 +5509,11 @@ async function registrarPago(payer, amount, method, receiver) {
 }
 
 async function deshacerPago(id) {
-  if (!(await showConfirm('¿Deshacer este pago?', { icon: '🤔' }))) return;
+  closeModal('modal-cuentas');
+  if (!(await showConfirm('¿Deshacer este pago?', { icon: '🤔' }))) { openModal('modal-cuentas'); return; }
   await sb.from('payments').delete().eq('id', id);
   await renderCuentas();
+  openModal('modal-cuentas');
   toast('↩️ Pago deshecho', 'var(--muted)');
 }
 
