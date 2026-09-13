@@ -5489,8 +5489,8 @@ function renderStatsChart(pts) {
 }
 
 // ══ STATS ═════════════════════════════════════════
-async function renderStats() {
-  const el = document.getElementById('stats-content');
+async function renderStats(targetId) {
+  const el = document.getElementById(targetId || 'stats-content');
   if (!el || !S.allEvents.length) return;
 
   // Necesitamos datos históricos de cada evento
@@ -5618,38 +5618,9 @@ function abrirVotosModal() {
 
 async function abrirStatsModal() {
   openModal('modal-stats');
-  var el = document.getElementById('modal-stats-content');
-  if (!el) return;
-  if (!S.allEvents || !S.allEvents.length) { el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Sin historial aun</div>'; return; }
-  var eventIds = S.allEvents.map(function(e){ return e.id; });
-  var res = await sb.from('expenses').select('*').in('event_id', eventIds);
-  var gpE = {};
-  (res.data||[]).forEach(function(e){ if (!gpE[e.event_id]) gpE[e.event_id]=[]; gpE[e.event_id].push(e); });
-  var stats = S.allEvents.map(function(ev){
-    var g = gpE[ev.id]||[];
-    var total = g.reduce(function(a,e){ return a+parseFloat(e.amount); },0);
-    var pp = {};
-    g.forEach(function(e){ pp[e.payer]=(pp[e.payer]||0)+parseFloat(e.amount); });
-    return {ev:ev, total:total, gastos:g.length, pp:pp};
-  }).filter(function(s){ return s.total>0; });
-  if (!stats.length) { el.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted)">Sin datos aun</div>'; return; }
-  var masCaroIdx = 0;
-  stats.forEach(function(s,i){ if(s.total>stats[masCaroIdx].total) masCaroIdx=i; });
-  var rk = {};
-  stats.forEach(function(s){ Object.entries(s.pp).forEach(function(kv){ rk[kv[0]]=(rk[kv[0]]||0)+kv[1]; }); });
-  var rkArr = Object.entries(rk).sort(function(a,b){ return b[1]-a[1]; });
-  var medals2 = ['🥇','🥈','🥉'];
-  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">';
-  html += '<div class="sb sbf"><div class="sl">ASADOS</div><div class="sv cf">' + stats.length + '</div></div>';
-  html += '<div class="sb sbg"><div class="sl">TOTAL</div><div class="sv cg">' + fmt(stats.reduce(function(a,s){return a+s.total;},0)) + '</div></div></div>';
-  html += '<div class="sh">🔥 MAS CARO</div><div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between"><span style="font-weight:700">' + stats[masCaroIdx].ev.title.toUpperCase() + '</span><span style="color:var(--fire);font-weight:700">' + fmt(stats[masCaroIdx].total) + '</span></div></div>';
-  html += '<div class="sh">🏆 RANKING</div><div class="card" style="padding:0;margin-bottom:12px">';
-  rkArr.forEach(function(kv,i){ html += '<div style="display:flex;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--rim)"><span>' + (medals2[i]||i+1) + ' ' + kv[0].toUpperCase() + (kv[0].toLowerCase()===me.toLowerCase()?' (VOS)':'') + '</span><span style="font-weight:700;color:var(--fire)">' + fmt(kv[1]) + '</span></div>'; });
-  html += '</div><div class="sh">📅 HISTORIAL</div><div class="card" style="padding:0">';
-  stats.forEach(function(s,i){ html += '<div style="display:flex;justify-content:space-between;padding:9px 12px;' + (i<stats.length-1?'border-bottom:1px solid var(--rim)':'') + '"><div><div style="font-weight:600;font-size:13px">' + s.ev.title.toUpperCase() + '</div><div style="font-size:10px;color:var(--muted)">' + (s.ev.event_date||'') + '</div></div><span style="font-weight:700;color:var(--green)">' + fmt(s.total) + '</span></div>'; });
-  html += '</div>';
-  el.innerHTML = html;
+  await renderStats('modal-stats-content');
 }
+
 // ══ PAGOS — Supabase ══════════════════════════════════════════════════════
 
 // Carga payments del evento actual
