@@ -5506,18 +5506,25 @@ async function renderStats(targetId) {
     sb.from('rsvp').select('*').in('event_id', eventIds),
   ]);
 
+  // Normaliza sacando acentos, espacios y mayúsculas — "Hernán" y "Hernan" deben ser la misma persona.
+  const normNombre = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+
   const gastosPorEvento = {};
   (exAll.data||[]).forEach(e => {
     if (!gastosPorEvento[e.event_id]) gastosPorEvento[e.event_id] = [];
     gastosPorEvento[e.event_id].push(e);
   });
 
+  // Solo cuenta un RSVP si corresponde a un participante real (evita nombres sueltos/typos
+  // como "Nestor" en vez de "Nedtor Stanga", o "Edu" en vez de "Edu Contino").
+  const nombresValidos = new Set((parAll.data||[]).map(p => normNombre(p.name)));
+
   // Por evento y persona (normalizada), nos quedamos solo con la respuesta MÁS RECIENTE —
   // si alguien cambió de "sí" a "no" y quedó más de una fila para el mismo asado, no la contamos dos veces.
   const rsvpPorEvento = {};
   (rsvpAll.data||[]).forEach(r => {
-    const key = (r.participant_name||'').trim().toLowerCase();
-    if (!key) return;
+    const key = normNombre(r.participant_name);
+    if (!key || !nombresValidos.has(key)) return;
     if (!rsvpPorEvento[r.event_id]) rsvpPorEvento[r.event_id] = {};
     const prev = rsvpPorEvento[r.event_id][key];
     if (!prev || new Date(r.rsvp_at||0) >= new Date(prev.rsvp_at||0)) {
@@ -5546,12 +5553,12 @@ async function renderStats(targetId) {
   const masBaratoIdx = stats.reduce((iMin,s,i,arr)=>s.total<arr[iMin].total?i:iMin,0);
 
   // Ranking de quién más paga — se agrupa por nombre normalizado (sin distinguir
-  // mayúsculas/espacios) para no duplicar a la misma persona con distinta grafía.
+  // mayúsculas/espacios/acentos) para no duplicar a la misma persona con distinta grafía.
   const rankingPagos = {};
   stats.forEach(s => {
     const gastos = gastosPorEvento[s.ev.id]||[];
     gastos.forEach(e=>{
-      const key = (e.payer||'').trim().toLowerCase();
+      const key = normNombre(e.payer);
       if (!key) return;
       if (!rankingPagos[key]) rankingPagos[key] = { nombre: e.payer.trim(), total: 0 };
       rankingPagos[key].total += parseFloat(e.amount);
@@ -5596,7 +5603,7 @@ async function renderStats(targetId) {
           <div class="pl">
             <div class="av${nombre.toLowerCase()===me.toLowerCase()?'':' n'}">${['🥇','🥈','🥉'][i]||`${i+1}`}</div>
             <div><div class="pname">${nombre.toUpperCase()}${nombre.toLowerCase()===me.toLowerCase()?' <span style="font-size:10px;color:var(--fire)">(VOS)</span>':''}</div>
-            <div class="psub">EN ${stats.filter(s=>(gastosPorEvento[s.ev.id]||[]).some(e=>(e.payer||'').trim().toLowerCase()===nombre.trim().toLowerCase())).length} ASADOS</div></div>
+            <div class="psub">EN ${stats.filter(s=>(gastosPorEvento[s.ev.id]||[]).some(e=>normNombre(e.payer)===normNombre(nombre))).length} ASADOS</div></div>
           </div>
           <div><div class="bval cf">${fmt(total)}</div></div>
         </div>`).join('')}
