@@ -1100,6 +1100,11 @@ function normalizarNombre(str) {
     .toLowerCase()
     .replace(/\b\w/g, c => c.toUpperCase());
 }
+// Para COMPARAR nombres (no para mostrar): saca acentos, espacios y mayúsculas.
+// "Hernán" y "Hernan" deben matchear como la misma persona.
+function normNombre(s) {
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+}
 // ─────────────────────────────────────────────────────────────────────────
 
 const isAdmin    = () => me?.toLowerCase() === ADMIN_USER?.toLowerCase();
@@ -1314,9 +1319,9 @@ async function buildLogin() {
 
 // Matchea si "val" es el principio del nombre O de cualquier palabra dentro del nombre (nombre o apellido)
 function nombreMatchea(nombreCompleto, val) {
-  const v = val.toLowerCase().trim();
+  const v = normNombre(val);
   if (!v) return false;
-  return nombreCompleto.toLowerCase().split(/\s+/).some(palabra => palabra.startsWith(v));
+  return normNombre(nombreCompleto).split(/\s+/).some(palabra => palabra.startsWith(v));
 }
 
 function autocompleteNombre(val) {
@@ -5507,7 +5512,7 @@ async function renderStats(targetId) {
   ]);
 
   // Normaliza sacando acentos, espacios y mayúsculas — "Hernán" y "Hernan" deben ser la misma persona.
-  const normNombre = s => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  // (usa la función global normNombre, compartida con el matching del login)
 
   const gastosPorEvento = {};
   (exAll.data||[]).forEach(e => {
