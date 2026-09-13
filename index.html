@@ -3755,7 +3755,7 @@ function renderOvAsistencia(conf, noVan, sinResp) {
 
 function renderOvCumples(cumples, meses, parts, mesActual, diaActual) {
   if (!cumples.length) return '';
-  const mesLabel = meses[parts[1]?parseInt(parts[1]):mesActual];
+  const mesLabel = meses[mesActual];
   const rows = cumples.map(c => {
     const hoyEs = c.dia === diaActual;
     const cumpleBtn = (hoyEs && isAdmin()) ? '<button onclick="enviarFelizCumple(\'' + c.nombre + '\')" style="border:none;background:var(--fire);color:white;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">🎂 FELIZ CUMPLE</button>' : '';
@@ -5455,6 +5455,39 @@ async function abrirEditOpcion(id, nombre, emoji) {
   editarOpcionVoto(id, nuevoNombre, nuevoEmoji);
 }
 
+// Gráfico de evolución: asistentes y gasto-por-asistente a lo largo de los asados.
+// Cada serie se normaliza contra su propio máximo (las escalas son muy distintas).
+function renderStatsChart(pts) {
+  if (pts.length < 2) return '';
+  const w = Math.max(320, pts.length * 70);
+  const h = 170, padL = 14, padR = 14, padT = 18, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const maxA = Math.max(...pts.map(p=>p.asistentes), 1);
+  const maxG = Math.max(...pts.map(p=>p.porAsistente), 1);
+  const x = i => padL + (pts.length===1 ? plotW/2 : plotW*i/(pts.length-1));
+  const yA = v => padT + plotH - (v/maxA)*plotH;
+  const yG = v => padT + plotH - (v/maxG)*plotH;
+  const lineA = pts.map((p,i)=>`${x(i)},${yA(p.asistentes)}`).join(' ');
+  const lineG = pts.map((p,i)=>`${x(i)},${yG(p.porAsistente)}`).join(' ');
+  const dotsA = pts.map((p,i)=>`<circle cx="${x(i)}" cy="${yA(p.asistentes)}" r="3.5" fill="var(--club1)"/>`).join('');
+  const dotsG = pts.map((p,i)=>`<circle cx="${x(i)}" cy="${yG(p.porAsistente)}" r="3.5" fill="var(--fire)"/>`).join('');
+  const labels = pts.map((p,i)=>`<text x="${x(i)}" y="${h-8}" font-size="9" fill="var(--muted)" text-anchor="middle">${p.label}</text>`).join('');
+  return `
+    <div class="sh">📈 EVOLUCIÓN</div>
+    <div class="card" style="overflow-x:auto;margin-bottom:12px">
+      <div style="display:flex;gap:14px;font-size:10px;margin-bottom:4px;white-space:nowrap">
+        <span style="color:var(--club1);font-weight:700">● ASISTENTES</span>
+        <span style="color:var(--fire);font-weight:700">● GASTO POR ASISTENTE</span>
+      </div>
+      <svg width="${w}" height="${h}" style="display:block">
+        <polyline points="${lineA}" fill="none" stroke="var(--club1)" stroke-width="2"/>
+        <polyline points="${lineG}" fill="none" stroke="var(--fire)" stroke-width="2"/>
+        ${dotsA}${dotsG}
+        ${labels}
+      </svg>
+    </div>`;
+}
+
 // ══ STATS ═════════════════════════════════════════
 async function renderStats() {
   const el = document.getElementById('stats-content');
@@ -5463,9 +5496,10 @@ async function renderStats() {
   // Necesitamos datos históricos de cada evento
   const eventIds = S.allEvents.map(e => e.id);
 
-  const [exAll, parAll] = await Promise.all([
+  const [exAll, parAll, rsvpAll] = await Promise.all([
     sb.from('expenses').select('*').in('event_id', eventIds),
     sb.from('participants').select('*'),
+    sb.from('rsvp').select('*').in('event_id', eventIds),
   ]);
 
   const gastosPorEvento = {};
@@ -5474,16 +5508,22 @@ async function renderStats() {
     gastosPorEvento[e.event_id].push(e);
   });
 
+  const rsvpPorEvento = {};
+  (rsvpAll.data||[]).forEach(r => {
+    if (!rsvpPorEvento[r.event_id]) rsvpPorEvento[r.event_id] = [];
+    rsvpPorEvento[r.event_id].push(r);
+  });
+
   const stats = S.allEvents.map(ev => {
     const gastos = gastosPorEvento[ev.id] || [];
     const total = gastos.reduce((a,e)=>a+parseFloat(e.amount),0);
-    const confirmados = parAll.data?.filter(p=>p.active&&getRsvp(p.name)==='si').length || 0;
+    const asistentes = (rsvpPorEvento[ev.id]||[]).filter(r=>r.rsvp==='si').length;
     const pagadores = [...new Set(gastos.map(e=>e.payer))];
     // El que más gastó
     const pagosPorPer = {};
     gastos.forEach(e => pagosPorPer[e.payer] = (pagosPorPer[e.payer]||0)+parseFloat(e.amount));
     const topPagador = Object.entries(pagosPorPer).sort((a,b)=>b[1]-a[1])[0];
-    return { ev, total, confirmados, gastos: gastos.length, topPagador };
+    return { ev, total, asistentes, gastos: gastos.length, topPagador };
   }).filter(s => s.total > 0);
 
   if (!stats.length) {
@@ -5494,13 +5534,27 @@ async function renderStats() {
   const masCaroIdx = stats.reduce((iMax,s,i,arr)=>s.total>arr[iMax].total?i:iMax,0);
   const masBaratoIdx = stats.reduce((iMin,s,i,arr)=>s.total<arr[iMin].total?i:iMin,0);
 
-  // Ranking de quién más paga
+  // Ranking de quién más paga — se agrupa por nombre normalizado (sin distinguir
+  // mayúsculas/espacios) para no duplicar a la misma persona con distinta grafía.
   const rankingPagos = {};
   stats.forEach(s => {
     const gastos = gastosPorEvento[s.ev.id]||[];
-    gastos.forEach(e=>{rankingPagos[e.payer]=(rankingPagos[e.payer]||0)+parseFloat(e.amount);});
+    gastos.forEach(e=>{
+      const key = (e.payer||'').trim().toLowerCase();
+      if (!key) return;
+      if (!rankingPagos[key]) rankingPagos[key] = { nombre: e.payer.trim(), total: 0 };
+      rankingPagos[key].total += parseFloat(e.amount);
+    });
   });
-  const rankingArr = Object.entries(rankingPagos).sort((a,b)=>b[1]-a[1]);
+  const rankingArr = Object.values(rankingPagos).sort((a,b)=>b.total-a.total).map(r=>[r.nombre, r.total]);
+
+  // Puntos para el gráfico de evolución, ordenados cronológicamente (más viejo primero)
+  const parseFechaEv = s => { const [d,m,y] = (s.ev.event_date||'').split('/').map(Number); return new Date(y,(m||1)-1,d||1).getTime(); };
+  const chartPts = stats.slice().sort((a,b)=>parseFechaEv(a)-parseFechaEv(b)).map(s => ({
+    label: (s.ev.event_date||'').split('/').slice(0,2).join('/'),
+    asistentes: s.asistentes,
+    porAsistente: s.asistentes>0 ? Math.round(s.total/s.asistentes) : 0
+  }));
 
   el.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
@@ -5531,11 +5585,13 @@ async function renderStats() {
           <div class="pl">
             <div class="av${nombre.toLowerCase()===me.toLowerCase()?'':' n'}">${['🥇','🥈','🥉'][i]||`${i+1}`}</div>
             <div><div class="pname">${nombre.toUpperCase()}${nombre.toLowerCase()===me.toLowerCase()?' <span style="font-size:10px;color:var(--fire)">(VOS)</span>':''}</div>
-            <div class="psub">EN ${stats.filter(s=>(gastosPorEvento[s.ev.id]||[]).some(e=>e.payer===nombre)).length} ASADOS</div></div>
+            <div class="psub">EN ${stats.filter(s=>(gastosPorEvento[s.ev.id]||[]).some(e=>(e.payer||'').trim().toLowerCase()===nombre.trim().toLowerCase())).length} ASADOS</div></div>
           </div>
           <div><div class="bval cf">${fmt(total)}</div></div>
         </div>`).join('')}
     </div>
+
+    ${renderStatsChart(chartPts)}
 
     <div class="sh">📅 HISTORIAL</div>
     <div class="card">
