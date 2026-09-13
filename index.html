@@ -1386,6 +1386,18 @@ async function doLogin() {
         localStorage.setItem('asado_user', elegido);
         part = posibles.find(p => p.name === elegido);
       }
+    } else {
+      // Nadie se parece a lo que escribiste — frenar acá en vez de crear un "fantasma" en
+      // silencio. Le damos la chance de corregir el tipeo antes de seguir como invitado nuevo.
+      const seguir = await showConfirm(
+        'No encontramos "<b>' + v + '</b>" en la lista de mandis. Revisá que esté bien escrito (sin faltas, con o sin acento no importa).<br><br>Si sos alguien nuevo, tocá ACEPTAR para pedir acceso.',
+        { title: 'NO TE ENCONTRAMOS', icon: '🤔' }
+      );
+      if (!seguir) {
+        document.getElementById('cname').value = '';
+        document.getElementById('cname').focus();
+        return;
+      }
     }
   }
   // ── usuario desconocido de verdad → insertar como pendiente ──────────────────
