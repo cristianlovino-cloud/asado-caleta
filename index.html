@@ -5512,16 +5512,23 @@ async function renderStats(targetId) {
     gastosPorEvento[e.event_id].push(e);
   });
 
+  // Por evento y persona (normalizada), nos quedamos solo con la respuesta MÁS RECIENTE —
+  // si alguien cambió de "sí" a "no" y quedó más de una fila para el mismo asado, no la contamos dos veces.
   const rsvpPorEvento = {};
   (rsvpAll.data||[]).forEach(r => {
-    if (!rsvpPorEvento[r.event_id]) rsvpPorEvento[r.event_id] = [];
-    rsvpPorEvento[r.event_id].push(r);
+    const key = (r.participant_name||'').trim().toLowerCase();
+    if (!key) return;
+    if (!rsvpPorEvento[r.event_id]) rsvpPorEvento[r.event_id] = {};
+    const prev = rsvpPorEvento[r.event_id][key];
+    if (!prev || new Date(r.rsvp_at||0) >= new Date(prev.rsvp_at||0)) {
+      rsvpPorEvento[r.event_id][key] = r;
+    }
   });
 
   const stats = S.allEvents.map(ev => {
     const gastos = gastosPorEvento[ev.id] || [];
     const total = gastos.reduce((a,e)=>a+parseFloat(e.amount),0);
-    const asistentes = (rsvpPorEvento[ev.id]||[]).filter(r=>r.rsvp==='si').length;
+    const asistentes = Object.values(rsvpPorEvento[ev.id]||{}).filter(r=>r.rsvp==='si').length;
     const pagadores = [...new Set(gastos.map(e=>e.payer))];
     // El que más gastó
     const pagosPorPer = {};
