@@ -696,6 +696,13 @@ body {
     <div id="modal-stats-content"></div>
   </div>
 </div>
+<!-- Historial de solo lectura, visible para todos los usuarios (no solo admin) -->
+<div class="modal-bg" id="modal-historial-user">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">📚 Historial de asados <button class="modal-close" onclick="closeModal('modal-historial-user')">X</button></div>
+    <div id="modal-historial-user-content"></div>
+  </div>
+</div>
 <!-- Modal Logout -->
 <div class="modal-bg" id="modal-logout">
   <div class="modal" style="text-align:center;padding:24px">
@@ -1104,6 +1111,11 @@ function normalizarNombre(str) {
 // "Hernán" y "Hernan" deben matchear como la misma persona.
 function normNombre(s) {
   return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+}
+// "12/09/2026" → timestamp, para poder ordenar fechas de eventos
+function parseFechaDDMMYYYY(str) {
+  const [d,m,y] = (str||'').split('/').map(Number);
+  return new Date(y||0,(m||1)-1,d||1).getTime();
 }
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -1896,7 +1908,8 @@ async function desarchivarAsado(id) {
 function renderHistory() {
   const el=document.getElementById('history-list');
   if (!S.allEvents.length) { el.innerHTML='<div class="empty"><div class="em">📚</div>Sin historial</div>'; return; }
-  el.innerHTML = S.allEvents.map(ev=>`
+  const ordenados = S.allEvents.slice().sort((a,b)=>parseFechaDDMMYYYY(b.event_date)-parseFechaDDMMYYYY(a.event_date));
+  el.innerHTML = ordenados.map(ev=>`
     <div class="event-card${!ev.archived?' current':''}">
       <div class="ec-top">
         <div class="ec-title">${ev.title}</div>
@@ -3813,8 +3826,9 @@ function renderOvVotosStats() {
     ? '<div onclick="showTab(\'votos\')" style="background:rgba(245,197,24,.1);border:1px solid rgba(245,197,24,.3);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🗳️</div><div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--fire)">VOTAR</div></div>'
     : '';
   const statsBtn = '<div onclick="abrirStatsModal()" style="background:var(--smoke);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">🏆</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">STATS</div></div>';
-  const cols = hayVotacion ? '1fr 1fr' : '1fr';
-  return '<div style="display:grid;grid-template-columns:' + cols + ';gap:8px;margin-bottom:10px">' + votosBtn + statsBtn + '</div>';
+  const historialBtn = '<div onclick="abrirHistorialUsuario()" style="background:var(--smoke);border:1px solid var(--rim);border-radius:14px;padding:14px;cursor:pointer;text-align:center"><div style="font-size:26px;margin-bottom:4px">📚</div><div style="font-size:12px;font-weight:700;text-transform:uppercase">HISTORIAL</div></div>';
+  const cols = 'repeat(' + (hayVotacion?3:2) + ',1fr)';
+  return '<div style="display:grid;grid-template-columns:' + cols + ';gap:8px;margin-bottom:10px">' + votosBtn + statsBtn + historialBtn + '</div>';
 }
 
 function renderOvCalendario(meses) {
@@ -5584,7 +5598,7 @@ async function renderStats(targetId) {
   const rankingArr = Object.values(rankingPagos).sort((a,b)=>b.total-a.total).map(r=>[r.nombre, r.total]);
 
   // Puntos para el gráfico de evolución, ordenados cronológicamente (más viejo primero)
-  const parseFechaEv = s => { const [d,m,y] = (s.ev.event_date||'').split('/').map(Number); return new Date(y,(m||1)-1,d||1).getTime(); };
+  const parseFechaEv = s => parseFechaDDMMYYYY(s.ev.event_date);
   const chartPts = stats.slice().sort((a,b)=>parseFechaEv(a)-parseFechaEv(b)).map(s => ({
     label: (s.ev.event_date||'').split('/').slice(0,2).join('/'),
     asistentes: s.asistentes,
@@ -5630,7 +5644,7 @@ async function renderStats(targetId) {
 
     <div class="sh">📅 HISTORIAL</div>
     <div class="card">
-      ${stats.map(s=>`
+      ${stats.slice().sort((a,b)=>parseFechaEv(b)-parseFechaEv(a)).map(s=>`
         <div class="pr">
           <div class="pl">
             <div class="av n" style="font-size:10px">${s.ev.event_date?.split('/').slice(0,2).join('/')}</div>
@@ -5640,6 +5654,42 @@ async function renderStats(targetId) {
           <div><div class="bval cg">${fmt(s.total)}</div></div>
         </div>`).join('')}
     </div>`;
+}
+
+
+// ══ HISTORIAL (solo lectura, para todos los usuarios) ═══════════════════
+async function abrirHistorialUsuario() {
+  openModal('modal-historial-user');
+  const el = document.getElementById('modal-historial-user-content');
+  el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">Cargando...</div>';
+  if (!S.allEvents.length) { el.innerHTML = '<div class="empty"><div class="em">📚</div>Sin historial aún</div>'; return; }
+  const eventIds = S.allEvents.map(e => e.id);
+  const exAll = await sb.from('expenses').select('*').in('event_id', eventIds);
+  const gastosPorEvento = {};
+  (exAll.data||[]).forEach(e => {
+    if (!gastosPorEvento[e.event_id]) gastosPorEvento[e.event_id] = [];
+    gastosPorEvento[e.event_id].push(e);
+  });
+  const filas = S.allEvents
+    .map(ev => {
+      const gastos = gastosPorEvento[ev.id] || [];
+      const total = gastos.reduce((a,e)=>a+parseFloat(e.amount),0);
+      const pagosPorPer = {};
+      gastos.forEach(e => { const k = normNombre(e.payer); if (k) pagosPorPer[k] = (pagosPorPer[k]||0)+parseFloat(e.amount); });
+      const topKey = Object.entries(pagosPorPer).sort((a,b)=>b[1]-a[1])[0];
+      const topNombre = topKey ? (gastos.find(e=>normNombre(e.payer)===topKey[0])||{}).payer : null;
+      return { ev, total, gastos: gastos.length, topNombre };
+    })
+    .sort((a,b) => parseFechaDDMMYYYY(b.ev.event_date) - parseFechaDDMMYYYY(a.ev.event_date));
+  el.innerHTML = filas.map(f => `
+    <div class="event-card${!f.ev.archived?' current':''}">
+      <div class="ec-top">
+        <div class="ec-title">${f.ev.title}</div>
+        <span class="ec-badge${f.ev.archived?' arch':''}">${f.ev.archived?'archivado':'activo 🟢'}</span>
+      </div>
+      <div class="ec-meta">📅 ${f.ev.event_date} · ${f.ev.time_range||''} · 📍 ${f.ev.location||''}</div>
+      ${f.total>0 ? `<div class="ec-meta" style="margin-top:4px">💰 ${fmt(f.total)} · ${f.gastos} gastos${f.topNombre?' · Pagó más: '+f.topNombre.toUpperCase():''}</div>` : ''}
+    </div>`).join('');
 }
 
 
