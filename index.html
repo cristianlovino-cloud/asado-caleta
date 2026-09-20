@@ -528,7 +528,7 @@ body {
     <button class="bta" onclick="tf('fexp')">+ CARGAR MI GASTO</button>
     <div id="gastos-admin-controls" style="display:none;gap:8px;margin:10px 0">
       <button class="abtn" style="flex:1;border-color:rgba(39,174,96,.4);color:var(--green)" onclick="openModal('modal-cuentas')">📊 Dashboard de cobro</button>
-      <button class="abtn" style="flex:1;border-color:rgba(245,197,24,.4);color:var(--fire)" onclick="cerrarCuentasAll()">🔒 Cerrar cuentas</button>
+      <button class="abtn" style="flex:1;border-color:rgba(245,197,24,.4);color:var(--fire)" id="btn-cuentas-toggle" onclick="cerrarCuentasAll()">🔒 Cerrar cuentas</button>
     </div>
     <div class="fw" id="fexp">
       <label class="fl">Concepto</label>
@@ -2202,6 +2202,20 @@ async function renderGastos() {
   document.getElementById('sc').textContent  = allP().length;
   const gAdminCtrls = document.getElementById('gastos-admin-controls');
   if (gAdminCtrls) gAdminCtrls.style.display = isAdmin() ? 'flex' : 'none';
+  const btnCuentas = document.getElementById('btn-cuentas-toggle');
+  if (btnCuentas) {
+    if (S.cuentasAbiertas) {
+      btnCuentas.textContent = '🔓 Reabrir cuentas';
+      btnCuentas.style.borderColor = 'rgba(39,174,96,.4)';
+      btnCuentas.style.color = 'var(--green)';
+      btnCuentas.setAttribute('onclick', 'reabrirCuentas()');
+    } else {
+      btnCuentas.textContent = '🔒 Cerrar cuentas';
+      btnCuentas.style.borderColor = 'rgba(245,197,24,.4)';
+      btnCuentas.style.color = 'var(--fire)';
+      btnCuentas.setAttribute('onclick', 'cerrarCuentasAll()');
+    }
+  }
   const miPago = pagadoPorGastos(me);
   const miSaldado = mb < -0.5 && miPago >= Math.abs(mb) - TOLERANCIA_SALDO;
   const cobradoYo = payments.filter(p => p.receiver.toLowerCase()===me.toLowerCase()).reduce((a,p)=>a+p.amount,0);
@@ -4695,8 +4709,11 @@ async function cerrarCuentasAll() {
 }
 
 async function reabrirCuentas() {
+  S.cuentasAbiertas = false;
   await sb.from('app_config').upsert({ key: 'cuentas_abiertas_'+S.event.id, value: 'false' });
-  toast('✅ Cuentas cerradas — todos vuelven a Inicio', 'var(--green)');
+  window._cuentasAvisado = false; // para que si se vuelve a cerrar, el toast avise de nuevo
+  toast('✅ Cuentas reabiertas — vuelve a mostrarse Inicio normal', 'var(--green)');
+  renderGastos();
 }
 
 async function forceLogoutAll() {
