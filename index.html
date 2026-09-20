@@ -1185,7 +1185,8 @@ async function fetchAll() {
     S.lockerNumero = cfg.data.find(r => r.key === 'locker_numero')?.value || '';
     S.lockerClave  = cfg.data.find(r => r.key === 'locker_clave')?.value || '';
     // Cobro de deudas activo: forzar tab gastos a no-admin (una sola vez por cierre)
-    const cuentasRow = cfg.data.find(r => r.key === 'cuentas_abiertas');
+    // Clave con el event_id adentro para que no se "filtre" de un asado a otro.
+    const cuentasRow = cfg.data.find(r => r.key === 'cuentas_abiertas_'+S.event?.id);
     S.cuentasAbiertas = cuentasRow?.value === 'true';
     if (cuentasRow?.value === 'true' && !isAdmin()) {
       if (!window._cuentasAvisado) {
@@ -1864,8 +1865,6 @@ async function createNewAsado() {
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
   // Archivar actual
   await sb.from('events').update({archived:true}).eq('id',S.event.id);
-  // Resetear el cobro de cuentas: el asado nuevo arranca limpio, no hereda el "cobrando" del anterior
-  await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'false' });
   window._cuentasAvisado = false;
   // El rsvp ya está en tabla separada por event_id, no hay que resetear nada
   // Crear nuevo
@@ -4686,7 +4685,7 @@ async function cerrarCuentasAll() {
   toast('⏳ Cerrando cuentas...', 'var(--fire)', 2500);
   S.cuentasAbiertas = true; // reflejar el cambio ya mismo en tu propia pantalla, sin esperar la red
   try {
-    await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'true' });
+    await sb.from('app_config').upsert({ key: 'cuentas_abiertas_'+S.event.id, value: 'true' });
     toast('💰 Cuentas cerradas — todos verán Gastos al entrar', 'var(--fire)', 4000);
     sb.channel('rt-all').send({ type: 'broadcast', event: 'cerrar_cuentas', payload: {} });
   } catch(e) {
@@ -4696,7 +4695,7 @@ async function cerrarCuentasAll() {
 }
 
 async function reabrirCuentas() {
-  await sb.from('app_config').upsert({ key: 'cuentas_abiertas', value: 'false' });
+  await sb.from('app_config').upsert({ key: 'cuentas_abiertas_'+S.event.id, value: 'false' });
   toast('✅ Cuentas cerradas — todos vuelven a Inicio', 'var(--green)');
 }
 
