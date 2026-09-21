@@ -51,6 +51,15 @@
     return new Date(utc - (3 * 3600000)); // UTC-3 fijo
   }
 
+  // Parsea un timestamp que viene de la base. Si Supabase lo devuelve SIN 'Z' ni offset
+  // (columna sin timezone), el navegador lo toma como hora LOCAL del dispositivo en vez de UTC,
+  // lo cual desfasa todo según el huso del celular que mira la pantalla. Forzamos UTC siempre.
+  function parseUTC(iso) {
+    if (!iso) return new Date(0);
+    const tieneOffset = /[Zz]|[+-]\d{2}:?\d{2}$/.test(iso);
+    return new Date(tieneOffset ? iso : iso + 'Z');
+  }
+
   const APP_VERSION = '2.18';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
@@ -2309,7 +2318,7 @@ async function renderLockerPanel() {
       const fotoHtml = item.foto_url
         ? `<img src="${item.foto_url}" onclick="window.open('${item.foto_url}','_blank')" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim);cursor:pointer">`
         : `<div style="width:64px;height:64px;border-radius:10px;background:var(--ash);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📦</div>`;
-      const updStr = item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) : '';
+      const updStr = item.updated_at ? parseUTC(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',timeZone:'America/Argentina/Buenos_Aires'}) : '';
       return `<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         ${fotoHtml}
         <div style="flex:1;min-width:0">
@@ -2395,7 +2404,7 @@ async function renderSugerencias() {
     const totalNo = (votos||[]).filter(v => v.sugerencia_id === s.id && v.voto === 'no').length;
     const total = totalSi + totalNo;
     const pctSi = total > 0 ? Math.round(totalSi/total*100) : 0;
-    const fecha = new Date(s.created_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+    const fecha = parseUTC(s.created_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',timeZone:'America/Argentina/Buenos_Aires'});
     const ESTADO_COLORS = { implementada: 'var(--green)', descartada: 'var(--red)', pendiente: 'var(--muted)' };
     const ESTADO_LABELS = { implementada: '✅ Implementada', descartada: '❌ Descartada', pendiente: '⏳ Pendiente' };
 
@@ -2668,7 +2677,7 @@ async function renderLocker() {
     const fotoHtml = item.foto_url
       ? `<img src="${item.foto_url}" onclick="window.open('${item.foto_url}','_blank')" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--rim);cursor:pointer">`
       : `<div style="width:56px;height:56px;border-radius:10px;background:var(--ash);border:1px solid var(--rim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">📦</div>`;
-    const updStr = item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '';
+    const updStr = item.updated_at ? parseUTC(item.updated_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',timeZone:'America/Argentina/Buenos_Aires'}) : '';
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--rim)">
       ${fotoHtml}
       <div style="flex:1;min-width:0">
@@ -4782,7 +4791,7 @@ function renderAsistencia() {
   const fmtRsvpAt = (iso) => {
     if (!iso) return '';
     // Fuerza UTC-3 fijo (Argentina), sin depender de la zona horaria del dispositivo que mira la lista
-    const utcMs = new Date(iso).getTime();
+    const utcMs = parseUTC(iso).getTime();
     const d = new Date(utcMs - (3 * 3600000));
     return d.getUTCDate().toString().padStart(2,'0')+'/'+(d.getUTCMonth()+1).toString().padStart(2,'0')+' '+d.getUTCHours().toString().padStart(2,'0')+':'+d.getUTCMinutes().toString().padStart(2,'0');
   };
@@ -5574,7 +5583,7 @@ async function renderStats(targetId) {
     if (!key || !nombresValidos.has(key)) return;
     if (!rsvpPorEvento[r.event_id]) rsvpPorEvento[r.event_id] = {};
     const prev = rsvpPorEvento[r.event_id][key];
-    if (!prev || new Date(r.rsvp_at||0) >= new Date(prev.rsvp_at||0)) {
+    if (!prev || parseUTC(r.rsvp_at).getTime() >= parseUTC(prev.rsvp_at).getTime()) {
       rsvpPorEvento[r.event_id][key] = r;
     }
   });
