@@ -847,7 +847,7 @@ body {
 <!-- Modal Fusionar Participantes -->
 <div class="modal-bg" id="modal-fusionar">
   <div class="modal">
-    <div class="modal-title">⇄ Fusionar participante <button class="modal-close" onclick="closeModal('modal-fusionar')">✕</button></div>
+    <div class="modal-title">⇄ Fusionar participante <button class="modal-close" onclick="cerrarFusionar()">✕</button></div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
       Elegí con qué nombre fusionar. El nombre principal queda, el otro se desactiva.
     </div>
@@ -1114,7 +1114,9 @@ let tmpl = 'convocatoria';
 function normalizarNombre(str) {
   return str.trim()
     .toLowerCase()
-    .replace(/\b\w/g, c => c.toUpperCase());
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 // Para COMPARAR nombres (no para mostrar): saca acentos, espacios y mayúsculas.
 // "Hernán" y "Hernan" deben matchear como la misma persona.
@@ -4847,6 +4849,11 @@ function abrirFusionar(nombre) {
   }
   closeModal('modal-participants');
   openModal('modal-fusionar');
+}
+
+function cerrarFusionar() {
+  closeModal('modal-fusionar');
+  openModal('modal-participants');
 }
 
 async function ejecutarFusion() {
