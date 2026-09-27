@@ -1626,6 +1626,7 @@ function renderParticipantsModal() {
         <button class="abtn" onclick="openEditParticipant(${p.id},'${p.name.replace(/'/g,"\'")}','${(p.birthday||'').replace(/'/g,"\'")}')">✏️</button>
         ${p.email?`<button class="abtn" onclick="invitarPorMail('${p.name.replace(/'/g,"\'")}')" title="Invitar por mail">📧</button>`:''}
         ${p.phone?`<button class="abtn" onclick="recordarPorWhatsapp('${p.name.replace(/'/g,"\'")}')" title="Recordar por WhatsApp">📱</button>`:''}
+        <button class="abtn" onclick="abrirFusionar('${p.name.replace(/'/g,"\'")}')" title="Fusionar con otro participante">⇄</button>
         ${p.name!==ADMIN_USER?`<button class="abtn${p.active?' red':''}" onclick="toggleParticipant(${p.id},${p.active})">${p.active?'QUITAR':'ACTIVAR'}</button>`:''}
       </div>
     </div>`).join('');
@@ -4819,17 +4820,16 @@ function renderAsistencia() {
       const badge = !r ? '' : esAuto
         ? '<span style="font-weight:800;font-size:10px;color:var(--blue);background:rgba(46,134,222,.15);border:1px solid var(--blue);border-radius:5px;padding:1px 5px;margin-left:6px" title="Lo confirmó la propia persona">U</span>'
         : setBy ? `<span style="font-weight:800;font-size:10px;color:var(--gold);background:rgba(255,191,0,.15);border:1px solid var(--gold);border-radius:5px;padding:1px 5px;margin-left:6px" title="Lo marcó ${setBy}">${setBy.charAt(0).toUpperCase()}</span>` : '';
-      return `<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 8px;padding:9px 0;border-bottom:1px solid var(--rim)">
-        <div style="flex:1 1 120px;min-width:0">
-          <span style="font-weight:500;text-transform:uppercase;overflow-wrap:break-word">${p.name}</span>${badge}
+      return `<div style="display:flex;flex-wrap:nowrap;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--rim)">
+        <div style="flex:1 1 auto;min-width:0;overflow:hidden">
+          <span style="font-weight:500;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${p.name}${badge}</span>
           ${cuando}
         </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:nowrap;justify-content:flex-end">
           ${isAdmin()
             ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600;white-space:nowrap">✅ VA</button>
              <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600;white-space:nowrap">❌ NO</button>
-             ${r?'<button onclick="clearRsvpAdmin(\''+ p.name +'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer" title="Borrar respuesta">✕</button>':''}
-             <button onclick="abrirFusionar('${p.name}')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer" title="Fusionar con otro">⇄</button>`
+             ${r?'<button onclick="clearRsvpAdmin(\''+ p.name +'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;white-space:nowrap" title="Borrar respuesta">✕</button>':''}`
             :`<span style="font-size:13px">${r==='si'?'✅':r==='no'?'❌':'⏳'}</span>`
           }
         </div>
@@ -4839,22 +4839,23 @@ function renderAsistencia() {
 
 function abrirFusionar(nombre) {
   const el = document.getElementById('fusionar-principal');
-  if(el) el.textContent = nombre;
+  if(el) { el.textContent = normalizarNombre(nombre); el.dataset.raw = nombre; }
   const sel = document.getElementById('fusionar-select');
   if(sel) {
-    const otros = S.participants.filter(p=>p.active && p.name.toLowerCase()!==nombre.toLowerCase());
-    sel.innerHTML = otros.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+    const otros = S.participants.filter(p=>p.active && normNombre(p.name)!==normNombre(nombre));
+    sel.innerHTML = otros.map(p=>`<option value="${p.name}">${normalizarNombre(p.name)}</option>`).join('');
   }
-  closeModal('modal-asistencia');
+  closeModal('modal-participants');
   openModal('modal-fusionar');
 }
 
 async function ejecutarFusion() {
-  const principal = document.getElementById('fusionar-principal').textContent;
+  const principalEl = document.getElementById('fusionar-principal');
+  const principal = principalEl?.dataset.raw || principalEl?.textContent;
   const otro = document.getElementById('fusionar-select').value;
   if (!principal || !otro) return;
   closeModal('modal-fusionar');
-  if (!(await showConfirm(`¿Fusionar "${otro}" → "${principal}"? El nombre "${otro}" se desactivará.`, { icon: '🤔' }))) { openModal('modal-fusionar'); return; }
+  if (!(await showConfirm(`¿Fusionar "${normalizarNombre(otro)}" → "${normalizarNombre(principal)}"? El nombre "${normalizarNombre(otro)}" se desactivará.`, { icon: '🤔' }))) { openModal('modal-fusionar'); return; }
   if (!sbOk) return;
   try {
     // Reasignar tareas del otro al principal
@@ -4864,9 +4865,10 @@ async function ejecutarFusion() {
     // Desactivar el duplicado
     await sb.from('participants').update({active: false}).ilike('name', otro);
     await fetchAll();
-    toast(`✅ "${otro}" fusionado con "${principal}"`);
+    toast(`✅ "${normalizarNombre(otro)}" fusionado con "${normalizarNombre(principal)}"`);
     renderAsistencia();
-    openModal('modal-asistencia');
+    renderParticipantsModal();
+    openModal('modal-participants');
   } catch(e) { toast('Error al fusionar','var(--red)'); }
 }
 
