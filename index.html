@@ -957,6 +957,10 @@ body {
       <span id="mp-receiver-label">Elegir...</span><span style="color:var(--muted)">▾</span>
     </button>
     <input type="hidden" id="mp-receiver">
+    <label style="display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="mp-reenvio" style="width:18px;height:18px;flex-shrink:0;margin-top:1px">
+      <span style="font-size:12px;color:var(--muted);line-height:1.4">Es un <strong>reenvío</strong> de plata que ya cobré de otros (ej: recaudé de todos y ahora le mando a quien compró) — no es mi deuda personal</span>
+    </label>
     <button class="btp" style="width:100%" onclick="confirmarPago()">✅ CONFIRMAR PAGO</button>
   </div>
 </div>
@@ -2143,7 +2147,7 @@ async function renderGastos() {
   if (!S.event) return;
   await fetchAll();
   const payments = await fetchPayments();
-  const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
+  const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase() && esPagoPropio(p)).reduce((a,p) => a + p.amount, 0);
   const pp=getPP(),total=getTotal(),mb=bal(me);
   const puedeVerGastos = isAdmin() || !!S.cuentasAbiertas;
 
@@ -5834,7 +5838,10 @@ async function fetchPayments() {
 }
 
 // Pago registrado por admin: quién pagó, cuánto, cómo, a quién
-async function registrarPago(payer, amount, method, receiver) {
+// esReenvio: true cuando el "payer" no está pagando su propia deuda, sino que está
+// reenviando plata que ya cobró de otros (ej: recaudó de todos y ahora le manda a
+// quien compró). Se marca en la nota para que NO cuente como deuda personal saldada.
+async function registrarPago(payer, amount, method, receiver, esReenvio) {
   if (!S.event) return;
   if (payer.toLowerCase() === receiver.toLowerCase()) {
     toast('❌ El que pagó y el que cobra no pueden ser la misma persona', 'var(--red)');
@@ -5845,11 +5852,14 @@ async function registrarPago(payer, amount, method, receiver) {
     payer: payer,
     amount: parseFloat(amount),
     method: method,
-    receiver: receiver
+    receiver: receiver,
+    note: esReenvio ? '[REENVÍO]' : null
   });
   await renderCuentas();
   toast('✅ Pago registrado!', 'var(--green)');
 }
+// Un pago cuenta como deuda personal saldada del payer, salvo que esté marcado como reenvío
+const esPagoPropio = x => (x.note||'').indexOf('[REENVÍO]') !== 0;
 
 async function deshacerPago(id) {
   closeModal('modal-cuentas');
@@ -5900,6 +5910,8 @@ function abrirModalPago(payerName, amount, receiverName) {
   document.getElementById('mp-receiver').value = receiverFinal;
   document.getElementById('mp-receiver-label').textContent = receiverFinal ? receiverFinal.toUpperCase() : 'Elegir...';
   if (amount) document.getElementById('mp-amount').value = Number(Math.round(amount)).toLocaleString('es-AR');
+  const chkReenvio = document.getElementById('mp-reenvio');
+  if (chkReenvio) chkReenvio.checked = false;
   openModal('modal-pago');
 }
 
@@ -5928,8 +5940,9 @@ async function confirmarPago() {
   const amount   = montoNumerico('mp-amount');
   const method   = document.querySelector('input[name="mp-method"]:checked')?.value || 'efectivo';
   const receiver = document.getElementById('mp-receiver').value;
+  const esReenvio = !!document.getElementById('mp-reenvio')?.checked;
   if (!payer || !amount || !receiver) { toast('Completá todos los campos','var(--red)'); return; }
-  await registrarPago(payer, amount, method, receiver);
+  await registrarPago(payer, amount, method, receiver, esReenvio);
   closeModal('modal-pago');
 }
 
@@ -5946,7 +5959,7 @@ async function renderCuentas() {
   const acreedores = allP().filter(p => bal(p) > 0.5);
   const deudores   = allP().filter(p => bal(p) < -0.5);
 
-  const pagadoPor  = name => payments.filter(p => p.payer.toLowerCase()  === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
+  const pagadoPor  = name => payments.filter(p => p.payer.toLowerCase()  === name.toLowerCase() && esPagoPropio(p)).reduce((a,p) => a + p.amount, 0);
   const cobradoPor = name => {
     const cobrado = payments.filter(p => p.receiver.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
     const devuelto = payments.filter(p => p.payer.toLowerCase() === name.toLowerCase() && acreedores.map(x=>x.toLowerCase()).includes(p.receiver.toLowerCase())).reduce((a,p) => a + p.amount, 0);
@@ -6025,7 +6038,7 @@ async function renderCuentas() {
     const debe = Math.abs(bal(p));
     const yaPago = pagadoPor(p);
     const falta = deudaRestante(p);
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase() && esPagoPropio(x));
     const pagosHtml = misPagos.length ? '<div style="margin:4px 0 6px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
       misPagos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
         '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + x.receiver.toUpperCase() + '</span>' +
@@ -6055,7 +6068,7 @@ async function renderCuentas() {
 
   // HTML saldados
   const saldHtml = saldados.map(p => {
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase() && esPagoPropio(x));
     const total = misPagos.reduce((a,x) => a+x.amount, 0);
     const medios = [...new Set(misPagos.map(x=>x.method))].map(m => m==='efectivo'?'💵':'📲').join('+');
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75">' +
@@ -6069,9 +6082,11 @@ async function renderCuentas() {
     '</div>';
   }).join('');
 
-  const totalCobrado = payments.filter(p => p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p) => a+p.amount, 0);
-  const totalEfectivo = payments.filter(p=>p.method==='efectivo' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
-  const totalTransf = payments.filter(p=>p.method==='transferencia' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
+  // Los pagos marcados como [REENVÍO] no suman acá: es la MISMA plata que ya se contó
+  // cuando cada uno le pagó al recaudador, así que contarla de nuevo la duplicaría.
+  const totalCobrado = payments.filter(p => p.payer.toLowerCase() !== p.receiver.toLowerCase() && esPagoPropio(p)).reduce((a,p) => a+p.amount, 0);
+  const totalEfectivo = payments.filter(p=>p.method==='efectivo' && p.payer.toLowerCase() !== p.receiver.toLowerCase() && esPagoPropio(p)).reduce((a,p)=>a+p.amount,0);
+  const totalTransf = payments.filter(p=>p.method==='transferencia' && p.payer.toLowerCase() !== p.receiver.toLowerCase() && esPagoPropio(p)).reduce((a,p)=>a+p.amount,0);
   const totalPendiente = pendientes.reduce((a,p) => a + deudaRestante(p), 0);
 
   // Orden de pagos sugerido: mínimas transacciones entre quien debe y quien tiene que cobrar
