@@ -5867,7 +5867,14 @@ function abrirModalPago(payerName, amount, receiverName) {
 // Reemplaza los <select> nativos (que en mobile se ven como un menú del sistema, no de la app)
 async function elegirPagoPersona(campo) {
   const esPayer = campo === 'payer';
-  const opciones = esPayer ? allP().sort((a,b)=>a.localeCompare(b,'es')) : allP().filter(p => bal(p) > 0.5);
+  // Para "a quién le pagó": primero los que ya tienen saldo a favor (acreedores),
+  // pero también cualquier otro participante (puede ser que alguien cobre la plata
+  // de todos y todavía no tenga saldo positivo calculado, ej: recaudó antes de cargar sus gastos)
+  const opciones = esPayer ? allP().sort((a,b)=>a.localeCompare(b,'es')) : (() => {
+    const acreedores = allP().filter(p => bal(p) > 0.5).sort((a,b)=>a.localeCompare(b,'es'));
+    const resto = allP().filter(p => bal(p) <= 0.5).sort((a,b)=>a.localeCompare(b,'es'));
+    return [...acreedores, ...resto];
+  })();
   if (!opciones.length) { toast('No hay opciones para elegir', 'var(--red)'); return; }
   closeModal('modal-pago');
   const elegido = await elegirEntreVarios(opciones, { title: esPayer ? '¿QUIÉN PAGÓ?' : '¿A QUIÉN LE PAGÓ?', icon: '💰', otroText: 'CANCELAR' });
