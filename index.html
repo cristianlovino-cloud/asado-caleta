@@ -535,6 +535,7 @@ body {
       <div id="mis-gastos-oculto"></div>
     </div>
     <button class="bta" onclick="tf('fexp')">+ CARGAR MI GASTO</button>
+    <button class="abtn" style="width:100%;margin-bottom:10px;border-color:rgba(245,197,24,.4);color:var(--fire)" onclick="abrirRecaudarBloque()">💰 Cobré la plata de todos</button>
     <div id="gastos-admin-controls" style="display:none;gap:8px;margin:10px 0">
       <button class="abtn" style="flex:1;border-color:rgba(39,174,96,.4);color:var(--green)" onclick="openModal('modal-cuentas')">📊 Dashboard de cobro</button>
       <button class="abtn" style="flex:1;border-color:rgba(245,197,24,.4);color:var(--fire)" id="btn-cuentas-toggle" onclick="cerrarCuentasAll()">🔒 Cerrar cuentas</button>
@@ -856,6 +857,21 @@ body {
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px">FUSIONAR CON</div>
     <select id="fusionar-select" class="fsel" style="margin-bottom:16px"></select>
     <button onclick="ejecutarFusion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--fire);color:white;font-family:var(--font-title);font-size:18px;cursor:pointer;letter-spacing:1px">⇄ FUSIONAR</button>
+  </div>
+</div>
+
+<!-- Modal Recaudación en bloque -->
+<div class="modal-bg" id="modal-recaudar-bloque">
+  <div class="modal">
+    <div class="modal-title">💰 Recaudación en bloque <button class="modal-close" onclick="closeModal('modal-recaudar-bloque')">✕</button></div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      Si cobraste la parte de todos (antes o durante el asado) y vos pagaste las compras, marcá acá quién ya te pagó. Se registra como pago, no hace falta cargarlo uno por uno.
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">MONTO POR PERSONA $</div>
+    <input class="fi fi-monto" id="recaudar-monto" type="text" placeholder="0" inputmode="numeric" oninput="formatMontoInput(this)" style="margin-bottom:14px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">¿QUIÉN YA TE PAGÓ?</div>
+    <div id="recaudar-lista" style="margin-bottom:16px;max-height:280px;overflow-y:auto"></div>
+    <button onclick="ejecutarRecaudarBloque()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--fire);color:white;font-family:var(--font-title);font-size:18px;cursor:pointer;letter-spacing:1px">💰 CONFIRMAR COBRO</button>
   </div>
 </div>
 
@@ -3732,9 +3748,7 @@ async function rsvpCalendario(fechaISO, resp) {
 
 function renderOvHero(conf, pendientes, cumples, fechaStr) {
   return '<div class="ov-hero">' +
-    '<div class="ov-title">' + (S.event.title||'ASADO').toUpperCase() + '</div>' +
-    '<div class="ov-date">📍 ' + (S.event.location||'') + ' · ' + fechaStr + ' · ' + (S.event.time_range||'') + '</div>' +
-    '<div style="display:flex;align-items:stretch;justify-content:space-between;gap:8px;margin-top:8px">' +
+    '<div style="display:flex;align-items:stretch;justify-content:space-between;gap:8px">' +
       '<div id="ov-clock" style="font-size:22px;font-weight:700;font-family:var(--font-title);letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:flex;align-items:center;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1"></div>' +
       '<div class="ov-stat" id="ov-weather-stat" style="width:auto;flex:0 0 auto;padding:6px 14px;display:flex;flex-direction:column;justify-content:center"><div class="ov-stat-icon" id="ov-weather-icon" style="font-size:16px;margin-bottom:1px">' + climaIcon(_climaCache.temp) + '</div><div class="ov-stat-n" id="ov-weather-temp" style="font-size:18px">'+ climaNum(_climaCache.temp) +'</div><div class="ov-stat-l" id="ov-weather-desc" style="font-size:8px;white-space:nowrap">'+ _climaCache.desc +'</div></div>' +
     '</div></div>';
@@ -4854,6 +4868,54 @@ function abrirFusionar(nombre) {
 function cerrarFusionar() {
   closeModal('modal-fusionar');
   openModal('modal-participants');
+}
+
+// ══ RECAUDACIÓN EN BLOQUE ═══════════════════════════
+// Para cuando alguien (admin o cualquier participante) cobró la parte de todos
+// antes/durante el asado y pagó las compras con esa plata junta — en vez de
+// cargar un pago por persona, se marca en bloque quién ya le pagó.
+async function abrirRecaudarBloque() {
+  if (!S.event || !me) return;
+  await fetchAll();
+  const payments = await fetchPayments();
+  const pagadoDe = n => payments.filter(x=>x.payer.toLowerCase()===n.toLowerCase()).reduce((a,x)=>a+x.amount,0);
+  const pp = getPP();
+  document.getElementById('recaudar-monto').value = pp ? Math.round(pp).toLocaleString('es-AR') : '';
+  const candidatos = allP().filter(p => p.toLowerCase() !== me.toLowerCase());
+  const el = document.getElementById('recaudar-lista');
+  if (!candidatos.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:10px 0">No hay otros confirmados todavía.</div>';
+  } else {
+    el.innerHTML = candidatos.map(p => {
+      const b = bal(p);
+      const yaPago = pagadoDe(p);
+      const saldado = b < -0.5 && yaPago >= Math.abs(b) - TOLERANCIA_SALDO;
+      return `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--rim);${saldado?'opacity:.5':''}">
+        <input type="checkbox" class="recaudar-chk" value="${p.replace(/"/g,'&quot;')}" ${saldado?'':'checked'} style="width:18px;height:18px;flex-shrink:0">
+        <span style="font-size:13px;text-transform:uppercase;flex:1">${p}</span>
+        ${saldado?'<span style="font-size:10px;color:var(--green);font-weight:700">✅ YA SALDADO</span>':''}
+      </label>`;
+    }).join('');
+  }
+  openModal('modal-recaudar-bloque');
+}
+
+async function ejecutarRecaudarBloque() {
+  if (!S.event || !me) return;
+  const monto = montoNumerico('recaudar-monto');
+  if (!monto || monto <= 0) { toast('Ingresá un monto válido', 'var(--red)'); return; }
+  const seleccionados = [...document.querySelectorAll('.recaudar-chk:checked')].map(c=>c.value);
+  if (!seleccionados.length) { toast('Elegí al menos una persona', 'var(--red)'); return; }
+  closeModal('modal-recaudar-bloque');
+  if (!(await showConfirm(`¿Confirmás que cobraste ${fmt(monto)} a ${seleccionados.length} persona${seleccionados.length>1?'s':''}?`, { icon: '💰' }))) { openModal('modal-recaudar-bloque'); return; }
+  try {
+    const rows = seleccionados.map(p => ({ event_id: S.event.id, payer: p, receiver: me, amount: monto, note: 'Recaudación en bloque' }));
+    const { error } = await sb.from('payments').insert(rows);
+    if (error) throw error;
+    await fetchAll();
+    renderGastos();
+    toast(`✅ Cobro registrado a ${seleccionados.length} persona${seleccionados.length>1?'s':''}`, 'var(--green)');
+  } catch(e) { toast('❌ Error al registrar: ' + (e.message||''), 'var(--red)'); }
 }
 
 async function ejecutarFusion() {
