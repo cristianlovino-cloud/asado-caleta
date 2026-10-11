@@ -4300,9 +4300,17 @@ function renderOverview() {
   const fechaStr = parts[0] && parts[1] ? `${parts[0]} de ${meses[parseInt(parts[1])]}` : S.event.event_date||'';
   let evDate = null;
   if (parts[0] && parts[1] && parts[2]) {
-    evDate = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}T${(S.event.time_range||'10:00').split(/[–-]/)[0]}:00`);
+    evDate = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}T${(S.event.time_range||'10:00').split(/[–-]/)[0].trim()}:00-03:00`);
   }
-  const diff = evDate ? Math.ceil((evDate - hoy) / 86400000) : null;
+  // Comparamos solo la fecha calendario (año/mes/día), no la resta cruda de milisegundos:
+  // si el asado ya arrancó hace unas horas pero no llegó a pasar un día completo,
+  // Math.ceil((evDate-hoy)/86400000) todavía podía dar 0 y mostrar "HOY ES EL ASADO"
+  // aunque ya haya pasado a la madrugada del día siguiente. Esto queda consistente con
+  // el "esHoy" que ya usa el reloj de abajo.
+  const diff = evDate ? Math.round(
+    (new Date(evDate.getFullYear(), evDate.getMonth(), evDate.getDate()) -
+     new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) / 86400000
+  ) : null;
   const countdownStatic = diff === null ? '' : diff > 0
     ? `⏳ Faltan ${diff} día${diff>1?'s':''}`
     : diff === 0 ? '🔥 ¡ES HOY!' : '✅ Ya fue';
