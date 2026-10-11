@@ -1299,15 +1299,27 @@ async function fetchAll() {
   renderAll();
 }
 
+// Con todo el grupo usando la app al mismo tiempo, cada cambio de CUALQUIER
+// persona (tildar una tarea, cargar un gasto, cambiar RSVP) hacía que TODOS
+// los celulares conectados dispararan fetchAll() (15 consultas a Supabase en
+// paralelo) + un redibujado completo de toda la app. Si varios cambios llegan
+// casi juntos (grupo activo), esto se repetía una vez por cada cambio. Para
+// evitarlo, agrupamos ráfagas de cambios cercanos en un solo fetchAll().
+let _fetchAllDebounceTimer = null;
+function fetchAllDebounced() {
+  if (_fetchAllDebounceTimer) clearTimeout(_fetchAllDebounceTimer);
+  _fetchAllDebounceTimer = setTimeout(() => { _fetchAllDebounceTimer = null; fetchAll(); }, 600);
+}
+
 function subscribe() {
   if (!sbOk) return;
   sb.removeAllChannels(); // por si subscribe() ya se había llamado antes en esta sesión (ej: al cambiar RSVP)
   sb.channel('rt-all')
-    .on('postgres_changes',{event:'*',schema:'public',table:'events'},      ()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'participants'}, ()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},     ()=>fetchAll())
-    .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},        ()=>{ if(!S.tasks.some(t=>t._saving)) fetchAll(); })
-    .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},   ()=>fetchAll())
+    .on('postgres_changes',{event:'*',schema:'public',table:'events'},      ()=>fetchAllDebounced())
+    .on('postgres_changes',{event:'*',schema:'public',table:'participants'}, ()=>fetchAllDebounced())
+    .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},     ()=>fetchAllDebounced())
+    .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},        ()=>{ if(!S.tasks.some(t=>t._saving)) fetchAllDebounced(); })
+    .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},   ()=>fetchAllDebounced())
     .on('postgres_changes',{event:'*',schema:'public',table:'app_config',filter:'key=eq.appVersion'}, payload => {
       // Aviso instantáneo a todos los que ya están adentro, sin esperar otro fetchAll
       const v = payload.new?.value;
