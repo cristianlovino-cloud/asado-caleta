@@ -865,11 +865,17 @@ body {
   <div class="modal">
     <div class="modal-title">💰 Recaudación en bloque <button class="modal-close" onclick="closeModal('modal-recaudar-bloque')">✕</button></div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
-      Si cobraste la parte de todos (antes o durante el asado) y vos pagaste las compras, marcá acá quién ya te pagó. Se registra como pago, no hace falta cargarlo uno por uno.
+      Si cobraste la parte de todos (antes o durante el asado), marcá acá quién ya pagó. Se registra como pago, no hace falta cargarlo uno por uno.
     </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">¿A NOMBRE DE QUIÉN SE REGISTRA EL COBRO?</div>
+    <button type="button" id="recaudar-receiver-btn" onclick="elegirRecaudarReceiver()" style="width:100%;text-align:left;margin-bottom:6px;padding:11px 14px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+      <span id="recaudar-receiver-label">Vos</span><span style="color:var(--muted)">▾</span>
+    </button>
+    <input type="hidden" id="recaudar-receiver">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Normalmente sos vos. Elegí otro solo si cobraste para dárselo a quien efectivamente compró (así queda un solo movimiento, no dos).</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px">MONTO POR PERSONA $</div>
     <input class="fi fi-monto" id="recaudar-monto" type="text" placeholder="0" inputmode="numeric" oninput="formatMontoInput(this)" style="margin-bottom:14px">
-    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">¿QUIÉN YA TE PAGÓ?</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">¿QUIÉN YA PAGÓ?</div>
     <div id="recaudar-lista" style="margin-bottom:16px;max-height:280px;overflow-y:auto"></div>
     <button id="btn-confirmar-recaudar" onclick="ejecutarRecaudarBloque()" style="width:100%;padding:12px;border-radius:10px;border:none;background:var(--fire);color:white;font-family:var(--font-title);font-size:18px;cursor:pointer;letter-spacing:1px">💰 CONFIRMAR COBRO</button>
   </div>
@@ -957,10 +963,6 @@ body {
       <span id="mp-receiver-label">Elegir...</span><span style="color:var(--muted)">▾</span>
     </button>
     <input type="hidden" id="mp-receiver">
-    <label style="display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:10px;border:1px solid var(--rim);background:var(--ash);cursor:pointer;margin-bottom:14px">
-      <input type="checkbox" id="mp-reenvio" style="width:18px;height:18px;flex-shrink:0;margin-top:1px">
-      <span style="font-size:12px;color:var(--muted);line-height:1.4">Es un <strong>reenvío</strong> de plata que ya cobré de otros (ej: recaudé de todos y ahora le mando a quien compró) — no es mi deuda personal</span>
-    </label>
     <button class="btp" style="width:100%" onclick="confirmarPago()">✅ CONFIRMAR PAGO</button>
   </div>
 </div>
@@ -2147,7 +2149,7 @@ async function renderGastos() {
   if (!S.event) return;
   await fetchAll();
   const payments = await fetchPayments();
-  const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase() && esPagoPropio(p)).reduce((a,p) => a + p.amount, 0);
+  const pagadoPorGastos = name => payments.filter(p => p.payer.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
   const pp=getPP(),total=getTotal(),mb=bal(me);
   const puedeVerGastos = isAdmin() || !!S.cuentasAbiertas;
 
@@ -4881,11 +4883,18 @@ function cerrarFusionar() {
 async function abrirRecaudarBloque() {
   if (!S.event || !me) return;
   await fetchAll();
-  const payments = await fetchPayments();
-  const pagadoDe = n => payments.filter(x=>x.payer.toLowerCase()===n.toLowerCase()).reduce((a,x)=>a+x.amount,0);
+  document.getElementById('recaudar-receiver').value = me;
+  document.getElementById('recaudar-receiver-label').textContent = 'Vos (' + me.toUpperCase() + ')';
   const pp = getPP();
   document.getElementById('recaudar-monto').value = pp ? Math.round(pp).toLocaleString('es-AR') : '';
-  const candidatos = allP().filter(p => p.toLowerCase() !== me.toLowerCase());
+  await renderRecaudarLista(me);
+  openModal('modal-recaudar-bloque');
+}
+
+async function renderRecaudarLista(receiver) {
+  const payments = await fetchPayments();
+  const pagadoDe = n => payments.filter(x=>x.payer.toLowerCase()===n.toLowerCase()).reduce((a,x)=>a+x.amount,0);
+  const candidatos = allP().filter(p => p.toLowerCase() !== receiver.toLowerCase());
   const el = document.getElementById('recaudar-lista');
   if (!candidatos.length) {
     el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:10px 0">No hay otros confirmados todavía.</div>';
@@ -4901,7 +4910,17 @@ async function abrirRecaudarBloque() {
       </label>`;
     }).join('');
   }
+}
+
+async function elegirRecaudarReceiver() {
+  const opciones = allP().sort((a,b)=>a.localeCompare(b,'es'));
+  closeModal('modal-recaudar-bloque');
+  const elegido = await elegirEntreVarios(opciones, { title: '¿A NOMBRE DE QUIÉN?', icon: '💰', otroText: 'CANCELAR' });
   openModal('modal-recaudar-bloque');
+  if (!elegido) return;
+  document.getElementById('recaudar-receiver').value = elegido;
+  document.getElementById('recaudar-receiver-label').textContent = elegido.toLowerCase() === me.toLowerCase() ? 'Vos (' + me.toUpperCase() + ')' : elegido.toUpperCase();
+  await renderRecaudarLista(elegido);
 }
 
 let _recaudarEnviando = false;
@@ -4909,16 +4928,18 @@ async function ejecutarRecaudarBloque() {
   if (!S.event || !me) return;
   if (_recaudarEnviando) return; // evita doble envío si tocan el botón dos veces
   const btn = document.getElementById('btn-confirmar-recaudar');
+  const receiver = document.getElementById('recaudar-receiver').value || me;
   const monto = montoNumerico('recaudar-monto');
   if (!monto || monto <= 0) { toast('Ingresá un monto válido', 'var(--red)'); return; }
   const seleccionados = [...document.querySelectorAll('.recaudar-chk:checked')].map(c=>c.value);
   if (!seleccionados.length) { toast('Elegí al menos una persona', 'var(--red)'); return; }
   closeModal('modal-recaudar-bloque');
-  if (!(await showConfirm(`¿Confirmás que cobraste ${fmt(monto)} a ${seleccionados.length} persona${seleccionados.length>1?'s':''}?`, { icon: '💰' }))) { openModal('modal-recaudar-bloque'); return; }
+  const paraQuien = receiver.toLowerCase() === me.toLowerCase() ? '' : ` para ${receiver.toUpperCase()}`;
+  if (!(await showConfirm(`¿Confirmás que cobraste ${fmt(monto)} a ${seleccionados.length} persona${seleccionados.length>1?'s':''}${paraQuien}?`, { icon: '💰' }))) { openModal('modal-recaudar-bloque'); return; }
   _recaudarEnviando = true;
   if (btn) { btn.disabled = true; btn.style.opacity = '.6'; btn.textContent = '⏳ Registrando...'; }
   try {
-    // Chequeo de último momento con datos frescos: evita duplicar si esta misma gente
+    // Chequeo de último momento con datos frescas: evita duplicar si esta misma gente
     // ya quedó marcada como saldada entre que se abrió el modal y se tocó confirmar
     // (ej: se tocó "cobré a todos" dos veces seguidas sin reabrir el modal)
     await fetchAll();
@@ -4930,7 +4951,7 @@ async function ejecutarRecaudarBloque() {
       toast('Esas personas ya figuran saldadas, no se registró nada de nuevo', 'var(--muted)', 4000);
       return;
     }
-    const rows = aRegistrar.map(p => ({ event_id: S.event.id, payer: p, receiver: me, amount: monto, note: 'Recaudación en bloque' }));
+    const rows = aRegistrar.map(p => ({ event_id: S.event.id, payer: p, receiver: receiver, amount: monto, note: 'Recaudación en bloque' }));
     const { error } = await sb.from('payments').insert(rows);
     if (error) throw error;
     await fetchAll();
@@ -5838,10 +5859,7 @@ async function fetchPayments() {
 }
 
 // Pago registrado por admin: quién pagó, cuánto, cómo, a quién
-// esReenvio: true cuando el "payer" no está pagando su propia deuda, sino que está
-// reenviando plata que ya cobró de otros (ej: recaudó de todos y ahora le manda a
-// quien compró). Se marca en la nota para que NO cuente como deuda personal saldada.
-async function registrarPago(payer, amount, method, receiver, esReenvio) {
+async function registrarPago(payer, amount, method, receiver) {
   if (!S.event) return;
   if (payer.toLowerCase() === receiver.toLowerCase()) {
     toast('❌ El que pagó y el que cobra no pueden ser la misma persona', 'var(--red)');
@@ -5852,14 +5870,11 @@ async function registrarPago(payer, amount, method, receiver, esReenvio) {
     payer: payer,
     amount: parseFloat(amount),
     method: method,
-    receiver: receiver,
-    note: esReenvio ? '[REENVÍO]' : null
+    receiver: receiver
   });
   await renderCuentas();
   toast('✅ Pago registrado!', 'var(--green)');
 }
-// Un pago cuenta como deuda personal saldada del payer, salvo que esté marcado como reenvío
-const esPagoPropio = x => (x.note||'').indexOf('[REENVÍO]') !== 0;
 
 async function deshacerPago(id) {
   closeModal('modal-cuentas');
@@ -5910,8 +5925,6 @@ function abrirModalPago(payerName, amount, receiverName) {
   document.getElementById('mp-receiver').value = receiverFinal;
   document.getElementById('mp-receiver-label').textContent = receiverFinal ? receiverFinal.toUpperCase() : 'Elegir...';
   if (amount) document.getElementById('mp-amount').value = Number(Math.round(amount)).toLocaleString('es-AR');
-  const chkReenvio = document.getElementById('mp-reenvio');
-  if (chkReenvio) chkReenvio.checked = false;
   openModal('modal-pago');
 }
 
@@ -5940,9 +5953,8 @@ async function confirmarPago() {
   const amount   = montoNumerico('mp-amount');
   const method   = document.querySelector('input[name="mp-method"]:checked')?.value || 'efectivo';
   const receiver = document.getElementById('mp-receiver').value;
-  const esReenvio = !!document.getElementById('mp-reenvio')?.checked;
   if (!payer || !amount || !receiver) { toast('Completá todos los campos','var(--red)'); return; }
-  await registrarPago(payer, amount, method, receiver, esReenvio);
+  await registrarPago(payer, amount, method, receiver);
   closeModal('modal-pago');
 }
 
@@ -5959,7 +5971,7 @@ async function renderCuentas() {
   const acreedores = allP().filter(p => bal(p) > 0.5);
   const deudores   = allP().filter(p => bal(p) < -0.5);
 
-  const pagadoPor  = name => payments.filter(p => p.payer.toLowerCase()  === name.toLowerCase() && esPagoPropio(p)).reduce((a,p) => a + p.amount, 0);
+  const pagadoPor  = name => payments.filter(p => p.payer.toLowerCase()  === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
   const cobradoPor = name => {
     const cobrado = payments.filter(p => p.receiver.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
     const devuelto = payments.filter(p => p.payer.toLowerCase() === name.toLowerCase() && acreedores.map(x=>x.toLowerCase()).includes(p.receiver.toLowerCase())).reduce((a,p) => a + p.amount, 0);
@@ -6038,7 +6050,7 @@ async function renderCuentas() {
     const debe = Math.abs(bal(p));
     const yaPago = pagadoPor(p);
     const falta = deudaRestante(p);
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase() && esPagoPropio(x));
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
     const pagosHtml = misPagos.length ? '<div style="margin:4px 0 6px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
       misPagos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
         '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + x.receiver.toUpperCase() + '</span>' +
@@ -6068,7 +6080,7 @@ async function renderCuentas() {
 
   // HTML saldados
   const saldHtml = saldados.map(p => {
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase() && esPagoPropio(x));
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
     const total = misPagos.reduce((a,x) => a+x.amount, 0);
     const medios = [...new Set(misPagos.map(x=>x.method))].map(m => m==='efectivo'?'💵':'📲').join('+');
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75">' +
@@ -6082,12 +6094,13 @@ async function renderCuentas() {
     '</div>';
   }).join('');
 
-  // Los pagos marcados como [REENVÍO] no suman acá: es la MISMA plata que ya se contó
-  // cuando cada uno le pagó al recaudador, así que contarla de nuevo la duplicaría.
-  const totalCobrado = payments.filter(p => p.payer.toLowerCase() !== p.receiver.toLowerCase() && esPagoPropio(p)).reduce((a,p) => a+p.amount, 0);
-  const totalEfectivo = payments.filter(p=>p.method==='efectivo' && p.payer.toLowerCase() !== p.receiver.toLowerCase() && esPagoPropio(p)).reduce((a,p)=>a+p.amount,0);
-  const totalTransf = payments.filter(p=>p.method==='transferencia' && p.payer.toLowerCase() !== p.receiver.toLowerCase() && esPagoPropio(p)).reduce((a,p)=>a+p.amount,0);
+  const totalCobrado = payments.filter(p => p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p) => a+p.amount, 0);
+  const totalEfectivo = payments.filter(p=>p.method==='efectivo' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
+  const totalTransf = payments.filter(p=>p.method==='transferencia' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
   const totalPendiente = pendientes.reduce((a,p) => a + deudaRestante(p), 0);
+  // Lo que tiene que circular entre deudores y acreedores (no es el total gastado:
+  // los acreedores ya se "pagaron" su propia parte con lo que gastaron de su bolsillo)
+  const montoACircular = acreedores.reduce((a,p) => a + Math.max(0, bal(p)), 0);
 
   // Orden de pagos sugerido: mínimas transacciones entre quien debe y quien tiene que cobrar
   const deudoresRest = pendientes.map(p => ({ name: p, monto: deudaRestante(p) })).filter(x => x.monto > 0.5).sort((a,b) => b.monto - a.monto);
@@ -6144,7 +6157,10 @@ async function renderCuentas() {
       '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">📲 TRANSFERENCIAS</span><span style="font-weight:700;color:var(--club1)">' + fmt(totalTransf) + '</span></div>' +
       '<div style="height:1px;background:var(--rim);margin:4px 0 6px"></div>' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL COBRADO</span><span style="font-weight:700;color:var(--green)">' + fmt(totalCobrado) + '</span></div>' +
-      '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span><span style="font-weight:700;color:' + (pendientes.length > 0 ? 'var(--red)' : 'var(--green)') + '">' + (pendientes.length > 0 ? fmt(totalPendiente) : '✅ TODO COBRADO') + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">PENDIENTE</span><span style="font-weight:700;color:' + (pendientes.length > 0 ? 'var(--red)' : 'var(--green)') + '">' + (pendientes.length > 0 ? fmt(totalPendiente) : '$0') + '</span></div>' +
+      '<div style="height:1px;background:var(--rim);margin:6px 0"></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">= A REPARTIR ENTRE TODOS</span><span style="font-weight:700;color:var(--gold)">' + fmt(montoACircular) + '</span></div>' +
+      '<div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:right">(cobrado ' + fmt(totalCobrado) + ' + pendiente ' + fmt(totalPendiente) + ')</div>' +
     '</div>';
 }
 
