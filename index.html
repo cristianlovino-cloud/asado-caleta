@@ -5838,8 +5838,25 @@ async function deshacerPago(id) {
   toast('↩️ Pago deshecho', 'var(--muted)');
 }
 
-function limpiarCobros() {
-  toast('Usá "Deshacer" en cada pago', 'var(--muted)');
+// Borra TODOS los pagos (payments) de este asado — para arrancar de cero si quedaron
+// duplicados de pruebas (ej: se registró el mismo cobro por la vía manual y por el
+// botón de recaudación en bloque). Es un borrado real en la base, no se puede deshacer.
+async function limpiarCobros() {
+  if (!S.event || !isAdmin()) return;
+  closeModal('modal-cuentas');
+  const ok1 = await showConfirm('¿Borrar TODOS los pagos registrados de este asado? Las personas van a volver a figurar como que no pagaron nada.', { icon: '🗑' });
+  if (!ok1) { openModal('modal-cuentas'); return; }
+  const ok2 = await showConfirm('Confirmá de nuevo: esto borra todos los cobros/pagos de este asado y no se puede deshacer.', { icon: '⚠️' });
+  if (!ok2) { openModal('modal-cuentas'); return; }
+  try {
+    const { error } = await sb.from('payments').delete().eq('event_id', S.event.id);
+    if (error) throw error;
+    await fetchAll();
+    renderCuentas();
+    renderGastos();
+    openModal('modal-cuentas');
+    toast('🗑 Todos los pagos de este asado fueron borrados', 'var(--green)');
+  } catch(e) { toast('❌ Error al borrar: ' + (e.message||''), 'var(--red)'); openModal('modal-cuentas'); }
 }
 
 // Modal para registrar pago (admin)
