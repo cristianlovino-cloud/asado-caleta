@@ -247,13 +247,13 @@ body {
 .abtn:hover{border-color:var(--fire);color:var(--fire)}
 .abtn.red{border-color:rgba(231,76,60,.4);color:var(--red)}
 
-.tabs{display:flex;background:var(--smoke);border-bottom:1px solid var(--rim);position:sticky;top:62px;z-index:99;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs{display:flex;background:var(--smoke);border-top:1px solid var(--rim);position:fixed;left:0;right:0;bottom:0;z-index:150;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;box-shadow:0 -2px 16px rgba(0,0,0,.45);padding-bottom:env(safe-area-inset-bottom,0px)}
 .tabs::-webkit-scrollbar{display:none}
-.tabs.with-admin{top:102px}
-.tab{flex:1;padding:10px 4px;text-align:center;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
-.tab.active{color:var(--fire);border-bottom-color:var(--fire)}
-.tab .ti{font-size:15px;display:block;margin-bottom:2px}
-.panel{display:none;padding:12px 12px 90px}
+.tab{flex:1;padding:9px 2px 7px;text-align:center;font-size:9px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-top:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--fire);border-top-color:var(--fire)}
+.tab .ti{font-size:18px;display:block;margin-bottom:2px;transition:transform .2s}
+.tab.active .ti{transform:translateY(-1px) scale(1.08)}
+.panel{display:none;padding:12px 12px calc(78px + env(safe-area-inset-bottom,0px))}
 .panel.active{display:block}
 
 /* ── COMPONENTES ────────────────── */
@@ -369,7 +369,7 @@ body {
 .modal-close{background:var(--ash);border:1px solid var(--rim);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--muted);font-size:14px}
 
 /* UTILS */
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:9px 20px;border-radius:16px;font-weight:600;font-size:13px;opacity:0;transition:opacity .3s;z-index:999;pointer-events:none;max-width:88vw;width:max-content;white-space:pre-wrap;text-align:center;line-height:1.4}
+.toast{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--green);color:white;padding:9px 20px;border-radius:16px;font-weight:600;font-size:13px;opacity:0;transition:opacity .3s;z-index:999;pointer-events:none;max-width:88vw;width:max-content;white-space:pre-wrap;text-align:center;line-height:1.4}
 .toast.show{opacity:1}
 .empty{text-align:center;padding:26px 14px;color:var(--muted);font-size:13px}
 .empty .em{font-size:36px;margin-bottom:7px}
@@ -3767,8 +3767,7 @@ async function rsvpCalendario(fechaISO, resp) {
 function renderOvHero(conf, pendientes, cumples, fechaStr) {
   return '<div class="ov-hero">' +
     '<div style="display:flex;align-items:stretch;justify-content:space-between;gap:8px">' +
-      '<div id="ov-clock" style="font-size:22px;font-weight:700;font-family:var(--font-title);letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:flex;align-items:center;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1"></div>' +
-      '<div class="ov-stat" id="ov-weather-stat" style="width:auto;flex:0 0 auto;padding:6px 14px;display:flex;flex-direction:column;justify-content:center"><div class="ov-stat-icon" id="ov-weather-icon" style="font-size:16px;margin-bottom:1px">' + climaIcon(_climaCache.temp) + '</div><div class="ov-stat-n" id="ov-weather-temp" style="font-size:18px">'+ climaNum(_climaCache.temp) +'</div><div class="ov-stat-l" id="ov-weather-desc" style="font-size:8px;white-space:nowrap">'+ _climaCache.desc +'</div></div>' +
+      '<div id="ov-clock" style="font-size:22px;font-weight:700;font-family:var(--font-title);letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1"></div>' +
     '</div></div>';
 }
 
@@ -4380,18 +4379,15 @@ function renderOverview() {
     renderOvVotosStats() +
     renderOvCalendario(meses);
   startSpCarousel();
-  fetchClima();
 }
 
 // ── Modo día del asado: lo esencial de un vistazo, solo el día del evento ──
 function renderModoDiaAsado(conf, noVan, sinResp, pendientes) {
-  const clima = _climaCache.temp ? climaIcon(_climaCache.temp) + ' ' + climaNum(_climaCache.temp) : '';
   const faltanConfirmar = sinResp > 0 ? sinResp + ' sin responder' : '¡todos respondieron!';
   return `<div style="background:linear-gradient(135deg,#c0392b,#e67e22);border-radius:16px;padding:14px 16px;margin-bottom:12px;color:white">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <span style="font-size:20px">🔥</span>
       <span style="font-family:var(--font-title);font-size:18px;letter-spacing:1px">HOY ES EL ASADO</span>
-      ${clima ? `<span style="margin-left:auto;font-size:14px;font-weight:700">${clima}</span>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
       <div style="background:rgba(0,0,0,.2);border-radius:10px;padding:8px;text-align:center">
@@ -4585,7 +4581,7 @@ function mostrarBannerNuevaVersion(v) {
   if (document.getElementById('banner-nueva-version')) return; // ya se está mostrando
   const el = document.createElement('div');
   el.id = 'banner-nueva-version';
-  el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9998;background:linear-gradient(135deg,var(--club1),var(--club2));color:#000;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 -4px 16px rgba(0,0,0,.3);font-family:var(--font-body)';
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:linear-gradient(135deg,var(--club1),var(--club2));color:#000;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);font-family:var(--font-body)';
   el.innerHTML = `<span style="font-size:20px">🆕</span>
     <span id="ban-version-txt" style="flex:1;font-size:12px;font-weight:700">Hay una versión nueva (v${v}) — actualizando en 6s…</span>
     <button onclick="location.reload()" style="padding:8px 14px;border-radius:8px;border:none;background:#000;color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">AHORA</button>`;
