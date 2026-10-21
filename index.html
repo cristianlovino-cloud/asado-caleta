@@ -381,7 +381,7 @@ body {
 .ov-hero::before{content:'';position:absolute;right:-15px;top:-15px;width:120px;height:120px;background:rgba(255,255,255,.08);border-radius:50%}
 .ov-hero::after{content:'';position:absolute;left:-25px;bottom:-30px;width:140px;height:140px;background:rgba(255,255,255,.06);border-radius:50%}
 .ov-hero-sub{position:relative;font-size:11px;font-weight:700;letter-spacing:1.5px;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.3);margin-bottom:10px}
-.ov-hero-clock{position:relative;font-size:clamp(19px,6.8vw,30px);font-weight:800;font-family:var(--font-title);letter-spacing:1.5px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:18px 14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:center}
+.ov-hero-clock{position:relative;font-size:clamp(20px,7.2vw,32px);font-weight:800;font-family:var(--font-title);letter-spacing:1.5px;padding:6px 2px 2px;display:flex;align-items:center;justify-content:center;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:center}
 .ov-title{font-family:var(--font-title);font-size:26px;letter-spacing:2px;margin-bottom:2px}
 .ov-date{font-size:12px;opacity:.85;margin-bottom:14px}
 .ov-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -4330,7 +4330,7 @@ function renderOverview() {
      new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) / 86400000
   ) : null;
   const countdownStatic = diff === null ? '' : diff > 0
-    ? `⏳ Faltan ${diff} día${diff>1?'s':''}`
+    ? `🔥 Faltan ${diff} día${diff>1?'s':''}`
     : diff === 0 ? '🔥 ¡ES HOY!' : '✅ Ya fue';
 
   // Stats
@@ -4452,12 +4452,12 @@ function updateClock() {
   if (esHoy) {
     el.textContent = `🔥 HOY · ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(segs).padStart(2,'0')}`;
   } else if (dias === 0) {
-    el.textContent = `⏳ Mañana · ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
+    el.textContent = `🔥 Mañana · ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
   } else if (dias >= 7) {
     // Lejos: solo días, sin detalle de horas/minutos que no aporta a esa distancia
-    el.textContent = `⏳ FALTAN ${dias} DÍAS`;
+    el.textContent = `🔥 FALTAN ${dias} DÍAS`;
   } else {
-    el.textContent = `⏳ ${dias}D ${String(horas).padStart(2,'0')}H ${String(mins).padStart(2,'0')}M`;
+    el.textContent = `🔥 ${dias}D ${String(horas).padStart(2,'0')}H ${String(mins).padStart(2,'0')}M`;
   }
 }
 
