@@ -377,8 +377,11 @@ body {
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
 .pill-assign{background:rgba(46,134,222,.12);border:1px solid rgba(46,134,222,.25);color:var(--blue)}
 .en,.sl,.fl,.sh,.tab,.modal-title,.pname,.tknm,.blbl { text-transform:uppercase }
-.ov-hero{background:linear-gradient(135deg,#1a9fd4 0%,#2eb8e8 30%,#f5c518 70%,#e8b400 100%);border-radius:18px;padding:20px;margin-bottom:12px;color:white;position:relative;overflow:hidden}
+.ov-hero{background:linear-gradient(135deg,#1a9fd4 0%,#2eb8e8 30%,#f5c518 70%,#e8b400 100%);border-radius:18px;padding:18px 20px 20px;margin-bottom:12px;color:white;position:relative;overflow:hidden}
 .ov-hero::before{content:'';position:absolute;right:-15px;top:-15px;width:120px;height:120px;background:rgba(255,255,255,.08);border-radius:50%}
+.ov-hero::after{content:'';position:absolute;left:-25px;bottom:-30px;width:140px;height:140px;background:rgba(255,255,255,.06);border-radius:50%}
+.ov-hero-sub{position:relative;font-size:11px;font-weight:700;letter-spacing:1.5px;opacity:.9;text-shadow:0 1px 3px rgba(0,0,0,.3);margin-bottom:10px}
+.ov-hero-clock{position:relative;font-size:clamp(19px,6.8vw,30px);font-weight:800;font-family:var(--font-title);letter-spacing:1.5px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:18px 14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:center}
 .ov-title{font-family:var(--font-title);font-size:26px;letter-spacing:2px;margin-bottom:2px}
 .ov-date{font-size:12px;opacity:.85;margin-bottom:14px}
 .ov-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -3764,11 +3767,12 @@ async function rsvpCalendario(fechaISO, resp) {
   }
 }
 
-function renderOvHero(conf, pendientes, cumples, fechaStr) {
+function renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr) {
+  const subStr = diaSemanaStr ? diaSemanaStr + ' · ' + fechaStr.toUpperCase() : fechaStr.toUpperCase();
   return '<div class="ov-hero">' +
-    '<div style="display:flex;align-items:stretch;justify-content:space-between;gap:8px">' +
-      '<div id="ov-clock" style="font-size:22px;font-weight:700;font-family:var(--font-title);letter-spacing:2px;background:rgba(0,0,0,.55);border-radius:10px;padding:8px 14px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1"></div>' +
-    '</div></div>';
+    '<div class="ov-hero-sub">📅 ' + subStr + '</div>' +
+    '<div id="ov-clock" class="ov-hero-clock"></div>' +
+    '</div>';
 }
 
 // Separa el emoji del clima ("☀️ 21°C") del número, para mostrarlos en líneas propias
@@ -4309,10 +4313,13 @@ function renderOverview() {
   // Fecha y countdown dinámico
   const parts = (S.event.event_date||'').split('/');
   const fechaStr = parts[0] && parts[1] ? `${parts[0]} de ${meses[parseInt(parts[1])]}` : S.event.event_date||'';
+  const diasSemana = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
   let evDate = null;
   if (parts[0] && parts[1] && parts[2]) {
     evDate = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}T${(S.event.time_range||'10:00').split(/[–-]/)[0].trim()}:00-03:00`);
   }
+  // Día de la semana: dato nuevo que el header no muestra (solo tiene la fecha numérica)
+  const diaSemanaStr = evDate ? diasSemana[evDate.getDay()] : '';
   // Comparamos solo la fecha calendario (año/mes/día), no la resta cruda de milisegundos:
   // si el asado ya arrancó hace unas horas pero no llegó a pasar un día completo,
   // Math.ceil((evDate-hoy)/86400000) todavía podía dar 0 y mostrar "HOY ES EL ASADO"
@@ -4368,7 +4375,7 @@ function renderOverview() {
     : '';
 
   el.innerHTML = (diff === 0 ? renderModoDiaAsado(conf, noVan, sinResp, pendientes) : '') +
-    renderOvHero(conf, pendientes, cumples, fechaStr) +
+    renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr) +
     renderOvSponsor() +
     vacCard +
     renderOvMiEstado(miRsvp) +
