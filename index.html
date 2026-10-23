@@ -377,10 +377,17 @@ body {
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
 .pill-assign{background:rgba(46,134,222,.12);border:1px solid rgba(46,134,222,.25);color:var(--blue)}
 .en,.sl,.fl,.sh,.tab,.modal-title,.pname,.tknm,.blbl { text-transform:uppercase }
-.ov-hero{background:linear-gradient(135deg,#1a9fd4 0%,#2eb8e8 30%,#f5c518 70%,#e8b400 100%);border-radius:18px;padding:30px 16px;margin-bottom:12px;color:white;position:relative;overflow:hidden}
+.ov-hero{background:linear-gradient(135deg,#1a9fd4 0%,#2eb8e8 30%,#f5c518 70%,#e8b400 100%);border-radius:18px;padding:22px 18px 18px;margin-bottom:12px;color:white;position:relative;overflow:hidden}
 .ov-hero::before{content:'';position:absolute;right:-15px;top:-15px;width:120px;height:120px;background:rgba(255,255,255,.08);border-radius:50%}
 .ov-hero::after{content:'';position:absolute;left:-25px;bottom:-30px;width:140px;height:140px;background:rgba(255,255,255,.06);border-radius:50%}
-.ov-hero-clock{position:relative;font-size:clamp(26px,9.5vw,42px);font-weight:800;font-family:var(--font-title);letter-spacing:1px;display:flex;align-items:center;justify-content:center;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:center;width:100%}
+.ov-hero-clock{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;min-width:0}
+.ov-hero-eyebrow{font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;opacity:.92;text-shadow:0 1px 4px rgba(0,0,0,.35);margin-bottom:2px}
+.ov-hero-big{font-size:clamp(44px,20vw,76px);font-weight:800;font-family:var(--font-title);letter-spacing:1px;line-height:1;text-shadow:0 3px 14px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ov-hero-big.sz-md{font-size:clamp(24px,9.5vw,38px)}
+.ov-hero-caption{font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;opacity:.92;text-shadow:0 1px 4px rgba(0,0,0,.35);margin-top:4px}
+.ov-hero-bar{position:relative;height:6px;border-radius:4px;background:rgba(0,0,0,.25);margin-top:16px;overflow:hidden}
+.ov-hero-bar-fill{height:100%;border-radius:4px;background:rgba(255,255,255,.85);box-shadow:0 0 6px rgba(255,255,255,.5);transition:width .4s}
+.ov-hero-loc{position:relative;font-size:11px;font-weight:700;letter-spacing:1px;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.3);margin-top:8px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ov-title{font-family:var(--font-title);font-size:26px;letter-spacing:2px;margin-bottom:2px}
 .ov-date{font-size:12px;opacity:.85;margin-bottom:14px}
 .ov-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -3766,10 +3773,34 @@ async function rsvpCalendario(fechaISO, resp) {
   }
 }
 
-function renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr) {
+function renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr, diff, evDate) {
+  // Barra de progreso: cuánto pasó desde que se creó el asado hasta la fecha del evento.
+  // Da contexto visual al "faltan X días" sin repetir texto.
+  let barraPct = 0;
+  if (evDate && S.event?.created_at) {
+    const creado = parseUTC(S.event.created_at).getTime();
+    const total = evDate.getTime() - creado;
+    const hecho = ahoraAR().getTime() - creado;
+    barraPct = total > 0 ? Math.max(0, Math.min(100, (hecho / total) * 100)) : 100;
+  }
+  const loc = S.event?.location ? '<div class="ov-hero-loc">📍 ' + S.event.location.toUpperCase() + '</div>' : '';
   return '<div class="ov-hero">' +
     '<div id="ov-clock" class="ov-hero-clock"></div>' +
+    '<div class="ov-hero-bar"><div class="ov-hero-bar-fill" style="width:' + barraPct + '%"></div></div>' +
+    loc +
     '</div>';
+}
+
+// Arma el contenido del contador con 3 niveles de jerarquía (etiqueta / número grande / aclaración).
+// `compacto` baja el tamaño del número grande cuando es texto largo (ej "A LAS 10:00")
+// en vez de un número de 1-2 cifras, para que no se corte con "…" en pantallas chicas.
+function setHeroClock(label, big, caption, compacto) {
+  const el = document.getElementById('ov-clock');
+  if (!el) return;
+  el.innerHTML =
+    '<div class="ov-hero-eyebrow">' + label + '</div>' +
+    '<div class="ov-hero-big' + (compacto ? ' sz-md' : '') + '">' + big + '</div>' +
+    (caption ? '<div class="ov-hero-caption">' + caption + '</div>' : '');
 }
 
 // Separa el emoji del clima ("☀️ 21°C") del número, para mostrarlos en líneas propias
@@ -4372,7 +4403,7 @@ function renderOverview() {
     : '';
 
   el.innerHTML = (diff === 0 ? renderModoDiaAsado(conf, noVan, sinResp, pendientes) : '') +
-    renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr) +
+    renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr, diff, evDate) +
     renderOvSponsor() +
     vacCard +
     renderOvMiEstado(miRsvp) +
@@ -4439,7 +4470,8 @@ function updateClock() {
 
   if (diff <= 0) {
     // Ya arrancó el asado
-    el.textContent = esHoy ? '🔥 ¡ARRANCÓ! A las ' + timeStr : '✅ Ya fue';
+    if (esHoy) setHeroClock('🔥 ¡ARRANCÓ!', 'A LAS ' + timeStr, '', true);
+    else setHeroClock('✅', 'YA FUE', '', true);
     return;
   }
   const dias  = Math.floor(diff / 86400000);
@@ -4447,14 +4479,14 @@ function updateClock() {
   const mins  = Math.floor((diff % 3600000) / 60000);
   const segs  = Math.floor((diff % 60000) / 1000);
   if (esHoy) {
-    el.textContent = `🔥 HOY · ${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(segs).padStart(2,'0')}`;
+    setHeroClock('🔥 HOY', `${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(segs).padStart(2,'0')}`, 'FALTA PARA ARRANCAR', true);
   } else if (dias === 0) {
-    el.textContent = `🔥 Mañana · ${String(horas).padStart(2,'0')}h ${String(mins).padStart(2,'0')}m`;
+    setHeroClock('🔥 MAÑANA', `${String(horas).padStart(2,'0')}:${String(mins).padStart(2,'0')}`, 'A LAS ' + timeStr, true);
   } else if (dias >= 7) {
     // Lejos: solo días, sin detalle de horas/minutos que no aporta a esa distancia
-    el.textContent = `🔥 FALTAN ${dias} DÍAS`;
+    setHeroClock('🔥 FALTAN', dias, dias === 1 ? 'DÍA' : 'DÍAS');
   } else {
-    el.textContent = `🔥 ${dias}D ${String(horas).padStart(2,'0')}H ${String(mins).padStart(2,'0')}M`;
+    setHeroClock('🔥 FALTAN', dias, (dias===1?'DÍA':'DÍAS') + ' · ' + String(horas).padStart(2,'0') + 'H ' + String(mins).padStart(2,'0') + 'M');
   }
 }
 
