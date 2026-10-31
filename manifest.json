@@ -4,8 +4,8 @@
   "description": "App del grupo 7:45",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0c0c0c",
-  "theme_color": "#5BB8E8",
+  "background_color": "#0E1A1B",
+  "theme_color": "#0E1A1B",
   "icons": [
     {
       "src": "icon-192.png",

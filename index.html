@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -13,8 +13,9 @@
   <link rel="apple-touch-icon" href="icon.png?v=4">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="🔥 Asado">
-  <meta name="theme-color" content="var(--fire)">
+  <meta name="theme-color" id="meta-theme-color" content="#0E1A1B">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
   // ── Tema por usuario (se guarda en este celular, no afecta a los demás) ──
@@ -32,6 +33,12 @@
     localStorage.setItem('tema_elegido', key);
     const item = document.getElementById('tema-menu-item');
     if (item) item.textContent = '🎨 Tema: ' + t.nombre;
+    // El <meta name="theme-color"> no puede leer variables CSS (var(--coal) no sirve ahí),
+    // hay que pisarlo a mano con el color real cada vez que se cambia de tema — si no,
+    // la franja de la hora/notch en el celular queda con un color que no es el de la app.
+    document.documentElement.style.background = t.coal;
+    const mc = document.getElementById('meta-theme-color');
+    if (mc) mc.setAttribute('content', t.coal);
   }
   function ciclarTema() {
     const keys = Object.keys(TEMAS);
@@ -156,7 +163,7 @@
 
 /* ── RESET ──────────────────────────────── */
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html { font-size:16px; }
+html { font-size:16px; background:#0E1A1B; }
 
 /* ══════════════════════════════════════════════════════════
    TIPOGRAFÍA — quedó solo la Opción 1 cargada (por rendimiento: antes se
@@ -226,7 +233,7 @@ body {
 
 /* ── SHELL ──────────────────────── */
 #app{display:none}
-.hdr{background:linear-gradient(180deg,#0D1A2A,var(--smoke));padding:12px 14px 10px;border-bottom:1px solid var(--rim);position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.5)}
+.hdr{background:linear-gradient(180deg,#0D1A2A,var(--smoke));padding:calc(12px + env(safe-area-inset-top,0px)) 14px 10px;border-bottom:1px solid var(--rim);position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.5)}
 .hdr-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .hdr-row>div:first-child{min-width:0;flex:1;overflow:hidden}
 .hdr-title{font-family:var(--font-title);font-size:20px;letter-spacing:2px;line-height:1;cursor:pointer;min-width:0}
