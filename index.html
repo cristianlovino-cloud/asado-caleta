@@ -4065,6 +4065,49 @@ function renderOvVotosStats() {
   return '<div style="display:grid;grid-template-columns:' + cols + ';gap:8px;margin-bottom:10px">' + votosBtn + statsBtn + historialBtn + '</div>';
 }
 
+// Banner flotante para la próxima fecha especial (familiar o no) que todavía no
+// respondí ni cerré con la ✕. Informativo pero accionable: se puede confirmar
+// sin bajar hasta el calendario. Desaparece solo al responder o cerrar.
+function renderOvBannerFamiliar() {
+  if (isInvitado() && !isAdmin()) return '';
+  if (!S.specialDates?.length) return '';
+  const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const hoyTs = ahoraAR();
+  const candidatas = S.specialDates
+    .map(sd => {
+      const [yy,mm,dd] = (sd.fecha||'').split('-').map(Number);
+      if (!yy||!mm||!dd) return null;
+      return { ...sd, fechaObj: new Date(yy,mm-1,dd), fechaISO: sd.fecha };
+    })
+    .filter(sd => sd && sd.fechaObj > hoyTs)
+    .sort((a,b) => a.fechaObj - b.fechaObj);
+  if (!candidatas.length) return '';
+  const sd = candidatas[0];
+  // Si esta fecha especial ya ES el asado activo, se confirma desde la pantalla
+  // principal de siempre — el banner no suma nada ahí.
+  const esEste = S.event && S.event.event_date === (String(sd.fechaObj.getDate()).padStart(2,'0')+'/'+String(sd.fechaObj.getMonth()+1).padStart(2,'0')+'/'+sd.fechaObj.getFullYear());
+  if (esEste) return '';
+  if (localStorage.getItem('asado_banner_cerrado_' + sd.fechaISO) === '1') return '';
+  if (S.rsvpCal?.[sd.fechaISO]?.[me]) return ''; // ya contesté, no hace falta insistir
+  const esFamiliar = (sd.tipo||'familiar') === 'familiar';
+  const label = sd.fechaObj.getDate() + ' de ' + meses[sd.fechaObj.getMonth()+1] + ' ' + sd.fechaObj.getFullYear();
+  return '<div id="ov-banner-familiar" style="position:relative;background:linear-gradient(135deg,#ff69b4,#c2185b);border-radius:16px;padding:14px 16px;margin-bottom:12px;color:white;box-shadow:0 4px 20px rgba(255,105,180,.3)">' +
+    '<span onclick="cerrarBannerFamiliar(\'' + sd.fechaISO + '\')" style="position:absolute;top:10px;right:12px;cursor:pointer;font-size:16px;opacity:.85;line-height:1;padding:2px 4px">✕</span>' +
+    '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;opacity:.9;margin-bottom:2px;padding-right:20px">' + (esFamiliar?'👨‍👩‍👧 ASADO FAMILIAR':'✨ FECHA ESPECIAL') + '</div>' +
+    '<div style="font-size:16px;font-weight:800;text-transform:uppercase;margin-bottom:2px;padding-right:20px">' + (sd.titulo||'Asado familiar') + '</div>' +
+    '<div style="font-size:12px;opacity:.9;margin-bottom:10px">' + label + '</div>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button onclick="' + (esFamiliar ? "confirmarFamiliarCalendario('" + sd.fechaISO + "')" : "rsvpCalendario('" + sd.fechaISO + "','si')") + '" style="flex:1;padding:9px;border-radius:9px;border:none;background:white;color:#c2185b;font-size:13px;font-weight:800;cursor:pointer">✅ VOY</button>' +
+      '<button onclick="rsvpCalendario(\'' + sd.fechaISO + '\',\'no\')" style="flex:1;padding:9px;border-radius:9px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.12);color:white;font-size:13px;font-weight:700;cursor:pointer">❌ NO VOY</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function cerrarBannerFamiliar(fechaISO) {
+  localStorage.setItem('asado_banner_cerrado_' + fechaISO, '1');
+  document.getElementById('ov-banner-familiar')?.remove();
+}
+
 function renderOvCalendario(meses) {
   if (isInvitado() && !isAdmin()) return '';
   const proximos = [];
@@ -4574,7 +4617,8 @@ function renderOverview() {
       '</div>'
     : '';
 
-  el.innerHTML = (diff === 0 ? renderModoDiaAsado(conf, noVan, sinResp, pendientes) : '') +
+  el.innerHTML = renderOvBannerFamiliar() +
+    (diff === 0 ? renderModoDiaAsado(conf, noVan, sinResp, pendientes) : '') +
     renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr, diff, evDate) +
     renderOvSponsor() +
     vacCard +
