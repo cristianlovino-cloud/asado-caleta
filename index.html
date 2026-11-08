@@ -5999,9 +5999,10 @@ function abrirModalPago(payerName, amount, receiverName) {
   document.getElementById('mp-payer').value   = payerName  || '';
   document.getElementById('mp-payer-label').textContent = payerName ? payerName.toUpperCase() : 'Elegir...';
   document.getElementById('mp-amount').value  = amount     || '';
-  // Si solo hay UN acreedor (lo más común: recaudás todo vos), lo dejamos preseleccionado directo
+  // Si hay un recaudador elegido para este asado, se preselecciona directo.
+  // Si no, y hay un solo acreedor (lo más común: recaudás todo vos), se usa ese.
   const acreedores = allP().filter(p => bal(p) > 0.5);
-  const receiverFinal = receiverName || (acreedores.length === 1 ? acreedores[0] : '');
+  const receiverFinal = receiverName || S.event?.recaudador || (acreedores.length === 1 ? acreedores[0] : '');
   document.getElementById('mp-receiver').value = receiverFinal;
   document.getElementById('mp-receiver-label').textContent = receiverFinal ? receiverFinal.toUpperCase() : 'Elegir...';
   if (amount) document.getElementById('mp-amount').value = Number(Math.round(amount)).toLocaleString('es-AR');
@@ -6015,8 +6016,13 @@ async function elegirPagoPersona(campo) {
   // pero también cualquier otro participante (puede ser que alguien cobre la plata
   // de todos y todavía no tenga saldo positivo calculado, ej: recaudó antes de cargar sus gastos)
   const opciones = esPayer ? allP().sort((a,b)=>a.localeCompare(b,'es')) : (() => {
-    const acreedores = allP().filter(p => bal(p) > 0.5).sort((a,b)=>a.localeCompare(b,'es'));
-    const resto = allP().filter(p => bal(p) <= 0.5).sort((a,b)=>a.localeCompare(b,'es'));
+    const todos = allP().sort((a,b)=>a.localeCompare(b,'es'));
+    const rec = S.event?.recaudador;
+    if (rec && todos.some(p=>p.toLowerCase()===rec.toLowerCase())) {
+      return [rec, ...todos.filter(p=>p.toLowerCase()!==rec.toLowerCase())];
+    }
+    const acreedores = todos.filter(p => bal(p) > 0.5);
+    const resto = todos.filter(p => bal(p) <= 0.5);
     return [...acreedores, ...resto];
   })();
   if (!opciones.length) { toast('No hay opciones para elegir', 'var(--red)'); return; }
@@ -6038,6 +6044,24 @@ async function confirmarPago() {
   closeModal('modal-pago');
 }
 
+async function elegirRecaudador() {
+  if (!S.event || !isAdmin()) return;
+  const opciones = allP().sort((a,b)=>a.localeCompare(b,'es'));
+  closeModal('modal-cuentas');
+  const elegido = await elegirEntreVarios(opciones, { title: '¿QUIÉN COBRA EL POZO?', icon: '💰', otroText: 'CANCELAR' });
+  openModal('modal-cuentas');
+  if (!elegido) return;
+  try {
+    const { error } = await sb.from('events').update({ recaudador: elegido }).eq('id', S.event.id);
+    if (error) throw error;
+    await fetchAll();
+    renderCuentas();
+    toast('💰 ' + elegido.toUpperCase() + ' cobra el pozo de este asado', 'var(--green)');
+  } catch(e) {
+    toast('❌ No se pudo guardar. ¿Falta la columna "recaudador" en la tabla events?', 'var(--red)');
+  }
+}
+
 async function renderCuentas() {
   const el = document.getElementById('cuentas-resumen');
   if (!el) return;
@@ -6046,94 +6070,51 @@ async function renderCuentas() {
   const total  = S.expenses.reduce((a,e) => a + parseFloat(e.amount), 0);
   const numP   = allP().length;
   const pp     = numP > 0 ? total / numP : 0;
+  const recaudador = S.event?.recaudador || '';
 
-  // Balance por persona considerando pagos
-  const acreedores = allP().filter(p => bal(p) > 0.5);
-  const deudores   = allP().filter(p => bal(p) < -0.5);
+  // Quién cobra el pozo. Si todavía no está elegido, no tiene sentido mostrar nada más.
+  const recaudadorP = recaudador ? S.participants.find(p => p.name === recaudador) : null;
+  const recAlias = recaudadorP?.mp_alias || '';
+  const recAliasHtml = recaudador ? (recAlias
+    ? '<span style="font-size:11px;color:var(--muted)">' + recAlias + '</span>' +
+      '<button onclick="copiarTexto(\'' + recAlias + '\',\'Alias\')" style="padding:2px 6px;border-radius:5px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:10px;cursor:pointer">📋</button>' +
+      (isAdmin() ? '<button onclick="editarAliasParticipante(\'' + recaudador + '\')" style="padding:2px 5px;border-radius:5px;border:none;background:none;color:var(--muted);font-size:10px;cursor:pointer">✏️</button>' : '')
+    : (isAdmin() ? '<button onclick="editarAliasParticipante(\'' + recaudador + '\')" style="padding:2px 8px;border-radius:5px;border:1px dashed var(--rim);background:none;color:var(--muted);font-size:10px;cursor:pointer">+ alias</button>' : '')) : '';
 
-  const pagadoPor  = name => payments.filter(p => p.payer.toLowerCase()  === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
-  const cobradoPor = name => {
-    const cobrado = payments.filter(p => p.receiver.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
-    const devuelto = payments.filter(p => p.payer.toLowerCase() === name.toLowerCase() && acreedores.map(x=>x.toLowerCase()).includes(p.receiver.toLowerCase())).reduce((a,p) => a + p.amount, 0);
-    return cobrado - devuelto;
-  };
+  const recHtml = '<div style="padding:10px 13px;background:var(--ash);border-radius:10px;margin-bottom:10px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center">' +
+      '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">💰 Recauda</span>' +
+      '<span style="display:flex;align-items:center;gap:8px">' +
+        '<span style="font-weight:700;' + (recaudador ? '' : 'color:var(--muted)') + '">' + (recaudador ? recaudador.toUpperCase() : 'SIN ELEGIR') + '</span>' +
+        (isAdmin() ? '<button onclick="elegirRecaudador()" style="padding:4px 10px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--fire);font-size:11px;cursor:pointer;font-weight:700">cambiar</button>' : '') +
+      '</span>' +
+    '</div>' +
+    (recAliasHtml ? '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' + recAliasHtml + '</div>' : '') +
+  '</div>';
 
-  // Deudores: cuánto pagaron vs cuánto deben
-  const deudaRestante = p => Math.max(0, Math.abs(bal(p)) - pagadoPor(p));
-  const pendientes = deudores.filter(p => deudaRestante(p) > TOLERANCIA_SALDO);
-  const saldados   = deudores.filter(p => deudaRestante(p) <= TOLERANCIA_SALDO);
+  if (!recaudador) {
+    el.innerHTML = recHtml +
+      '<div style="padding:20px 10px;text-align:center;color:var(--muted);font-size:13px">Elegí quién cobra el pozo de este asado para ver quién le tiene que pagar y cuánto.</div>';
+    return;
+  }
 
-  // HTML acreedores
-  const acrHtml = acreedores.length ? '<div class="sh" style="margin-bottom:8px">💸 A COBRAR</div>' +
-    acreedores.map(p => {
-      const saldo = bal(p);
-      const cobrado = cobradoPor(p);
-      const pendAcr = Math.max(0, saldo - cobrado);
-      const cobradoDemas = cobrado - saldo; // positivo = cobró de más
-      const saldado = pendAcr <= TOLERANCIA_SALDO;
-      const cobroDemas = cobradoDemas > TOLERANCIA_SALDO;
+  // Lo único que importa acá: cuánto le pagó cada uno al recaudador. No a quién
+  // le compró qué — eso lo resuelve el recaudador por su cuenta si hace falta.
+  const pagadoAlRecaudador = name => payments
+    .filter(p => p.payer.toLowerCase() === name.toLowerCase() && p.receiver.toLowerCase() === recaudador.toLowerCase())
+    .reduce((a,p) => a + p.amount, 0);
 
-      // Si cobró de más, calcular a quién le debe
-      let debeDevolver = '';
-      if (cobroDemas) {
-        const otrosAcr = acreedores.filter(x => x !== p);
-        const deudas = otrosAcr.map(x => {
-          const xCobrado = cobradoPor(x);
-          const xPendiente = Math.max(0, bal(x) - xCobrado);
-          const devolucion = Math.min(cobradoDemas, xPendiente);
-          return devolucion > 0.5 ? x.toUpperCase() + ': ' + fmt(devolucion) : null;
-        }).filter(Boolean);
-        if (deudas.length) debeDevolver = deudas.join(' · ');
-      }
+  const otros = allP().filter(p => p.toLowerCase() !== recaudador.toLowerCase());
+  const conFalta = otros.map(p => ({ name: p, falta: Math.max(0, pp - pagadoAlRecaudador(p)) }));
+  const pendientes = conFalta.filter(x => x.falta > TOLERANCIA_SALDO);
+  const saldados   = conFalta.filter(x => x.falta <= TOLERANCIA_SALDO);
 
-      const misPagosRecibidos = payments.filter(x => x.receiver.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
-      const pagosRecibidosHtml = misPagosRecibidos.length ? '<div style="margin:4px 0 2px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
-        misPagosRecibidos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
-          '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' ' + x.payer.toUpperCase() + ' →</span>' +
-          '<div style="display:flex;align-items:center;gap:10px">' +
-            '<span style="color:var(--green);font-weight:700">' + fmt(x.amount) + '</span>' +
-            (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="cursor:pointer;font-size:18px;padding:2px 4px">↩️</span>' : '') +
-          '</div></div>'
-        ).join('') +
-        '</div>' : '';
-
-      return '<div style="background:' + (cobroDemas ? 'rgba(231,76,60,.08)' : saldado ? 'rgba(39,174,96,.06)' : 'rgba(245,197,24,.06)') + ';border:1px solid ' + (cobroDemas ? 'rgba(231,76,60,.3)' : saldado ? 'rgba(39,174,96,.3)' : 'rgba(245,197,24,.25)') + ';border-radius:10px;padding:10px 12px;margin-bottom:7px">' +
-        '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
-          '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + '</span>' +
-          '<span style="color:' + (cobroDemas ? 'var(--red)' : saldado ? 'var(--green)' : 'var(--gold)') + ';font-weight:700">' +
-            (cobroDemas ? '⚠️ COBRÓ DE MÁS' : saldado ? '✅ COBRADO' : fmt(pendAcr) + ' PENDIENTE') +
-          '</span>' +
-        '</div>' +
-        (cobrado > 0 ? '<div style="font-size:11px;color:var(--muted);margin-bottom:2px">Cobrado: <span style="color:' + (cobroDemas?'var(--red)':'var(--green)') + ';font-weight:700">' + fmt(cobrado) + '</span> / Le correspondía: ' + fmt(saldo) + '</div>' : '') +
-        (cobroDemas ? '<div style="font-size:11px;color:var(--red);font-weight:700;margin-bottom:2px">Debe devolver: ' + fmt(cobradoDemas) + (debeDevolver ? ' → ' + debeDevolver : '') + '</div>' : '') +
-        pagosRecibidosHtml +
-      '</div>';
-    }).join('') : '';
-
-  // Acreedores que cobraron de más aparecen también en DEBEN PAGAR
-  const acrDeudores = acreedores.filter(p => cobradoPor(p) - bal(p) > TOLERANCIA_SALDO);
-  const acrDeudoresHtml = acrDeudores.map(p => {
-    const debeDevolver = cobradoPor(p) - bal(p);
-    return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);background:rgba(231,76,60,.04)">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
-        '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + ' <span style="font-size:10px;color:var(--muted)">(cobró de más)</span></span>' +
-        '<span style="font-size:12px;color:var(--red)">DEBE DEVOLVER ' + fmt(debeDevolver) + '</span>' +
-      '</div>' +
-      (isAdmin() ? '<div style="display:flex;gap:7px">' +
-        '<button onclick="abrirModalPago_btn(this)" data-payer="' + p + '" data-amount="' + Math.round(debeDevolver) + '" data-receiver="' + (acreedores.filter(x=>x!==p)[0]||'') + '" style="flex:1;padding:9px;border-radius:8px;border:none;background:rgba(231,76,60,.15);color:var(--red);border:1px solid rgba(231,76,60,.3);font-size:13px;font-weight:700;cursor:pointer">💸 REGISTRAR DEVOLUCIÓN</button>' +
-      '</div>' : '') +
-    '</div>';
-  }).join('');
-
-  // HTML deudores pendientes
-  const deuHtml = pendientes.map(p => {
-    const debe = Math.abs(bal(p));
-    const yaPago = pagadoPor(p);
-    const falta = deudaRestante(p);
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
+  // HTML pendientes de pagar al recaudador
+  const deuHtml = pendientes.map(({name:p, falta}) => {
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.receiver.toLowerCase() === recaudador.toLowerCase());
     const pagosHtml = misPagos.length ? '<div style="margin:4px 0 6px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
       misPagos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
-        '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + x.receiver.toUpperCase() + '</span>' +
+        '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + recaudador.toUpperCase() + '</span>' +
         '<div style="display:flex;align-items:center;gap:10px">' +
           '<span style="color:var(--green);font-weight:700">' + fmt(x.amount) + '</span>' +
           (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="cursor:pointer;font-size:18px;padding:2px 4px">↩️</span>' : '') +
@@ -6143,9 +6124,6 @@ async function renderCuentas() {
         '<span style="color:var(--muted)">Resta</span><span style="color:var(--red);font-weight:700">' + fmt(falta) + '</span>' +
       '</div></div>' : '';
 
-    // Acreedor con más deuda para pre-seleccionar
-    const acrPrincipal = acreedores.length ? acreedores.sort((a,b) => bal(b) - bal(a))[0] : '';
-
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
         '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + '</span>' +
@@ -6153,20 +6131,20 @@ async function renderCuentas() {
       '</div>' +
       pagosHtml +
       (isAdmin() ? '<div style="display:flex;gap:7px">' +
-        '<button onclick="abrirModalPago_btn(this)" data-payer="' + p + '" data-amount="' + Math.round(falta) + '" data-receiver="' + acrPrincipal + '" style="flex:1;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-size:13px;font-weight:700;cursor:pointer">💰 REGISTRAR PAGO</button>' +
+        '<button onclick="abrirModalPago_btn(this)" data-payer="' + p + '" data-amount="' + Math.round(falta) + '" data-receiver="' + recaudador + '" style="flex:1;padding:9px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-size:13px;font-weight:700;cursor:pointer">💰 REGISTRAR PAGO</button>' +
       '</div>' : '') +
     '</div>';
   }).join('');
 
   // HTML saldados
-  const saldHtml = saldados.map(p => {
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.payer.toLowerCase() !== x.receiver.toLowerCase());
-    const total = misPagos.reduce((a,x) => a+x.amount, 0);
+  const saldHtml = saldados.map(({name:p}) => {
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.receiver.toLowerCase() === recaudador.toLowerCase());
+    const totalP = misPagos.reduce((a,x) => a+x.amount, 0);
     const medios = [...new Set(misPagos.map(x=>x.method))].map(m => m==='efectivo'?'💵':'📲').join('+');
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
         '<span style="font-weight:700;text-decoration:line-through;color:var(--muted);text-transform:uppercase">' + p.toUpperCase() + '</span>' +
-        '<span style="font-size:12px;color:var(--green)">✅ ' + fmt(total) + '</span>' +
+        '<span style="font-size:12px;color:var(--green)">✅ ' + fmt(totalP) + '</span>' +
       '</div>' +
       '<div style="font-size:11px;color:var(--muted)">' + medios + ' ' +
         (isAdmin() ? misPagos.map(x => '<span onclick="deshacerPago(' + x.id + ')" style="color:var(--muted);cursor:pointer;text-decoration:underline;margin-left:8px;font-size:10px">↩️ Deshacer</span>').join('') : '') +
@@ -6174,75 +6152,35 @@ async function renderCuentas() {
     '</div>';
   }).join('');
 
-  // "Cobrado" tiene tope: lo que cada deudor pagó de más de lo que debía (pagos
+  // "Cobrado" tiene tope: lo que alguien pagó de más de lo que debía (pagos
   // duplicados, de prueba, etc.) NO suma acá — si sumara, el total podría superar
-  // lo que realmente hacía falta cobrar, que no tiene sentido. Ese excedente se
+  // lo que realmente había que juntar, que no tiene sentido. Ese excedente se
   // muestra aparte como aviso, para poder encontrarlo y borrarlo con "Deshacer".
-  const rawPagadoTotal = payments.filter(p => p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p) => a+p.amount, 0);
-  const totalEfectivo = payments.filter(p=>p.method==='efectivo' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
-  const totalTransf = payments.filter(p=>p.method==='transferencia' && p.payer.toLowerCase() !== p.receiver.toLowerCase()).reduce((a,p)=>a+p.amount,0);
-  const totalPendiente = pendientes.reduce((a,p) => a + deudaRestante(p), 0);
-  // Lo que tiene que circular entre deudores y acreedores (no es el total gastado:
-  // los acreedores ya se "pagaron" su propia parte con lo que gastaron de su bolsillo)
-  const montoACircular = acreedores.reduce((a,p) => a + Math.max(0, bal(p)), 0);
-  // Cobrado = lo que efectivamente hacía falta cobrar menos lo pendiente — así
-  // "cobrado + pendiente" da SIEMPRE exacto el monto a circular, sin trampa.
+  const rawPagadoAlRecaudador = payments.filter(p => p.receiver.toLowerCase() === recaudador.toLowerCase() && p.payer.toLowerCase() !== recaudador.toLowerCase()).reduce((a,p)=>a+p.amount,0);
+  const totalEfectivo = payments.filter(p=>p.method==='efectivo' && p.receiver.toLowerCase()===recaudador.toLowerCase() && p.payer.toLowerCase()!==recaudador.toLowerCase()).reduce((a,p)=>a+p.amount,0);
+  const totalTransf = payments.filter(p=>p.method==='transferencia' && p.receiver.toLowerCase()===recaudador.toLowerCase() && p.payer.toLowerCase()!==recaudador.toLowerCase()).reduce((a,p)=>a+p.amount,0);
+  const totalPendiente = pendientes.reduce((a,x) => a + x.falta, 0);
+  // Lo que falta juntar entre todos menos el recaudador (que ya puso su propia parte).
+  const montoACircular = pp * otros.length;
+  // Cobrado = lo que efectivamente hacía falta juntar menos lo pendiente — así
+  // "cobrado + pendiente" da SIEMPRE exacto el monto a juntar, sin trampa.
   const totalCobrado = Math.max(0, montoACircular - totalPendiente);
-  const totalSobrante = Math.max(0, rawPagadoTotal - totalCobrado);
-
-  // Orden de pagos sugerido: mínimas transacciones entre quien debe y quien tiene que cobrar
-  const deudoresRest = pendientes.map(p => ({ name: p, monto: deudaRestante(p) })).filter(x => x.monto > 0.5).sort((a,b) => b.monto - a.monto);
-  const acreedoresRest = acreedores.map(p => ({ name: p, monto: Math.max(0, bal(p) - cobradoPor(p)) })).filter(x => x.monto > 0.5).sort((a,b) => b.monto - a.monto);
-  const ordenPagos = [];
-  { let i = 0, j = 0;
-    const D = deudoresRest.map(x => ({...x})), A = acreedoresRest.map(x => ({...x}));
-    while (i < D.length && j < A.length) {
-      const monto = Math.min(D[i].monto, A[j].monto);
-      if (monto > 0.5) ordenPagos.push({ de: D[i].name, a: A[j].name, monto });
-      D[i].monto -= monto; A[j].monto -= monto;
-      if (D[i].monto <= 0.5) i++;
-      if (A[j].monto <= 0.5) j++;
-    }
-  }
-  const ordenHtml = ordenPagos.length ? '<div class="sh" style="margin-bottom:8px">🔀 Orden de pagos sugerido</div>' +
-    '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim);margin-bottom:12px">' +
-    ordenPagos.map(o => {
-      const receptor = S.participants.find(p => p.name === o.a);
-      const alias = receptor?.mp_alias || '';
-      const aliasHtml = alias
-        ? '<span style="font-size:11px;color:var(--muted)">' + alias + '</span>' +
-          '<button onclick="copiarTexto(\'' + alias + '\',\'Alias\')" style="padding:2px 6px;border-radius:5px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:10px;cursor:pointer">📋</button>' +
-          '<button onclick="editarAliasParticipante(\'' + o.a + '\')" style="padding:2px 5px;border-radius:5px;border:none;background:none;color:var(--muted);font-size:10px;cursor:pointer">✏️</button>'
-        : '<button onclick="editarAliasParticipante(\'' + o.a + '\')" style="padding:2px 8px;border-radius:5px;border:1px dashed var(--rim);background:none;color:var(--muted);font-size:10px;cursor:pointer">+ alias</button>';
-      return '<div style="padding:9px 12px;border-bottom:1px solid var(--rim)">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center">' +
-        '<span style="font-size:13px"><strong>' + o.de.toUpperCase() + '</strong> → <strong>' + o.a.toUpperCase() + '</strong></span>' +
-        '<div style="display:flex;align-items:center;gap:6px">' +
-          '<span style="font-weight:700;color:var(--fire)">' + fmt(o.monto) + '</span>' +
-          '<button onclick="copiarTexto(\'' + Math.round(o.monto) + '\',\'Monto\')" style="padding:4px 6px;border-radius:6px;border:1px solid var(--rim);background:var(--smoke);color:var(--muted);font-size:11px;cursor:pointer">📋</button>' +
-          (isAdmin() ? '<button onclick="abrirModalPago_btn(this)" data-payer="' + o.de + '" data-amount="' + Math.round(o.monto) + '" data-receiver="' + o.a + '" style="padding:5px 8px;border-radius:6px;border:none;background:rgba(245,197,24,.15);color:var(--fire);font-size:11px;cursor:pointer;font-weight:700">💰</button>' : '') +
-        '</div></div>' +
-        '<div style="display:flex;align-items:center;gap:6px;margin-top:4px">' + aliasHtml + '</div>' +
-      '</div>';
-    }).join('') +
-    '</div>' : '';
+  const totalSobrante = Math.max(0, rawPagadoAlRecaudador - totalCobrado);
 
   el.innerHTML =
+    recHtml +
     '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">' + numP + '</span></div>' +
       '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
     '</div>' +
-    ordenHtml +
-    acrHtml +
     (isAdmin() ? '<button onclick="abrirModalPago_btn(null)" style="width:100%;margin-bottom:12px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:Bebas Neue,cursive;letter-spacing:1px">➕ REGISTRAR PAGO</button>' : '') +
-    '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">DEBEN PAGAR</div>' +
-    '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">' + acrDeudoresHtml + (deuHtml || '') + (saldHtml || '') +
+    '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">💰 TODOS LE PAGAN A ' + recaudador.toUpperCase() + '</div>' +
+    '<div style="border-radius:10px;overflow:hidden;border:1px solid var(--rim)">' + (deuHtml || '') + (saldHtml || '') +
       (!deuHtml && !saldHtml ? '<div style="padding:12px;text-align:center;color:var(--green)">✅ TODOS SALDADOS</div>' : '') +
     '</div>' +
     '<div style="margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--ash)">' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">A REPARTIR ENTRE TODOS</span><span style="font-weight:700;color:var(--gold)">' + fmt(montoACircular) + '</span></div>' +
-      '<div style="font-size:10px;color:var(--muted);margin-bottom:8px">Lo que falta mover entre quien debe y quien tiene a favor (no es el total gastado: quien ya compró de su bolsillo ya se cubrió su propia parte)</div>' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">A JUNTAR PARA ' + recaudador.toUpperCase() + '</span><span style="font-weight:700;color:var(--gold)">' + fmt(montoACircular) + '</span></div>' +
       '<div style="height:1px;background:var(--rim);margin:4px 0 6px"></div>' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">✅ COBRADO</span><span style="font-weight:700;color:var(--green)">' + fmt(totalCobrado) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">⏳ PENDIENTE</span><span style="font-weight:700;color:' + (pendientes.length > 0 ? 'var(--red)' : 'var(--green)') + '">' + (pendientes.length > 0 ? fmt(totalPendiente) : '$0') + '</span></div>' +
