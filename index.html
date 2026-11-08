@@ -1628,6 +1628,18 @@ function toggleAdminBar() {
 }
 
 // ══ MODALES ════════════════════════════════════════
+// Filtro activo de la lista de asistencia ('todos' | 'si' | 'no' | 'pendiente').
+// Se guarda acá en vez de pasarlo como parámetro porque openModal() dispara
+// renderAsistencia() sin argumentos (lo llama genérico para cualquier modal).
+let _asistenciaFiltro = 'todos';
+function abrirAsistencia(filtro) {
+  _asistenciaFiltro = filtro || 'todos';
+  openModal('modal-asistencia');
+}
+function setAsistenciaFiltro(filtro) {
+  _asistenciaFiltro = filtro;
+  renderAsistencia();
+}
 function openModal(id) {
   if (id==='modal-event' && S.event) {
     document.getElementById('me-title').value = S.event.title;
@@ -1643,7 +1655,10 @@ function openModal(id) {
   if (id==='modal-asistencia') renderAsistencia();
   document.getElementById(id).classList.add('open');
 }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'modal-asistencia') _asistenciaFiltro = 'todos'; // así la próxima vez que se abra por el menú (no por una cajita) arranca mostrando todos
+}
 
 // ══ ADMIN: EDITAR EVENTO ═══════════════════════════
 async function saveEvent() {
@@ -3867,14 +3882,13 @@ function agregarACalendario() {
 
 function renderOvAsistencia(conf, noVan, sinResp) {
   if (isInvitado() && !isAdmin()) return '';
-  const footer = sinResp > 0
-    ? '<button onclick="openModal(\'modal-asistencia\')" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer">👥 VER ASISTENCIA</button>'
-    : '<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>';
+  const footer = sinResp === 0
+    ? '<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>' : '';
   return '<div class="ov-card"><div class="ov-label">📊 Asistencia</div>' +
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">' +
-    '<div style="padding:12px 8px;background:rgba(39,174,96,.15);border-radius:12px;border:2px solid rgba(39,174,96,.4)"><div style="font-size:32px;font-weight:800;color:var(--green);line-height:1">' + conf + '</div><div style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">VAN ✅</div></div>' +
-    '<div style="padding:12px 8px;background:rgba(231,76,60,.12);border-radius:12px;border:2px solid rgba(231,76,60,.35)"><div style="font-size:32px;font-weight:800;color:var(--red);line-height:1">' + noVan + '</div><div style="font-size:11px;color:var(--red);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">NO VAN ❌</div></div>' +
-    '<div style="padding:12px 8px;background:rgba(150,150,150,.1);border-radius:12px;border:2px solid rgba(150,150,150,.25)"><div style="font-size:32px;font-weight:800;color:var(--text);line-height:1">' + sinResp + '</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:4px">PENDIENTE</div></div>' +
+    '<div onclick="abrirAsistencia(\'si\')" style="cursor:pointer;padding:12px 8px;background:rgba(39,174,96,.15);border-radius:12px;border:2px solid rgba(39,174,96,.4)"><div style="font-size:32px;font-weight:800;color:var(--green);line-height:1">' + conf + '</div><div style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">✅ VAN</div></div>' +
+    '<div onclick="abrirAsistencia(\'no\')" style="cursor:pointer;padding:12px 8px;background:rgba(231,76,60,.12);border-radius:12px;border:2px solid rgba(231,76,60,.35)"><div style="font-size:32px;font-weight:800;color:var(--red);line-height:1">' + noVan + '</div><div style="font-size:11px;color:var(--red);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">❌ NO VAN</div></div>' +
+    '<div onclick="abrirAsistencia(\'pendiente\')" style="cursor:pointer;padding:12px 8px;background:rgba(150,150,150,.1);border-radius:12px;border:2px solid rgba(150,150,150,.25)"><div style="font-size:32px;font-weight:800;color:var(--text);line-height:1">' + sinResp + '</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:4px">⏳ PENDIENTE</div></div>' +
     '</div>' + footer + '</div>';
 }
 
@@ -4878,22 +4892,29 @@ function renderAsistencia() {
     return d.getUTCDate().toString().padStart(2,'0')+'/'+(d.getUTCMonth()+1).toString().padStart(2,'0')+' '+d.getUTCHours().toString().padStart(2,'0')+':'+d.getUTCMinutes().toString().padStart(2,'0');
   };
 
-  el.innerHTML = 
+  // Qué grupo mostrar en la lista de abajo, según la cajita que tocaron
+  const grupos = { si: confirmados, no: noVan, pendiente: sinResp, todos: todos };
+  const lista = grupos[_asistenciaFiltro] || todos;
+  const activa = (f) => _asistenciaFiltro === f ? 'box-shadow:0 0 0 2px currentColor inset;' : '';
+
+  el.innerHTML =
     `<div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px">
-      <div style="flex:1;padding:8px;background:rgba(39,174,96,.1);border-radius:8px;text-align:center">
+      <div onclick="setAsistenciaFiltro('si')" style="cursor:pointer;flex:1;padding:8px;background:rgba(39,174,96,.1);border-radius:8px;text-align:center;color:var(--green);${activa('si')}">
         <div style="font-size:20px;font-weight:700;color:var(--green)">${confirmados.length}</div>
-        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">Confirmados</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">✅ Van</div>
       </div>
-      <div style="flex:1;padding:8px;background:rgba(231,76,60,.1);border-radius:8px;text-align:center">
+      <div onclick="setAsistenciaFiltro('no')" style="cursor:pointer;flex:1;padding:8px;background:rgba(231,76,60,.1);border-radius:8px;text-align:center;color:var(--red);${activa('no')}">
         <div style="font-size:20px;font-weight:700;color:var(--red)">${noVan.length}</div>
-        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">No van</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">❌ No van</div>
       </div>
-      <div style="flex:1;padding:8px;background:var(--ash);border-radius:8px;text-align:center">
+      <div onclick="setAsistenciaFiltro('pendiente')" style="cursor:pointer;flex:1;padding:8px;background:var(--ash);border-radius:8px;text-align:center;color:var(--muted);${activa('pendiente')}">
         <div style="font-size:20px;font-weight:700;color:var(--muted)">${sinResp.length}</div>
-        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">Sin responder</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">⏳ Pendiente</div>
       </div>
     </div>`+
-    [...todos].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
+    (_asistenciaFiltro !== 'todos' ? `<div onclick="setAsistenciaFiltro('todos')" style="cursor:pointer;text-align:center;font-size:11px;color:var(--muted);text-decoration:underline;margin-bottom:8px">ver todos</div>` : '') +
+    (!lista.length ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nadie en este grupo</div>` : '') +
+    [...lista].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
       const r = getRsvp(p.name);
       const cuando = getRsvpAt(p.name) ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(getRsvpAt(p.name))}</div>` : '';
       const setBy = getRsvpSetBy(p.name);
