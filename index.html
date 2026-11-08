@@ -505,6 +505,7 @@ body {
     <button class="abtn" onclick="openModal('modal-participants')">👥 Participantes</button>
     <button class="abtn" onclick="openModal('modal-history')">📚 Historial</button>
     <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
+    <button class="abtn" onclick="openModal('modal-fechas-especiales')" style="border-color:rgba(255,105,180,.4);color:#ff69b4">👨‍👩‍👧 Fechas especiales</button>
     <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
@@ -846,6 +847,12 @@ body {
     <input class="fi" id="me-time" placeholder="10:00–16:30">
     <label class="fl">Lugar</label>
     <input class="fi" id="me-loc" placeholder="La Caleta">
+    <div style="background:rgba(255,105,180,.08);border:1px solid rgba(255,105,180,.25);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <label style="font-size:12px;color:#ff69b4;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="me-familiar" style="width:16px;height:16px;accent-color:#ff69b4">
+        👨‍👩‍👧 Es un asado familiar (al confirmar, pregunta con/sin pareja)
+      </label>
+    </div>
     <div class="frow">
       <button class="btp" onclick="saveEvent()">GUARDAR</button>
       <button class="btg" onclick="closeModal('modal-event')">CANCELAR</button>
@@ -1067,6 +1074,26 @@ body {
   </div>
 </div>
 
+<!-- Modal fechas especiales -->
+<div class="modal-bg" id="modal-fechas-especiales">
+  <div class="modal">
+    <div class="modal-title">👨‍👩‍👧 Fechas especiales <button class="modal-close" onclick="closeModal('modal-fechas-especiales')">✕</button></div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5">Se suman al calendario de la portada (que normalmente solo calcula el 2° sábado de cada mes par) y quedan destacadas con su propio tag.</p>
+    <div id="fechas-especiales-list" style="margin-bottom:14px"></div>
+    <div class="div"></div>
+    <label class="fl">Fecha 📅</label>
+    <input class="fi" id="fe-fecha" type="date" style="color-scheme:dark">
+    <label class="fl">Título</label>
+    <input class="fi" id="fe-titulo" value="Asado familiar" placeholder="Asado familiar">
+    <label class="fl">Tipo</label>
+    <select class="fsel" id="fe-tipo">
+      <option value="familiar">👨‍👩‍👧 Familiar (pide confirmar con/sin pareja)</option>
+      <option value="especial">✨ Especial (solo se destaca)</option>
+    </select>
+    <button class="btp" style="width:100%;margin-top:4px" onclick="agregarFechaEspecial()">+ AGREGAR</button>
+  </div>
+</div>
+
 <!-- Modal editar tarea -->
 <div class="modal-bg" id="modal-edit-task">
   <div class="modal">
@@ -1107,6 +1134,12 @@ body {
     <input class="fi" id="na-time" value="10:00–16:30">
     <label class="fl">Lugar</label>
     <input class="fi" id="na-loc" value="La Caleta">
+    <div style="background:rgba(255,105,180,.08);border:1px solid rgba(255,105,180,.25);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+      <label style="font-size:12px;color:#ff69b4;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="na-familiar" style="width:16px;height:16px;accent-color:#ff69b4">
+        👨‍👩‍👧 Es un asado familiar (al confirmar, pregunta con/sin pareja)
+      </label>
+    </div>
     <div class="frow">
       <button class="btp" onclick="createNewAsado()">CREAR NUEVO ASADO 🔥</button>
       <button class="btg" onclick="closeModal('modal-new-asado')">CANCELAR</button>
@@ -1126,7 +1159,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[], votaciones:[], votacion_opciones:[], votacion_votos:[], paymentReqs:[] };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[], votaciones:[], votacion_opciones:[], votacion_votos:[], paymentReqs:[], specialDates:[], rsvpCal:{}, rsvpCalInfo:{} };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -1176,6 +1209,8 @@ const isPendiente= () => { const p = S.participants.find(x=>x.name.toLowerCase()
 const getRsvp  = name => S.rsvp[name.toLowerCase()]?.rsvp || null;
 const getRsvpAt= name => S.rsvp[name.toLowerCase()]?.rsvp_at || null;
 const getRsvpSetBy = name => S.rsvp[name.toLowerCase()]?.set_by || null;
+const getRsvpConPareja   = name => !!S.rsvp[name.toLowerCase()]?.con_pareja;
+const getRsvpParejaNombre= name => S.rsvp[name.toLowerCase()]?.pareja_nombre || '';
 // ─────────────────────────────────────────────────────────────────────────
 
 const allP = () => [...new Set(S.participants.filter(p=>(p.active && getRsvp(p.name)==='si') || (p.role==='invitado' && getRsvp(p.name)==='si')).map(p=>p.name))];
@@ -1202,7 +1237,7 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg,vac,vaco,vacv,pr] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg,vac,vaco,vacv,pr,sd] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
@@ -1218,7 +1253,12 @@ async function fetchAll() {
     sb.from('votacion_opciones').select('*').order('orden'),
     sb.from('votacion_votos').select('*'),
     S.event ? sb.from('payment_requests').select('*').eq('event_id', S.event?.id || 0).order('created_at', { ascending: false }) : Promise.resolve({data:[]}),
+    sb.from('special_dates').select('*').order('fecha'),
   ]);
+  // Fechas especiales (ej: asado familiar fuera del calendario fijo). Si la tabla
+  // todavía no existe en Supabase (falta la migración), sd.error viene seteado —
+  // no rompemos nada, el calendario simplemente sigue mostrando solo lo calculado.
+  S.specialDates = sd?.data || [];
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data.filter(t => !t.archived);
@@ -1291,7 +1331,7 @@ async function fetchAll() {
 
   // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
   S.rsvp = {};
-  if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, set_by: r.set_by, id: r.id}; });
+  if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, set_by: r.set_by, id: r.id, con_pareja: r.con_pareja, pareja_nombre: r.pareja_nombre}; });
 
   if (sp.data?.length) {
     const hoy = ahoraAR();
@@ -1305,9 +1345,12 @@ async function fetchAll() {
   } else { S.sponsors = []; }
   if (cr.data) {
     S.rsvpCal = {};
+    S.rsvpCalInfo = {};
     cr.data.forEach(r => {
       if (!S.rsvpCal[r.fecha]) S.rsvpCal[r.fecha] = {};
       S.rsvpCal[r.fecha][r.nombre] = r.resp;
+      if (!S.rsvpCalInfo[r.fecha]) S.rsvpCalInfo[r.fecha] = {};
+      S.rsvpCalInfo[r.fecha][r.nombre] = { con_pareja: r.con_pareja, pareja_nombre: r.pareja_nombre };
     });
   }
   // Chequear RSVP — fuente de verdad Supabase, nada local
@@ -1648,11 +1691,13 @@ function openModal(id) {
     document.getElementById('me-date').value = dp.length===3 ? `${dp[2]}-${dp[1].padStart(2,'0')}-${dp[0].padStart(2,'0')}` : S.event.event_date;
     document.getElementById('me-time').value  = S.event.time_range;
     document.getElementById('me-loc').value   = S.event.location;
+    document.getElementById('me-familiar').checked = S.event.tipo === 'familiar';
   }
   if (id==='modal-participants') renderParticipantsModal();
   if (id==='modal-history') renderHistory();
   if (id==='modal-cuentas') renderCuentas();
   if (id==='modal-asistencia') renderAsistencia();
+  if (id==='modal-fechas-especiales') renderFechasEspeciales();
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id) {
@@ -1671,8 +1716,9 @@ async function saveEvent() {
   }
   const time  = document.getElementById('me-time').value.trim();
   const loc   = document.getElementById('me-loc').value.trim();
+  const tipo  = document.getElementById('me-familiar').checked ? 'familiar' : 'normal';
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
-  await sb.from('events').update({title,event_date:date,time_range:time,location:loc}).eq('id',S.event.id);
+  await sb.from('events').update({title,event_date:date,time_range:time,location:loc,tipo}).eq('id',S.event.id);
   closeModal('modal-event');
   await fetchAll();
   toast('✅ Asado actualizado!');
@@ -1939,13 +1985,14 @@ async function createNewAsado() {
   if (rawDate.includes('-')) { const [y,m,d]=rawDate.split('-'); date=`${d}/${m}/${y}`; }
   const time =document.getElementById('na-time').value.trim();
   const loc  =document.getElementById('na-loc').value.trim();
+  const tipo = document.getElementById('na-familiar').checked ? 'familiar' : 'normal';
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
   // Archivar actual
   await sb.from('events').update({archived:true}).eq('id',S.event.id);
   window._cuentasAvisado = false;
   // El rsvp ya está en tabla separada por event_id, no hay que resetear nada
   // Crear nuevo
-  const {data} = await sb.from('events').insert({title,event_date:date,time_range:time,location:loc,creator:me}).select().single();
+  const {data} = await sb.from('events').insert({title,event_date:date,time_range:time,location:loc,creator:me,tipo}).select().single();
   if (data) {
     // Copiar tareas marcadas como plantilla del evento anterior
     const templates = S.tasks.filter(t => t.is_template);
@@ -1996,6 +2043,52 @@ function renderHistory() {
       </div>
       <div class="ec-meta">📅 ${ev.event_date} · ${ev.time_range} · 📍 ${ev.location}</div>
     </div>`).join('');
+}
+
+// ══ FECHAS ESPECIALES (admin) ═════════════════════
+function renderFechasEspeciales() {
+  const el = document.getElementById('fechas-especiales-list');
+  if (!el) return;
+  const lista = (S.specialDates||[]).slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  if (!lista.length) { el.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:10px 0">Todavía no cargaste ninguna.</div>'; return; }
+  el.innerHTML = lista.map(sd => {
+    const [yy,mm,dd] = (sd.fecha||'').split('-');
+    const esFamiliar = (sd.tipo||'familiar') === 'familiar';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--rim)">' +
+      '<div style="min-width:0">' +
+        '<div style="font-size:13px;font-weight:700">' + (dd&&mm&&yy ? dd+'/'+mm+'/'+yy : sd.fecha) + ' <span style="font-size:10px;color:' + (esFamiliar?'#ff69b4':'var(--muted)') + '">' + (esFamiliar?'👨‍👩‍👧 FAMILIAR':'✨ ESPECIAL') + '</span></div>' +
+        '<div style="font-size:11px;color:var(--muted)">' + (sd.titulo||'') + '</div>' +
+      '</div>' +
+      '<button onclick="borrarFechaEspecial(' + sd.id + ')" style="padding:5px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--red);font-size:12px;cursor:pointer;flex-shrink:0">🗑</button>' +
+    '</div>';
+  }).join('');
+}
+
+async function agregarFechaEspecial() {
+  const rawDate = document.getElementById('fe-fecha').value.trim();
+  const titulo = document.getElementById('fe-titulo').value.trim() || 'Asado familiar';
+  const tipo = document.getElementById('fe-tipo').value;
+  if (!rawDate) { toast('Elegí una fecha', 'var(--red)'); return; }
+  try {
+    const { error } = await sb.from('special_dates').insert({ fecha: rawDate, titulo, tipo });
+    if (error) throw error;
+    document.getElementById('fe-fecha').value = '';
+    document.getElementById('fe-titulo').value = 'Asado familiar';
+    await fetchAll();
+    renderFechasEspeciales();
+    toast('✅ Fecha agregada!', 'var(--green)');
+  } catch(e) {
+    toast('❌ No se pudo guardar. ¿Falta crear la tabla "special_dates" en Supabase?', 'var(--red)');
+  }
+}
+
+async function borrarFechaEspecial(id) {
+  closeModal('modal-fechas-especiales');
+  if (!(await showConfirm('¿Borrar esta fecha especial?', { icon: '🗑' }))) { openModal('modal-fechas-especiales'); return; }
+  await sb.from('special_dates').delete().eq('id', id);
+  await fetchAll();
+  openModal('modal-fechas-especiales');
+  toast('🗑 Borrada', 'var(--muted)');
 }
 
 // ══ TABS ══════════════════════════════════════════
@@ -3776,8 +3869,10 @@ async function rsvpCalendario(fechaISO, resp) {
   // Actualizar local inmediatamente
   if (!S.rsvpCal) S.rsvpCal = {};
   if (!S.rsvpCal[fechaISO]) S.rsvpCal[fechaISO] = {};
-  if (newResp) S.rsvpCal[fechaISO][me] = newResp;
-  else delete S.rsvpCal[fechaISO][me];
+  if (!S.rsvpCalInfo) S.rsvpCalInfo = {};
+  if (!S.rsvpCalInfo[fechaISO]) S.rsvpCalInfo[fechaISO] = {};
+  if (newResp) { S.rsvpCal[fechaISO][me] = newResp; S.rsvpCalInfo[fechaISO][me] = null; }
+  else { delete S.rsvpCal[fechaISO][me]; delete S.rsvpCalInfo[fechaISO][me]; }
   renderOverview();
 
   if (newResp) {
@@ -3787,12 +3882,39 @@ async function rsvpCalendario(fechaISO, resp) {
   // Guardar en Supabase
   if (newResp) {
     await sb.from('calendar_rsvp').upsert({
-      fecha: fechaISO, nombre: me, resp: newResp
+      fecha: fechaISO, nombre: me, resp: newResp, con_pareja: false, pareja_nombre: null
     }, {onConflict: 'fecha,nombre'});
   } else {
     await sb.from('calendar_rsvp').delete()
       .eq('fecha', fechaISO).eq('nombre', me);
   }
+}
+
+// Variante para fechas especiales marcadas "familiar": antes de anotar el "sí",
+// pregunta si va con pareja (y el nombre). No usa el toggle de rsvpCalendario
+// porque acá el "✅" siempre es "confirmar/editar mi respuesta", nunca un apagado.
+async function confirmarFamiliarCalendario(fechaISO) {
+  if (!sbOk || !me) return;
+  const conPareja = await showConfirm('¿Vas a venir con tu pareja?', { title: '👨‍👩‍👧 ASADO FAMILIAR', icon: '💑', okText: 'SÍ, CON PAREJA', cancelText: 'VOY SOLO/A' });
+  let parejaNombre = '';
+  if (conPareja) {
+    const actual = S.rsvpCalInfo?.[fechaISO]?.[me]?.pareja_nombre || '';
+    const nombre = await showPrompt('Nombre de tu pareja', actual, { title: '¿CÓMO SE LLAMA?', placeholder: 'Nombre...' });
+    if (nombre === null) return; // se arrepintió, no anoto nada
+    parejaNombre = nombre.trim();
+  }
+  if (!S.rsvpCal) S.rsvpCal = {};
+  if (!S.rsvpCal[fechaISO]) S.rsvpCal[fechaISO] = {};
+  if (!S.rsvpCalInfo) S.rsvpCalInfo = {};
+  if (!S.rsvpCalInfo[fechaISO]) S.rsvpCalInfo[fechaISO] = {};
+  S.rsvpCal[fechaISO][me] = 'si';
+  S.rsvpCalInfo[fechaISO][me] = { con_pareja: conPareja, pareja_nombre: parejaNombre };
+  renderOverview();
+  var pp2 = (S.event?.title||'asado').split(' ')[0];
+  toast('✅ Anotado! Vas al ' + pp2 + (conPareja && parejaNombre ? ' con ' + parejaNombre : '') + ' 🔥');
+  await sb.from('calendar_rsvp').upsert({
+    fecha: fechaISO, nombre: me, resp: 'si', con_pareja: conPareja, pareja_nombre: parejaNombre || null
+  }, {onConflict: 'fecha,nombre'});
 }
 
 function renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr, diff, evDate) {
@@ -3884,12 +4006,15 @@ function renderOvAsistencia(conf, noVan, sinResp) {
   if (isInvitado() && !isAdmin()) return '';
   const footer = sinResp === 0
     ? '<div style="margin-top:8px;font-size:12px;color:var(--green);text-align:center;font-weight:700">✅ TODOS RESPONDIERON</div>' : '';
-  return '<div class="ov-card"><div class="ov-label">📊 Asistencia</div>' +
+  const conParejaCount = S.event?.tipo === 'familiar' ? S.participants.filter(p=>p.active&&getRsvp(p.name)==='si'&&getRsvpConPareja(p.name)).length : 0;
+  const parejaFooter = conParejaCount > 0
+    ? '<div style="margin-top:8px;font-size:12px;color:#ff69b4;text-align:center;font-weight:700">💑 ' + conParejaCount + ' van con pareja</div>' : '';
+  return '<div class="ov-card"><div class="ov-label">📊 Asistencia' + (S.event?.tipo==='familiar' ? ' <span style="font-size:10px;color:#ff69b4">👨‍👩‍👧 familiar</span>' : '') + '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">' +
     '<div onclick="abrirAsistencia(\'si\')" style="cursor:pointer;padding:12px 8px;background:rgba(39,174,96,.15);border-radius:12px;border:2px solid rgba(39,174,96,.4)"><div style="font-size:32px;font-weight:800;color:var(--green);line-height:1">' + conf + '</div><div style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">✅ VAN</div></div>' +
     '<div onclick="abrirAsistencia(\'no\')" style="cursor:pointer;padding:12px 8px;background:rgba(231,76,60,.12);border-radius:12px;border:2px solid rgba(231,76,60,.35)"><div style="font-size:32px;font-weight:800;color:var(--red);line-height:1">' + noVan + '</div><div style="font-size:11px;color:var(--red);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">❌ NO VAN</div></div>' +
     '<div onclick="abrirAsistencia(\'pendiente\')" style="cursor:pointer;padding:12px 8px;background:rgba(150,150,150,.1);border-radius:12px;border:2px solid rgba(150,150,150,.25)"><div style="font-size:32px;font-weight:800;color:var(--text);line-height:1">' + sinResp + '</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:4px">⏳ PENDIENTE</div></div>' +
-    '</div>' + footer + '</div>';
+    '</div>' + footer + parejaFooter + '</div>';
 }
 
 function renderOvCumples(cumples, meses, parts, mesActual, diaActual) {
@@ -3956,33 +4081,59 @@ function renderOvCalendario(meses) {
       if (sabado2 && sabado2 > hoyTs) proximos.push({
         fecha: sabado2,
         label: sabado2.getDate() + ' de ' + meses[sabado2.getMonth()+1] + ' ' + y,
-        esEste: S.event && S.event.event_date === (String(sabado2.getDate()).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y)
+        esEste: S.event && S.event.event_date === (String(sabado2.getDate()).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y),
+        tipo: 'normal'
       });
     }
     m++; if (m > 12) { m = 1; y++; }
   }
-  if (!proximos.length) return '';
-  const rows = proximos.map(p => {
+  // Fechas especiales cargadas a mano por el admin (ej: asado familiar fuera
+  // de la regla fija). Se mezclan con las calculadas y se destacan aparte.
+  const especiales = (S.specialDates||[]).map(sd => {
+    const [yy,mm,dd] = (sd.fecha||'').split('-').map(Number);
+    if (!yy||!mm||!dd) return null;
+    const fecha = new Date(yy, mm-1, dd);
+    return {
+      fecha,
+      label: dd + ' de ' + meses[mm] + ' ' + yy,
+      esEste: S.event && S.event.event_date === (String(dd).padStart(2,'0')+'/'+String(mm).padStart(2,'0')+'/'+yy),
+      tipo: sd.tipo || 'familiar',
+      titulo: sd.titulo || ''
+    };
+  }).filter(p => p && p.fecha > hoyTs);
+  // Si una fecha especial cae el mismo día que una calculada, se queda la especial
+  // (trae el tag/título) y se descarta la calculada duplicada.
+  const especialesISO = new Set(especiales.map(p => p.fecha.toISOString().split('T')[0]));
+  const todas = [...proximos.filter(p => !especialesISO.has(p.fecha.toISOString().split('T')[0])), ...especiales]
+    .sort((a,b) => a.fecha - b.fecha)
+    .slice(0, 5);
+  if (!todas.length) return '';
+  const rows = todas.map(p => {
+    const esFamiliar = p.tipo === 'familiar';
     const mesAsado = p.fecha.getMonth()+1;
     const cumplesMes = S.participants.filter(pt=>pt.active&&pt.birthday).filter(pt=>{ const [d,mo]=(pt.birthday||'').split('/').map(Number); return mo===mesAsado; });
     const fechaISO = p.fecha.toISOString().split('T')[0];
     const miRsvpCal = S.rsvpCal?.[fechaISO]?.[me] || null;
+    const miConPareja = !!S.rsvpCalInfo?.[fechaISO]?.[me]?.con_pareja;
     const totalVan = S.rsvpCal?.[fechaISO] ? Object.values(S.rsvpCal[fechaISO]).filter(r=>r==='si').length : 0;
-    const dot = '<div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' + (p.esEste?'var(--fire)':'var(--rim)') + '"></div>';
+    const totalConPareja = esFamiliar && S.rsvpCalInfo?.[fechaISO] ? Object.entries(S.rsvpCalInfo[fechaISO]).filter(([n,info]) => S.rsvpCal[fechaISO]?.[n]==='si' && info?.con_pareja).length : 0;
+    const dot = '<div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' + (p.esEste?'var(--fire)':esFamiliar?'#ff69b4':'var(--rim)') + '"></div>';
     const esteTag = p.esEste ? '<span style="font-size:9px;background:var(--fire);color:white;padding:1px 5px;border-radius:8px;font-weight:700">ESTE</span>' : '';
+    const familiarTag = esFamiliar ? '<span style="font-size:9px;background:#ff69b4;color:white;padding:1px 5px;border-radius:8px;font-weight:700">👨‍👩‍👧 FAMILIAR</span>' : '';
+    const tituloTag = p.titulo ? '<div style="font-size:10px;color:#ff9fc9">' + p.titulo.toUpperCase() + '</div>' : '';
     const cumpleTag = cumplesMes.length ? '<div style="font-size:10px;color:var(--ember)">🎂 ' + cumplesMes.map(c=>c.name.toUpperCase()).join(', ') + '</div>' : '';
-    const vanTag = totalVan > 0 ? '<div style="font-size:10px;color:var(--green);margin-top:1px">✅ ' + totalVan + ' van</div>' : '';
+    const vanTag = totalVan > 0 ? '<div style="font-size:10px;color:var(--green);margin-top:1px">✅ ' + totalVan + ' van' + (totalConPareja > 0 ? ' · 💑 ' + totalConPareja + ' con pareja' : '') + '</div>' : '';
     const rsvpBtns = p.esEste ? '<div style="font-size:18px;margin-left:8px">🔥</div>'
       : '<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">' +
-        '<button onclick="rsvpCalendario(\'' + fechaISO + '\',\'si\')" style="padding:6px 10px;border-radius:8px;border:2px solid ' + (miRsvpCal==='si'?'var(--green)':'var(--rim)') + ';background:' + (miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)') + ';color:' + (miRsvpCal==='si'?'var(--green)':'var(--muted)') + ';font-size:13px;cursor:pointer">✅</button>' +
+        '<button onclick="' + (esFamiliar ? 'confirmarFamiliarCalendario(\'' + fechaISO + '\')' : 'rsvpCalendario(\'' + fechaISO + '\',\'si\')') + '" style="padding:6px 10px;border-radius:8px;border:2px solid ' + (miRsvpCal==='si'?'var(--green)':'var(--rim)') + ';background:' + (miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)') + ';color:' + (miRsvpCal==='si'?'var(--green)':'var(--muted)') + ';font-size:13px;cursor:pointer">✅' + (miRsvpCal==='si'&&miConPareja?'💑':'') + '</button>' +
         '<button onclick="rsvpCalendario(\'' + fechaISO + '\',\'no\')" style="padding:6px 10px;border-radius:8px;border:2px solid ' + (miRsvpCal==='no'?'var(--red)':'var(--rim)') + ';background:' + (miRsvpCal==='no'?'rgba(231,76,60,.15)':'var(--ash)') + ';color:' + (miRsvpCal==='no'?'var(--red)':'var(--muted)') + ';font-size:13px;cursor:pointer">❌</button></div>';
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--rim)">' +
-      '<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">' + dot +
-      '<span style="font-size:13px;font-weight:700;text-transform:uppercase;color:' + (p.esEste?'var(--fire)':'var(--text)') + '">' + p.label + '</span>' + esteTag + '</div>' +
-      cumpleTag + vanTag + '</div>' + rsvpBtns + '</div>';
+      '<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap">' + dot +
+      '<span style="font-size:13px;font-weight:700;text-transform:uppercase;color:' + (p.esEste?'var(--fire)':esFamiliar?'#ff69b4':'var(--text)') + '">' + p.label + '</span>' + esteTag + familiarTag + '</div>' +
+      tituloTag + cumpleTag + vanTag + '</div>' + rsvpBtns + '</div>';
   }).join('');
   return '<div class="ov-card"><div class="ov-label">📅 CALENDARIO DE ASADOS</div>' +
-    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">2° SÁBADO DE MES PAR · LA CALETA</div>' +
+    '<div style="font-size:10px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">2° SÁBADO DE MES PAR · LA CALETA' + (especiales.length ? ' + especiales' : '') + '</div>' +
     rows + '</div>';
 }
 
@@ -4847,22 +4998,37 @@ function startAutoRefresh() {
 // ══ AUTOCOMPLETE NOMBRE ═══════════════════════════
 // ══ CONFIRMACIÓN ASISTENCIA ════════════════════════
 async function confirmarAsistencia(resp) {
-  await upsertRsvp(me, resp);
+  let parejaInfo = null;
+  // Si este asado está marcado como "familiar", antes de anotar un "sí" pregunto
+  // si viene con pareja (y el nombre), para tener la cabeza de cantidad real.
+  if (resp === 'si' && S.event?.tipo === 'familiar') {
+    const conPareja = await showConfirm('¿Vas a venir con tu pareja?', { title: '👨‍👩‍👧 ASADO FAMILIAR', icon: '💑', okText: 'SÍ, CON PAREJA', cancelText: 'VOY SOLO/A' });
+    let parejaNombre = '';
+    if (conPareja) {
+      const nombre = await showPrompt('Nombre de tu pareja', getRsvpParejaNombre(me), { title: '¿CÓMO SE LLAMA?', placeholder: 'Nombre...' });
+      if (nombre === null) return; // se arrepintió, no confirmo nada todavía
+      parejaNombre = nombre.trim();
+    }
+    parejaInfo = { con_pareja: conPareja, pareja_nombre: parejaNombre };
+  }
+  await upsertRsvp(me, resp, parejaInfo);
   toast(resp==='si'?'🔥 ¡Nos vemos en el asado!':'😔 La próxima crack');
   entrarApp(me);
   setTimeout(()=>showTab('overview'), 300);
 }
 
-async function upsertRsvp(name, resp) {
+async function upsertRsvp(name, resp, parejaInfo) {
   if (!S.event) await fetchAll();   // fuerza la carga si todavía no estaba
   if (!S.event) return;             // recién ahí, si sigue sin haber evento, corta
+  const conPareja = parejaInfo?.con_pareja || false;
+  const parejaNombre = parejaInfo?.pareja_nombre || null;
   const existing = S.rsvp[name.toLowerCase()];
   if (existing?.id) {
-    await sb.from('rsvp').update({rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me}).eq('id', existing.id);
+    await sb.from('rsvp').update({rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me, con_pareja: conPareja, pareja_nombre: parejaNombre}).eq('id', existing.id);
   } else {
-    await sb.from('rsvp').insert({event_id: S.event.id, participant_name: name, rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me});
+    await sb.from('rsvp').insert({event_id: S.event.id, participant_name: name, rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me, con_pareja: conPareja, pareja_nombre: parejaNombre});
   }
-  S.rsvp[name.toLowerCase()] = {rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me};
+  S.rsvp[name.toLowerCase()] = {rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me, con_pareja: conPareja, pareja_nombre: parejaNombre};
 }
 
 // ══ ASISTENCIA ADMIN ═══════════════════════════════
@@ -4883,7 +5049,9 @@ function renderAsistencia() {
   const confirmados = todos.filter(p=>getRsvp(p.name)==='si');
   const noVan = todos.filter(p=>getRsvp(p.name)==='no');
   const sinResp = todos.filter(p=>!getRsvp(p.name));
-  
+  const esFamiliar = S.event?.tipo === 'familiar';
+  const conParejaCount = esFamiliar ? confirmados.filter(p=>getRsvpConPareja(p.name)).length : 0;
+
   const fmtRsvpAt = (iso) => {
     if (!iso) return '';
     // Fuerza UTC-3 fijo (Argentina), sin depender de la zona horaria del dispositivo que mira la lista
@@ -4901,7 +5069,7 @@ function renderAsistencia() {
     `<div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px">
       <div onclick="setAsistenciaFiltro('si')" style="cursor:pointer;flex:1;padding:8px;background:rgba(39,174,96,.1);border-radius:8px;text-align:center;color:var(--green);${activa('si')}">
         <div style="font-size:20px;font-weight:700;color:var(--green)">${confirmados.length}</div>
-        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">✅ Van</div>
+        <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">✅ Van${esFamiliar && conParejaCount ? ' <span style="color:#ff69b4">+'+conParejaCount+' 💑</span>' : ''}</div>
       </div>
       <div onclick="setAsistenciaFiltro('no')" style="cursor:pointer;flex:1;padding:8px;background:rgba(231,76,60,.1);border-radius:8px;text-align:center;color:var(--red);${activa('no')}">
         <div style="font-size:20px;font-weight:700;color:var(--red)">${noVan.length}</div>
@@ -4917,6 +5085,7 @@ function renderAsistencia() {
     [...lista].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
       const r = getRsvp(p.name);
       const cuando = getRsvpAt(p.name) ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">${fmtRsvpAt(getRsvpAt(p.name))}</div>` : '';
+      const parejaTag = (esFamiliar && r==='si' && getRsvpConPareja(p.name)) ? `<div style="font-size:10px;color:#ff69b4;margin-top:1px">💑 con pareja${getRsvpParejaNombre(p.name)?' ('+getRsvpParejaNombre(p.name).toUpperCase()+')':''}</div>` : '';
       const setBy = getRsvpSetBy(p.name);
       const esAuto = setBy && setBy.toLowerCase() === p.name.toLowerCase();
       const badge = !r ? '' : esAuto
@@ -4926,6 +5095,7 @@ function renderAsistencia() {
         <div style="flex:1 1 auto;min-width:0;overflow:hidden">
           <span style="font-weight:500;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${p.name}${badge}</span>
           ${cuando}
+          ${parejaTag}
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:nowrap;justify-content:flex-end">
           ${isAdmin()
