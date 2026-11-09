@@ -664,6 +664,8 @@ body {
   <div class="panel" id="panel-carne">
     <div class="sh">🥩 Calculadora de Carne</div>
     <div class="card" style="padding:14px 13px">
+      <div id="carne-modo-toggle" style="margin-bottom:12px"></div>
+      <div id="carne-controles">
       <label class="fl">Tipo de asado</label>
       <select class="fsel" id="tipo-asado" onchange="calcularCarne()">
         <option value="tapeo">🍢 Tapeo</option>
@@ -676,6 +678,7 @@ body {
         <button onclick="cambiarComensalesCalc(-1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer">−</button>
         <div id="calc-comen" style="flex:1;text-align:center;font-family:var(--font-title);font-size:28px;color:var(--fire)">12</div>
         <button onclick="cambiarComensalesCalc(1)" style="width:38px;height:38px;border-radius:9px;border:1px solid var(--rim);background:var(--ash);color:var(--text);font-size:20px;cursor:pointer">+</button>
+      </div>
       </div>
       <div id="resultado-carne"></div>
     </div>
@@ -1715,6 +1718,7 @@ function openModal(id) {
 }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
+  if (id === 'modal-cuentas') _cuentasPaso = null;
   if (id === 'modal-asistencia') _asistenciaFiltro = 'todos'; // así la próxima vez que se abra por el menú (no por una cajita) arranca mostrando todos
 }
 
@@ -4680,18 +4684,30 @@ function renderOverview() {
       '</div>'
     : '';
 
-  el.innerHTML = renderOvBannerFamiliar() +
-    (diff === 0 ? renderModoDiaAsado(conf, noVan, sinResp, pendientes) : '') +
-    renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr, diff, evDate) +
-    renderOvSponsor() +
-    vacCard +
-    renderOvMiEstado(miRsvp) +
-    renderOvAsistencia(conf, noVan, sinResp) +
-    renderPendientesInvCard() +
-    renderOvCumples(cumples, meses, parts, mesActual, diaActual) +
-    renderOvTareas(pendientes) +
-    renderOvVotosStats() +
-    renderOvCalendario(meses);
+  // Orden de las tarjetas según la fase del asado: lo que importa cambia con los días que faltan.
+  // No se oculta nada, solo cambia qué va arriba.
+  const bloques = {
+    banner:     renderOvBannerFamiliar(),
+    modoDia:    diff === 0 ? renderModoDiaAsado(conf, noVan, sinResp, pendientes) : '',
+    hero:       renderOvHero(conf, pendientes, cumples, fechaStr, diaSemanaStr, diff, evDate),
+    sponsor:    renderOvSponsor(),
+    vac:        vacCard,
+    miEstado:   renderOvMiEstado(miRsvp),
+    asistencia: renderOvAsistencia(conf, noVan, sinResp),
+    pendInv:    renderPendientesInvCard(),
+    cumples:    renderOvCumples(cumples, meses, parts, mesActual, diaActual),
+    tareas:     renderOvTareas(pendientes),
+    votos:      renderOvVotosStats(),
+    calendario: renderOvCalendario(meses)
+  };
+  const ORDEN = diff === 0
+    ? ['modoDia','hero','miEstado','tareas','asistencia','pendInv','banner','vac','sponsor','cumples','votos','calendario']      // día D: lo operativo
+    : (diff !== null && diff > 0 && diff <= 7)
+    ? ['banner','hero','miEstado','asistencia','tareas','vac','pendInv','sponsor','cumples','calendario','votos']                 // semana previa: confirmar y preparar
+    : (diff !== null && diff < 0)
+    ? ['hero','vac','sponsor','asistencia','pendInv','cumples','votos','calendario','banner','tareas','miEstado']                 // ya pasó: cierre y lo que viene
+    : ['banner','hero','vac','miEstado','calendario','sponsor','cumples','asistencia','pendInv','tareas','votos'];                 // lejos: calendario, cumples y votaciones
+  el.innerHTML = ORDEN.map(k => bloques[k] || '').join('');
   startSpCarousel();
 }
 
@@ -5484,10 +5500,68 @@ function cambiarComensalesCalc(delta) {
   document.getElementById('calc-comen').textContent = calcComensales;
   calcularCarne();
 }
+// ── Modo parrilla (día D): lista grande con tilde "ya salió" ──
+let _carneModoParrilla = null;   // null = automático (se activa solo el día del asado)
+let _carneTipoAuto = false;
+function esDiaDelAsado() {
+  const h = ahoraAR();
+  const hoyStr = String(h.getDate()).padStart(2,'0') + '/' + String(h.getMonth()+1).padStart(2,'0') + '/' + h.getFullYear();
+  return !!S.event && (S.event.event_date || '').replace(/\b(\d)\//g, '0$1/') === hoyStr;
+}
+function carneModoActivo() { return _carneModoParrilla === null ? esDiaDelAsado() : _carneModoParrilla; }
+function setCarneModo(v) { _carneModoParrilla = v; calcularCarne(); }
+// Comensales reales = confirmados (+ parejas si el asado es familiar)
+function comensalesReales() {
+  const base = allP().length;
+  const parejas = S.event?.tipo === 'familiar' ? S.participants.filter(p => p.active && getRsvp(p.name)==='si' && getRsvpConPareja(p.name)).length : 0;
+  return Math.max(1, base + parejas);
+}
+function carneListosKey() { return 'carne_listos_' + (S.event?.id || '0'); }
+function carneListos() { try { return JSON.parse(localStorage.getItem(carneListosKey()) || '[]'); } catch(e) { return []; } }
+function toggleCarneListo(nombre) {
+  const l = carneListos(); const i = l.indexOf(nombre);
+  if (i >= 0) l.splice(i, 1); else l.push(nombre);
+  try { localStorage.setItem(carneListosKey(), JSON.stringify(l)); } catch(e) {}
+  if (navigator.vibrate) navigator.vibrate(15);
+  calcularCarne();
+}
+function reiniciarCarneListos() { try { localStorage.removeItem(carneListosKey()); } catch(e) {} calcularCarne(); }
+
 function calcularCarne() {
-  const tipo = document.getElementById('tipo-asado')?.value || 'completo';
+  // Si el asado es familiar y no tocaron el selector, arranca en "familiar"
+  const sel = document.getElementById('tipo-asado');
+  if (sel && !_carneTipoAuto && S.event?.tipo === 'familiar') { sel.value = 'familiar'; _carneTipoAuto = true; }
+  const parrilla = carneModoActivo();
+  const toggle = document.getElementById('carne-modo-toggle');
+  if (toggle) toggle.innerHTML = '<button onclick="setCarneModo(' + (!parrilla) + ')" style="width:100%;padding:10px;border-radius:10px;border:1px solid ' + (parrilla ? 'var(--rim)' : 'var(--fire)') + ';background:' + (parrilla ? 'var(--ash)' : 'rgba(245,197,24,.1)') + ';color:' + (parrilla ? 'var(--muted)' : 'var(--fire)') + ';font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">' + (parrilla ? '🧮 Volver a la calculadora' : '🔥 Modo parrilla (día D)') + '</button>';
+  const controles = document.getElementById('carne-controles');
+  if (controles) controles.style.display = parrilla ? 'none' : 'block';
+
+  const tipo = sel?.value || 'completo';
   const cortes = CORTES[tipo];
-  const n = calcComensales;
+  const n = parrilla ? comensalesReales() : calcComensales;
+  const el = document.getElementById('resultado-carne');
+  if (!el) return;
+
+  if (parrilla) {
+    const listos = carneListos();
+    const hechos = cortes.filter(co => listos.includes(co.nombre)).length;
+    const filas = cortes.map(co => {
+      const total = Math.ceil(co.grPorPax * n / 100) * 100;
+      const ok = listos.includes(co.nombre);
+      return `<div onclick="toggleCarneListo('${co.nombre.replace(/'/g, "\\'")}')" style="display:flex;align-items:center;gap:12px;padding:16px 12px;margin-bottom:8px;border-radius:14px;cursor:pointer;border:2px solid ${ok ? 'var(--green)' : 'var(--rim)'};background:${ok ? 'rgba(39,174,96,.12)' : 'var(--ash)'};opacity:${ok ? .65 : 1}">
+        <div style="font-size:30px">${ok ? '✅' : co.emoji}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;text-transform:uppercase;${ok ? 'text-decoration:line-through' : ''}">${co.nombre}</div><div style="font-size:11px;color:var(--muted)">${total} g · ${ok ? 'ya salió' : 'pendiente'}</div></div>
+        <div style="font-family:var(--font-title);font-size:28px;color:${ok ? 'var(--green)' : 'var(--fire)'}">${(total/1000).toFixed(1)}<span style="font-size:14px"> kg</span></div>
+      </div>`;
+    }).join('');
+    el.innerHTML = `<div style="text-align:center;margin-bottom:12px"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Para ${n} comensales</div><div style="font-size:13px;font-weight:700;color:${hechos === cortes.length ? 'var(--green)' : 'var(--text)'}">${hechos === cortes.length ? '🔥 ¡Todo salió!' : hechos + ' de ' + cortes.length + ' listos'}</div></div>` +
+      filas +
+      (hechos ? `<button onclick="reiniciarCarneListos()" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--rim);background:none;color:var(--muted);font-size:11px;cursor:pointer">Reiniciar tildes</button>` : '') +
+      `<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:8px">Los tildes se guardan solo en este celu.</div>`;
+    return;
+  }
+
   const html = cortes.map(co => {
     const total = Math.ceil(co.grPorPax * n / 100) * 100;
     const kg = (total/1000).toFixed(1);
@@ -5497,8 +5571,7 @@ function calcularCarne() {
     </div>`;
   }).join('');
   const totalKg = (cortes.reduce((a,co)=>a+co.grPorPax*n,0)/1000).toFixed(1);
-  const el = document.getElementById('resultado-carne');
-  if(el) el.innerHTML = html + `<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.08);border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--muted)">Total estimado</div><div style="font-family:var(--font-title);font-size:26px;color:var(--fire)">${totalKg} kg</div><div style="font-size:10px;color:var(--muted)">para ${n} personas</div></div>`;
+  el.innerHTML = html + `<div style="margin-top:10px;padding:10px;background:rgba(245,197,24,.08);border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--muted)">Total estimado</div><div style="font-family:var(--font-title);font-size:26px;color:var(--fire)">${totalKg} kg</div><div style="font-size:10px;color:var(--muted)">para ${n} personas</div></div>`;
 }
 
 // ══ VOTOS ═════════════════════════════════════════
@@ -6387,17 +6460,41 @@ async function confirmarPago() {
   closeModal('modal-pago');
 }
 
+let _cuentasPaso = null;          // null = automático (paso 3 si ya hay recaudador, si no paso 1)
+let _ultimoResumenCuentas = null;  // lo calcula renderCuentas, lo usa el botón de compartir
+function irPasoCuentas(n) { _cuentasPaso = n; renderCuentas(); }
+
+// Resumen de cuentas para el grupo: cuánto es por persona, a quién pagarle y quién falta
+async function compartirResumenCuentas() {
+  const r = _ultimoResumenCuentas;
+  if (!r || !S.event) return;
+  const nom = n => n.split(' ')[0];
+  let msg = `💰 *CUENTAS — ${(S.event.title || 'Asado').toUpperCase()}*\n` +
+    `Total gastado: ${fmt(r.total)}\nPor persona (${r.numP}): *${fmt(r.pp)}*\n\n` +
+    `Le pagan a: *${r.recaudador.toUpperCase()}*${r.alias ? '\nAlias: ' + r.alias : ''}\n\n`;
+  msg += r.pendientes.length
+    ? `⏳ *Falta pagar:*\n` + r.pendientes.map(x => `• ${nom(x.name)}: ${fmt(x.falta)}`).join('\n')
+    : `✅ ¡Todos pagaron!`;
+  if (navigator.share) { try { await navigator.share({ text: msg }); } catch(e) {} return; }
+  navigator.clipboard.writeText(msg)
+    .then(() => toast('📋 Resumen copiado — pegalo en el grupo', 'var(--green)', 4000))
+    .catch(() => toast('❌ No se pudo copiar', 'var(--red)'));
+}
+
 async function elegirRecaudador() {
   if (!S.event || !isAdmin()) return;
   const opciones = allP().sort((a,b)=>a.localeCompare(b,'es'));
+  const pasoPrevio = _cuentasPaso;   // closeModal lo resetea; si cancelan, vuelven al mismo paso
   closeModal('modal-cuentas');
   const elegido = await elegirEntreVarios(opciones, { title: '¿QUIÉN COBRA EL POZO?', icon: '💰', otroText: 'CANCELAR' });
+  _cuentasPaso = pasoPrevio;
   openModal('modal-cuentas');
   if (!elegido) return;
   try {
     const { error } = await sb.from('events').update({ recaudador: elegido }).eq('id', S.event.id);
     if (error) throw error;
     await fetchAll();
+    _cuentasPaso = 3;
     renderCuentas();
     toast('💰 ' + elegido.toUpperCase() + ' cobra el pozo de este asado', 'var(--green)');
   } catch(e) {
@@ -6435,9 +6532,47 @@ async function renderCuentas() {
     (recAliasHtml ? '<div style="display:flex;align-items:center;gap:6px;margin-top:6px">' + recAliasHtml + '</div>' : '') +
   '</div>';
 
+  // ── Asistente de 3 pasos: 1) revisar gastos · 2) recaudador · 3) cobros y resumen ──
+  const paso = _cuentasPaso ?? (recaudador ? 3 : 1);
+  const pasos = ['Gastos', 'Recaudador', 'Cobros'];
+  const stepper = '<div style="display:flex;gap:6px;margin-bottom:12px">' + pasos.map((n, i) => {
+    const num = i + 1, act = num === paso, hecho = num < paso || (num === 2 && recaudador);
+    return '<div onclick="irPasoCuentas(' + num + ')" style="flex:1;cursor:pointer;text-align:center;padding:7px 4px;border-radius:10px;font-size:11px;font-weight:700;text-transform:uppercase;border:1px solid ' + (act ? 'var(--fire)' : 'var(--rim)') + ';background:' + (act ? 'rgba(245,197,24,.12)' : 'var(--ash)') + ';color:' + (act ? 'var(--fire)' : hecho ? 'var(--green)' : 'var(--muted)') + '">' + (hecho && !act ? '✓' : num) + ' · ' + n + '</div>';
+  }).join('') + '</div>';
+  const btnNav = (txt, destino, primario, deshab) => '<button ' + (deshab ? 'disabled' : 'onclick="irPasoCuentas(' + destino + ')"') + ' style="flex:1;padding:11px;border-radius:10px;border:' + (primario ? 'none' : '1px solid var(--rim)') + ';background:' + (primario ? 'linear-gradient(135deg,var(--fire),var(--ember))' : 'var(--ash)') + ';color:' + (primario ? 'white' : 'var(--muted)') + ';font-size:13px;font-weight:700;cursor:pointer;opacity:' + (deshab ? '.4' : '1') + '">' + txt + '</button>';
+
+  if (paso === 1) {
+    const porPagador = {};
+    S.expenses.forEach(e => { porPagador[e.payer] = (porPagador[e.payer] || 0) + parseFloat(e.amount); });
+    const gastosHtml = S.expenses.length
+      ? [...S.expenses].map(e => '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--rim)"><div style="min-width:0"><div style="font-size:13px;font-weight:600;text-transform:uppercase">' + e.description + '</div><div style="font-size:11px;color:var(--muted)">' + e.payer.toUpperCase() + '</div></div><div style="font-weight:700;color:var(--fire);flex-shrink:0;margin-left:8px">' + fmt(parseFloat(e.amount)) + '</div></div>').join('')
+      : '<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px">Todavía no hay gastos cargados.</div>';
+    const quienPuso = Object.entries(porPagador).sort((a,b) => b[1]-a[1]).map(([n,v]) => '<span style="display:inline-block;margin:2px 6px 2px 0;font-size:11px;color:var(--muted)">' + n.toUpperCase() + ' <b style="color:var(--text)">' + fmt(v) + '</b></span>').join('');
+    el.innerHTML = stepper +
+      '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">CONFIRMADOS</span><span style="font-weight:700">' + numP + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
+      '</div>' +
+      (quienPuso ? '<div style="margin-bottom:8px"><span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Pusieron plata:</span><br>' + quienPuso + '</div>' : '') +
+      '<div style="margin-bottom:14px">' + gastosHtml + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">¿Falta algún gasto? Cargalo en la pestaña Gastos antes de seguir.</div>' +
+      '<div style="display:flex;gap:8px">' + btnNav('Siguiente: recaudador →', 2, true) + '</div>';
+    return;
+  }
+
+  if (paso === 2) {
+    el.innerHTML = stepper +
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5">Elegí quién junta la plata de todos. Después cada uno le paga a esa persona.</div>' +
+      recHtml +
+      '<div style="display:flex;gap:8px;margin-top:12px">' + btnNav('← Gastos', 1, false) + btnNav('Siguiente: cobros →', 3, true, !recaudador) + '</div>';
+    return;
+  }
+
   if (!recaudador) {
-    el.innerHTML = recHtml +
-      '<div style="padding:20px 10px;text-align:center;color:var(--muted);font-size:13px">Elegí quién cobra el pozo de este asado para ver quién le tiene que pagar y cuánto.</div>';
+    el.innerHTML = stepper + recHtml +
+      '<div style="padding:20px 10px;text-align:center;color:var(--muted);font-size:13px">Elegí quién cobra el pozo de este asado para ver quién le tiene que pagar y cuánto.</div>' +
+      '<div style="display:flex;gap:8px">' + btnNav('Elegir recaudador', 2, true) + '</div>';
     return;
   }
 
@@ -6510,7 +6645,12 @@ async function renderCuentas() {
   const totalCobrado = Math.max(0, montoACircular - totalPendiente);
   const totalSobrante = Math.max(0, rawPagadoAlRecaudador - totalCobrado);
 
-  el.innerHTML =
+  _ultimoResumenCuentas = {
+    recaudador, alias: recAlias, total, pp, numP,
+    pendientes: pendientes.map(x => ({ name: x.name, falta: x.falta })),
+    saldados: saldados.map(x => x.name)
+  };
+  el.innerHTML = stepper +
     recHtml +
     '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
@@ -6531,7 +6671,9 @@ async function renderCuentas() {
       '<div style="height:1px;background:var(--rim);margin:8px 0 6px"></div>' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">💵 Efectivo movido</span><span style="font-weight:700;color:var(--muted)">' + fmt(totalEfectivo) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">📲 Transferido</span><span style="font-weight:700;color:var(--muted)">' + fmt(totalTransf) + '</span></div>' +
-    '</div>';
+    '</div>' +
+    '<button onclick="compartirResumenCuentas()" style="width:100%;margin-top:12px;padding:11px;border-radius:10px;border:1px solid rgba(37,211,102,.5);background:rgba(37,211,102,.1);color:#25D366;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase">📱 Compartir resumen de cuentas</button>' +
+    '<div style="display:flex;gap:8px;margin-top:10px">' + btnNav('← Recaudador', 2, false) + '</div>';
 }
 
 
