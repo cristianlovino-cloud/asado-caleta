@@ -490,6 +490,7 @@ body {
         </div>
       </div>
     </div>
+    <div id="hdr-chip" onclick="mostrarConfirmScreen()" style="display:none;margin-top:8px;padding:7px 12px;border-radius:10px;background:rgba(245,197,24,.14);border:1px solid rgba(245,197,24,.45);color:var(--fire);font-size:12px;font-weight:700;cursor:pointer;align-items:center;justify-content:space-between;gap:8px"><span>⏳ Falta tu respuesta al asado</span><span style="text-decoration:underline">CONFIRMAR</span></div>
   </div>
   <div id="user-menu" style="display:none;position:absolute;top:56px;right:12px;background:var(--smoke);border:1px solid var(--rim);border-radius:12px;z-index:300;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.5);text-transform:uppercase">
     <div onclick="openModal('modal-asistencia');toggleUserMenu()" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--rim);font-size:14px">👥 Ver asistentes</div>
@@ -1770,6 +1771,34 @@ async function recordarGrupoWhatsapp() {
   }
   navigator.clipboard.writeText(msg)
     .then(() => toast('📋 Mensaje copiado — pegalo en el grupo de WhatsApp', 'var(--green)', 4000))
+    .catch(() => toast('❌ No se pudo copiar', 'var(--red)'));
+}
+
+// Resumen completo del asado para pegar/compartir en el grupo: quiénes van, quiénes faltan
+// responder y cuántas tareas quedan. Selector nativo del celu o, si no hay, copia el texto.
+async function compartirResumenWhatsapp() {
+  if (!S.event) return;
+  const todos = S.participants.filter(p => p.active);
+  const nom = p => p.name.split(' ')[0];
+  const van = todos.filter(p => getRsvp(p.name) === 'si');
+  const noVan = todos.filter(p => getRsvp(p.name) === 'no');
+  const sinResp = todos.filter(p => !getRsvp(p.name));
+  const tareasPend = S.tasks.filter(t => !t.done);
+  const conPareja = S.event.tipo === 'familiar' ? van.filter(p => getRsvpConPareja(p.name)).length : 0;
+  let msg = `🔥 *${(S.event.title || 'Asado en La Caleta').toUpperCase()}*\n` +
+    `📅 ${S.event.event_date}${S.event.time_range ? ' · ' + S.event.time_range : ''}\n` +
+    `📍 ${S.event.location || ''}\n\n` +
+    `✅ *Van (${van.length}${conPareja ? ' + ' + conPareja + ' parejas' : ''}):* ${van.map(nom).join(', ') || '—'}\n` +
+    `❌ *No van (${noVan.length})*\n`;
+  if (sinResp.length) msg += `⏳ *Falta que respondan (${sinResp.length}):* ${sinResp.map(nom).join(', ')}\n`;
+  if (tareasPend.length) msg += `\n📝 Tareas pendientes: ${tareasPend.length}`;
+  msg += `\n\nEntrá a la app y confirmá si todavía no lo hiciste 👊`;
+  if (navigator.share) {
+    try { await navigator.share({ text: msg }); } catch(e) { /* canceló */ }
+    return;
+  }
+  navigator.clipboard.writeText(msg)
+    .then(() => toast('📋 Resumen copiado — pegalo en el grupo de WhatsApp', 'var(--green)', 4000))
     .catch(() => toast('❌ No se pudo copiar', 'var(--red)'));
 }
 
@@ -3658,6 +3687,12 @@ function renderHeader() {
   if (!S.event) return;
   document.getElementById('evt-name').textContent = S.event.title;
   document.getElementById('hdr-sub').textContent  = S.event.event_date+' · '+S.event.time_range+(S.event.location?' · '+S.event.location:'');
+  // Chip fijo mientras falte la respuesta: no depende de que entren a la tarjeta "Mi estado"
+  const chip = document.getElementById('hdr-chip');
+  if (chip) {
+    const falta = me && !S.event.archived && !getRsvp(me) && !(isInvitado() && !isAdmin());
+    chip.style.display = falta ? 'flex' : 'none';
+  }
 }
 
 // ══ EDITAR/ELIMINAR GASTOS (admin) ════════════════
@@ -4014,7 +4049,9 @@ function renderOvAsistencia(conf, noVan, sinResp) {
     '<div onclick="abrirAsistencia(\'si\')" style="cursor:pointer;padding:12px 8px;background:rgba(39,174,96,.15);border-radius:12px;border:2px solid rgba(39,174,96,.4)"><div style="font-size:32px;font-weight:800;color:var(--green);line-height:1">' + conf + '</div><div style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">✅ VAN</div></div>' +
     '<div onclick="abrirAsistencia(\'no\')" style="cursor:pointer;padding:12px 8px;background:rgba(231,76,60,.12);border-radius:12px;border:2px solid rgba(231,76,60,.35)"><div style="font-size:32px;font-weight:800;color:var(--red);line-height:1">' + noVan + '</div><div style="font-size:11px;color:var(--red);text-transform:uppercase;font-weight:600;margin-top:4px;opacity:.8">❌ NO VAN</div></div>' +
     '<div onclick="abrirAsistencia(\'pendiente\')" style="cursor:pointer;padding:12px 8px;background:rgba(150,150,150,.1);border-radius:12px;border:2px solid rgba(150,150,150,.25)"><div style="font-size:32px;font-weight:800;color:var(--text);line-height:1">' + sinResp + '</div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:600;margin-top:4px">⏳ PENDIENTE</div></div>' +
-    '</div>' + footer + parejaFooter + '</div>';
+    '</div>' + footer + parejaFooter +
+    '<button onclick="compartirResumenWhatsapp()" style="width:100%;margin-top:10px;padding:9px;border-radius:10px;border:1px solid rgba(37,211,102,.5);background:rgba(37,211,102,.1);color:#25D366;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">📱 Compartir resumen por WhatsApp</button>' +
+    '</div>';
 }
 
 function renderOvCumples(cumples, meses, parts, mesActual, diaActual) {
