@@ -188,6 +188,7 @@ html { font-size:16px; background:#0E1A1B; }
   */
 }
 
+html,body{overscroll-behavior-y:contain}
 body {
   font-family:var(--font-body);
   background:var(--coal); color:var(--text);
@@ -261,7 +262,14 @@ body {
 .tab .ti{font-size:18px;display:block;margin-bottom:2px;transition:transform .2s}
 .tab.active .ti{transform:translateY(-1px) scale(1.08)}
 .panel{display:none;padding:12px 12px calc(78px + env(safe-area-inset-bottom,0px))}
-.panel.active{display:block}
+.panel.active{display:block;animation:panelIn .22s ease-out}
+@keyframes panelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.sk{background:linear-gradient(90deg,var(--ash) 25%,var(--rim) 50%,var(--ash) 75%);background-size:200% 100%;animation:skShine 1.2s linear infinite;border-radius:12px}
+@keyframes skShine{from{background-position:200% 0}to{background-position:-200% 0}}
+#ptr{position:fixed;left:50%;top:0;transform:translate(-50%,-60px);z-index:160;width:38px;height:38px;border-radius:50%;background:var(--smoke);border:1px solid var(--rim);box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0;pointer-events:none}
+#ptr.spin span{display:inline-block;animation:ptrSpin .8s linear infinite}
+@keyframes ptrSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.panel.active{animation:none}.sk{animation:none}}
 
 /* ── COMPONENTES ────────────────── */
 .sh{font-family:var(--font-title);font-size:17px;letter-spacing:2px;color:var(--ember);margin-bottom:8px;display:flex;align-items:center;gap:8px}
@@ -380,6 +388,9 @@ body {
 .toast.show{opacity:1}
 .empty{text-align:center;padding:26px 14px;color:var(--muted);font-size:13px}
 .empty .em{font-size:36px;margin-bottom:7px}
+.empty-btn{margin-top:12px;padding:9px 18px;border-radius:10px;border:1px solid var(--fire);background:rgba(245,197,24,.1);color:var(--fire);font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase;font-family:inherit}
+.toast-undo{position:fixed;bottom:calc(74px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--smoke);color:var(--text);border:1px solid var(--rim);padding:8px 8px 8px 16px;border-radius:16px;font-weight:600;font-size:13px;z-index:1000;display:flex;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:92vw;width:max-content}
+.toast-undo button{padding:7px 14px;border-radius:10px;border:none;background:var(--fire);color:#000;font-weight:800;font-size:12px;cursor:pointer;text-transform:uppercase;font-family:inherit}
 .div{height:1px;background:var(--rim);margin:12px 0}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer}
 .pill-assign{background:rgba(46,134,222,.12);border:1px solid rgba(46,134,222,.25);color:var(--blue)}
@@ -529,7 +540,7 @@ body {
 
   <!-- OVERVIEW -->
   <div class="panel active" id="panel-overview">
-    <div id="ov-content"><div style="text-align:center;padding:40px;color:var(--muted)">Cargando...</div></div>
+    <div id="ov-content"><div class="sk" style="height:150px;margin-bottom:12px"></div><div class="sk" style="height:90px;margin-bottom:12px"></div><div class="sk" style="height:120px;margin-bottom:12px"></div><div class="sk" style="height:90px"></div></div>
   </div>
 
   <!-- GASTOS -->
@@ -1149,6 +1160,7 @@ body {
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="ptr"><span>🔄</span></div>
 
 <script>
 // ══ SUPABASE ══════════════════════════════════════
@@ -2469,7 +2481,7 @@ async function renderGastos() {
 
   const el=document.getElementById('explist');
   if (el) el.innerHTML=S.expenses.length===0
-    ?'<div class="empty"><div class="em">🧾</div>Sin gastos aún</div>'
+    ?'<div class="empty"><div class="em">🧾</div>Sin gastos aún<br><button class="empty-btn" onclick="document.getElementById(\'fedesc\').scrollIntoView({behavior:\'smooth\',block:\'center\'});document.getElementById(\'fedesc\').focus()">➕ Cargar el primer gasto</button></div>'
     :[...S.expenses].reverse().map(e=>`
       <div class="er">
         ${e.foto_url
@@ -3367,7 +3379,7 @@ function renderTaskRow(t, { showAssignee = false } = {}) {
 
 function renderTasks() {
   const el=document.getElementById('tasklist');
-  if (!S.tasks.length) { el.innerHTML='<div class="empty"><div class="em">📋</div>Sin tareas</div>'; return; }
+  if (!S.tasks.length) { el.innerHTML='<div class="empty"><div class="em">📋</div>Sin tareas<br><button class="empty-btn" onclick="document.getElementById(\'ftname\').scrollIntoView({behavior:\'smooth\',block:\'center\'});document.getElementById(\'ftname\').focus()">➕ Agregar la primera tarea</button></div>'; return; }
 
   const switcher = `<div style="display:flex;gap:6px;margin-bottom:10px">
     <button onclick="setTaskView('persona')" style="flex:1;padding:7px;border-radius:8px;border:1px solid ${_taskViewMode==='persona'?'var(--fire)':'var(--rim)'};background:${_taskViewMode==='persona'?'rgba(245,197,24,.12)':'var(--ash)'};color:${_taskViewMode==='persona'?'var(--fire)':'var(--muted)'};font-size:11px;font-weight:700;cursor:pointer">👤 PERSONA</button>
@@ -3599,11 +3611,18 @@ async function saveEditTask() {
 async function deleteTask2() {
   const id = parseInt(document.getElementById('edit-task-id').value);
   closeModal('modal-edit-task');
-  if (!(await showConfirm('¿Eliminar esta tarea? Esta acción no se puede deshacer.', { icon: '🗑️' }))) { openModal('modal-edit-task'); return; }
+  const fila = S.tasks.find(t => t.id === id);
   const { error } = await sb.from('tasks').delete().eq('id', id);
   if (error) { toast('❌ No se pudo eliminar: ' + error.message, 'var(--red)', 5000); return; }
   await fetchAll();
-  toast('🗑 Tarea eliminada');
+  if (!fila) { toast('🗑 Tarea eliminada'); return; }
+  toastUndo('🗑 Tarea eliminada', async () => {
+    const { id: _viejo, ...resto } = fila;
+    const { error: e2 } = await sb.from('tasks').insert(resto);
+    if (e2) throw e2;
+    await fetchAll();
+    toast('↩️ Tarea restaurada');
+  });
 }
 
 async function archivarTask() {
@@ -3668,7 +3687,7 @@ async function deleteMenuItem(id) {
 
 function renderMenu() {
   const el=document.getElementById('menulist');
-  if (!S.menu.length) { el.innerHTML='<div class="empty"><div class="em">🍽️</div>Menú vacío</div>'; return; }
+  if (!S.menu.length) { el.innerHTML='<div class="empty"><div class="em">🍽️</div>Menú vacío<br><button class="empty-btn" onclick="document.getElementById(\'mname\').scrollIntoView({behavior:\'smooth\',block:\'center\'});document.getElementById(\'mname\').focus()">➕ Agregar al menú</button></div>'; return; }
   el.innerHTML=S.menu.map(m=>`
     <div class="mr">
       <div class="ml">
@@ -3732,11 +3751,18 @@ async function saveEditExpense() {
 async function deleteExpense() {
   const id = parseInt(document.getElementById('edit-exp-id').value);
   closeModal('modal-edit-expense');
-  if (!(await showConfirm('¿Eliminar este gasto?', { icon: '🗑️' }))) { openModal('modal-edit-expense'); return; }
+  const fila = S.expenses.find(x => x.id === id);
   const { error } = await sb.from('expenses').delete().eq('id',id);
   if (error) { toast('❌ No se pudo eliminar: ' + error.message, 'var(--red)', 5000); return; }
   await fetchAll();
-  toast('🗑 Gasto eliminado');
+  if (!fila) { toast('🗑 Gasto eliminado'); return; }
+  toastUndo('🗑 Gasto eliminado', async () => {
+    const { id: _viejo, ...resto } = fila;
+    const { error: e2 } = await sb.from('expenses').insert(resto);
+    if (e2) throw e2;
+    await fetchAll();
+    toast('↩️ Gasto restaurado');
+  });
 }
 
 // ══ WS ════════════════════════════════════════════
@@ -4771,6 +4797,53 @@ async function cambiarAsistencia() {
   renderAll();
 }
 
+// ══ PULL-TO-REFRESH ═══════════════════════════════
+(function initPullToRefresh() {
+  const UMBRAL = 80, MAX = 120;
+  let y0 = null, x0 = 0, tirando = false, ocupado = false, topBase = 0;
+  const ptr = () => document.getElementById('ptr');
+  const puedeTirar = (t) => {
+    if (ocupado || window.scrollY > 0) return false;
+    if (document.getElementById('app')?.style.display === 'none') return false;
+    if (document.querySelector('.modal-bg.open')) return false;
+    if (t.closest && t.closest('input,textarea,select,[contenteditable]')) return false;
+    return true;
+  };
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || !puedeTirar(e.target)) { y0 = null; return; }
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; tirando = false;
+    topBase = document.querySelector('.hdr')?.getBoundingClientRect().bottom || 0;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (y0 === null) return;
+    const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
+    if (!tirando && (dy < 10 || Math.abs(dx) > dy)) return;
+    if (window.scrollY > 0) { y0 = null; return; }
+    tirando = true;
+    const d = Math.min(dy, MAX), el = ptr();
+    el.style.opacity = Math.min(1, d / UMBRAL);
+    el.style.transform = 'translate(-50%,' + (topBase + d * 0.5 - 40) + 'px) rotate(' + (d * 3) + 'deg)';
+  }, { passive: true });
+  document.addEventListener('touchend', async e => {
+    if (y0 === null || !tirando) { y0 = null; return; }
+    const dy = e.changedTouches[0].clientY - y0;
+    const el = ptr();
+    y0 = null; tirando = false;
+    if (dy >= UMBRAL) {
+      ocupado = true;
+      el.classList.add('spin');
+      el.style.opacity = 1;
+      el.style.transform = 'translate(-50%,' + (topBase + 10) + 'px)';
+      try { await fetchAll(); toast('✅ Actualizado', 'var(--green)', 1500); }
+      catch(err) { toast('❌ No se pudo actualizar', 'var(--red)'); }
+      ocupado = false;
+    }
+    el.classList.remove('spin');
+    el.style.opacity = 0;
+    el.style.transform = 'translate(-50%,-60px)';
+  }, { passive: true });
+})();
+
 function hideSplash() {
   const s = document.getElementById('splash-screen');
   if (s && s.parentNode) { s.style.opacity='0'; setTimeout(()=>{ if(s.parentNode) s.remove(); },500); }
@@ -4883,6 +4956,22 @@ function toast(msg,bg='var(--green)',dur=3000) {
   const el=document.getElementById('toast');
   el.textContent=msg; el.style.background=bg;
   el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// Toast con "Deshacer": acción inmediata + ventana para arrepentirse, en vez de un modal de confirmación.
+// onUndo se ejecuta si tocan el botón; si pasa la ventana, el toast desaparece y queda todo como está.
+let _undoTimer = null;
+function toastUndo(msg, onUndo, dur = 6000) {
+  document.getElementById('toast-undo')?.remove();
+  clearTimeout(_undoTimer);
+  const el = document.createElement('div');
+  el.id = 'toast-undo'; el.className = 'toast-undo';
+  const span = document.createElement('span'); span.textContent = msg;
+  const btn = document.createElement('button'); btn.textContent = 'Deshacer';
+  btn.onclick = async () => { clearTimeout(_undoTimer); el.remove(); try { await onUndo(); } catch(e) { toast('❌ No se pudo deshacer', 'var(--red)'); } };
+  el.append(span, btn);
+  document.body.appendChild(el);
+  _undoTimer = setTimeout(() => el.remove(), dur);
 }
 
 // Reemplazo estilizado de confirm() nativo. Uso: if (await showConfirm('¿Estás seguro?')) { ... }
