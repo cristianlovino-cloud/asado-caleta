@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.18';
+  const APP_VERSION = '2.19';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -518,6 +518,7 @@ body {
     <button class="abtn" onclick="openModal('modal-history')">📚 Historial</button>
     <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
     <button class="abtn" onclick="openModal('modal-fechas-especiales')" style="border-color:rgba(255,105,180,.4);color:#ff69b4">👨‍👩‍👧 Fechas especiales</button>
+    <button class="abtn" onclick="importarRespuestasCalendario()">📥 Traer respuestas del calendario</button>
     <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
     <button class="abtn" onclick="openSponsorModal()" style="border-color:rgba(74,144,226,.4);color:#4a90e2">🏆 Sponsor</button>
@@ -1377,6 +1378,7 @@ async function fetchAll() {
       S.rsvpCalInfo[r.fecha][r.nombre] = { con_pareja: r.con_pareja, pareja_nombre: r.pareja_nombre };
     });
   }
+  sincronizarMiRsvpDesdeCalendario();
   // Chequear RSVP — fuente de verdad Supabase, nada local
   // Admin nunca ve la pantalla de confirmación
   renderAll();
@@ -2031,6 +2033,49 @@ async function addParticipant() {
 // ══ ADMIN: NUEVO ASADO ════════════════════════════
 function newAsado() { openModal('modal-new-asado'); }
 
+// ── Integración calendario → asado activo ──
+function fechaEventoISO() {
+  const [d, m, y] = (S.event?.event_date || '').split('/');
+  return (d && m && y) ? y + '-' + m.padStart(2,'0') + '-' + d.padStart(2,'0') : null;
+}
+async function insertarRsvpFilas(filas) {
+  let { error } = await sb.from('rsvp').insert(filas);
+  if (!error) return { ok: true, sinPareja: false };
+  const limpias = filas.map(({ con_pareja, pareja_nombre, ...r }) => r);   // por si faltan las columnas de pareja
+  ({ error } = await sb.from('rsvp').insert(limpias));
+  return error ? { ok: false } : { ok: true, sinPareja: true };
+}
+// Cada usuario: si ya había respondido en el calendario para la fecha de este asado y acá todavía
+// no tiene respuesta, se la pasa solo (cubre asados creados antes y respuestas que llegaron tarde).
+async function sincronizarMiRsvpDesdeCalendario() {
+  if (!sbOk || !me || !S.event || S.event.archived || getRsvp(me) || window._calSyncEnCurso) return;
+  const iso = fechaEventoISO();
+  const resp = iso && S.rsvpCal?.[iso]?.[me];
+  if (!resp) return;
+  window._calSyncEnCurso = true;
+  try {
+    const info = S.rsvpCalInfo?.[iso]?.[me];
+    await upsertRsvp(me, resp, resp === 'si' && info?.con_pareja ? { con_pareja: true, pareja_nombre: info.pareja_nombre || '' } : null);
+    renderOverview(); renderHeader();
+  } finally { window._calSyncEnCurso = false; }
+}
+// Admin: trae de golpe las respuestas del calendario de todos los que todavía no respondieron acá
+async function importarRespuestasCalendario() {
+  const iso = fechaEventoISO();
+  if (!S.event || !iso) return;
+  const cal = S.rsvpCal?.[iso] || {};
+  const faltan = Object.entries(cal).filter(([n]) => !S.rsvp[n.toLowerCase()]?.rsvp);
+  if (!faltan.length) { toast('No hay respuestas del calendario para traer', 'var(--muted)'); return; }
+  const ahora = new Date().toISOString();
+  const r = await insertarRsvpFilas(faltan.map(([nombre, resp]) => ({
+    event_id: S.event.id, participant_name: nombre, rsvp: resp, rsvp_at: ahora, set_by: nombre,
+    con_pareja: !!S.rsvpCalInfo?.[iso]?.[nombre]?.con_pareja,
+    pareja_nombre: S.rsvpCalInfo?.[iso]?.[nombre]?.pareja_nombre || null
+  })));
+  await fetchAll();
+  toast(r.ok ? '📥 Se trajeron ' + faltan.length + ' respuestas del calendario' + (r.sinPareja ? ' (sin datos de pareja: faltan columnas en Supabase)' : '') : '❌ No se pudieron traer las respuestas', r.ok ? 'var(--green)' : 'var(--red)', 4500);
+}
+
 // Si la fecha elegida es una fecha especial cargada (ej: asado familiar), precarga título y tipo
 function prefillNuevoAsado() {
   const f = document.getElementById('na-date').value.trim();
@@ -2086,8 +2131,8 @@ async function createNewAsado() {
         pareja_nombre: S.rsvpCalInfo?.[rawDate]?.[nombre]?.pareja_nombre || null
       }));
       if (filas.length) {
-        const { error: eR } = await sb.from('rsvp').insert(filas);
-        copiadas = eR ? -1 : filas.length;
+        const rr = await insertarRsvpFilas(filas);
+        copiadas = rr.ok ? filas.length : -1;
       }
     }
   }
@@ -4333,7 +4378,11 @@ function renderOvCalendario(meses) {
     const cumpleTag = cumplesMes.length ? '<div style="font-size:10px;color:var(--ember)">🎂 ' + cumplesMes.map(c=>c.name.toUpperCase()).join(', ') + '</div>' : '';
     const totalResp = Object.keys(S.rsvpCal?.[fechaISO] || {}).length;
     const vanTxt = totalVan > 0 ? '✅ ' + totalVan + ' van' + (totalConPareja > 0 ? ' · 💑 ' + totalConPareja + ' con pareja' : '') : '👥 Ver respuestas';
-    const vanTag = (totalResp > 0 || p.tipo !== 'normal') ? '<div onclick="abrirAsistenciaFecha(\'' + fechaISO + '\')" style="font-size:11px;color:var(--green);margin-top:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px">' + vanTxt + ' ›</div>' : '';
+    const realVan = p.esEste ? S.participants.filter(pt => pt.active && getRsvp(pt.name) === 'si') : [];
+    const realPar = p.esEste && S.event?.tipo === 'familiar' ? realVan.filter(pt => getRsvpConPareja(pt.name)).length : 0;
+    const vanTag = p.esEste
+      ? '<div onclick="openModal(\'modal-asistencia\')" style="font-size:11px;color:var(--green);margin-top:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px">' + (realVan.length ? '✅ ' + realVan.length + ' van' + (realPar ? ' · 💑 ' + realPar + ' con pareja' : '') : '👥 Ver respuestas') + ' ›</div>'
+      : (totalResp > 0 || p.tipo !== 'normal') ? '<div onclick="abrirAsistenciaFecha(\'' + fechaISO + '\')" style="font-size:11px;color:var(--green);margin-top:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px">' + vanTxt + ' ›</div>' : '';
     const rsvpBtns = p.esEste ? '<div style="font-size:18px;margin-left:8px">🔥</div>'
       : '<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">' +
         '<button onclick="' + (esFamiliar ? 'confirmarFamiliarCalendario(\'' + fechaISO + '\')' : 'rsvpCalendario(\'' + fechaISO + '\',\'si\')') + '" style="padding:6px 10px;border-radius:8px;border:2px solid ' + (miRsvpCal==='si'?'var(--green)':'var(--rim)') + ';background:' + (miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)') + ';color:' + (miRsvpCal==='si'?'var(--green)':'var(--muted)') + ';font-size:13px;cursor:pointer">✅' + (miRsvpCal==='si'&&miConPareja?'💑':'') + '</button>' +
@@ -4926,7 +4975,11 @@ async function cambiarAsistencia() {
     if (t.closest && t.closest('input,textarea,select,[contenteditable]')) return false;
     return true;
   };
+  const reset = () => { const el = ptr(); if (!el) return; el.classList.remove('spin'); el.style.opacity = 0; el.style.transform = 'translate(-50%,-60px)'; };
+  // Si el sistema cancela el gesto (captura de pantalla, gesto de Android), touchend no llega: se limpia acá
+  document.addEventListener('touchcancel', () => { y0 = null; tirando = false; if (!ocupado) reset(); }, { passive: true });
   document.addEventListener('touchstart', e => {
+    if (!ocupado) reset();
     if (e.touches.length !== 1 || !puedeTirar(e.target)) { y0 = null; return; }
     y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; tirando = false;
     topBase = document.querySelector('.hdr')?.getBoundingClientRect().bottom || 0;
@@ -4951,7 +5004,7 @@ async function cambiarAsistencia() {
       el.classList.add('spin');
       el.style.opacity = 1;
       el.style.transform = 'translate(-50%,' + (topBase + 10) + 'px)';
-      try { await fetchAll(); toast('✅ Actualizado', 'var(--green)', 1500); }
+      try { await Promise.race([fetchAll(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))]); toast('✅ Actualizado', 'var(--green)', 1500); }
       catch(err) { toast('❌ No se pudo actualizar', 'var(--red)'); }
       ocupado = false;
     }
@@ -5310,11 +5363,14 @@ async function upsertRsvp(name, resp, parejaInfo) {
   const conPareja = parejaInfo?.con_pareja || false;
   const parejaNombre = parejaInfo?.pareja_nombre || null;
   const existing = S.rsvp[name.toLowerCase()];
-  if (existing?.id) {
-    await sb.from('rsvp').update({rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me, con_pareja: conPareja, pareja_nombre: parejaNombre}).eq('id', existing.id);
-  } else {
-    await sb.from('rsvp').insert({event_id: S.event.id, participant_name: name, rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me, con_pareja: conPareja, pareja_nombre: parejaNombre});
-  }
+  const base = {rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me};
+  const guardar = (extra) => existing?.id
+    ? sb.from('rsvp').update({...base, ...extra}).eq('id', existing.id)
+    : sb.from('rsvp').insert({event_id: S.event.id, participant_name: name, ...base, ...extra});
+  let res = await guardar({con_pareja: conPareja, pareja_nombre: parejaNombre});
+  // Si en Supabase todavía no están las columnas de pareja, no perdemos la respuesta: se guarda sin ellas
+  if (res?.error) res = await guardar({});
+  if (res?.error) toast('❌ No se pudo guardar tu respuesta', 'var(--red)', 4000);
   S.rsvp[name.toLowerCase()] = {rsvp: resp, rsvp_at: new Date().toISOString(), set_by: me, con_pareja: conPareja, pareja_nombre: parejaNombre};
 }
 
