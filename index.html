@@ -1109,6 +1109,14 @@ body {
   </div>
 </div>
 
+<!-- Modal asistencia por fecha (calendario) -->
+<div class="modal-bg" id="modal-asistencia-fecha">
+  <div class="modal">
+    <div class="modal-title"><span id="af-titulo">Asistencia</span> <button class="modal-close" onclick="closeModal('modal-asistencia-fecha')">✕</button></div>
+    <div id="af-body"></div>
+  </div>
+</div>
+
 <!-- Modal editar tarea -->
 <div class="modal-bg" id="modal-edit-task">
   <div class="modal">
@@ -1144,7 +1152,7 @@ body {
     <label class="fl">Nombre</label>
     <input class="fi" id="na-title" value="Asado en la Caleta">
     <label class="fl">Fecha 📅</label>
-    <input class="fi" id="na-date" type="date" style="color-scheme:dark">
+    <input class="fi" id="na-date" type="date" style="color-scheme:dark" onchange="prefillNuevoAsado()">
     <label class="fl">Horario</label>
     <input class="fi" id="na-time" value="10:00–16:30">
     <label class="fl">Lugar</label>
@@ -2023,6 +2031,18 @@ async function addParticipant() {
 // ══ ADMIN: NUEVO ASADO ════════════════════════════
 function newAsado() { openModal('modal-new-asado'); }
 
+// Si la fecha elegida es una fecha especial cargada (ej: asado familiar), precarga título y tipo
+function prefillNuevoAsado() {
+  const f = document.getElementById('na-date').value.trim();
+  const sd = (S.specialDates || []).find(x => x.fecha === f);
+  if (!sd) return;
+  const t = document.getElementById('na-title');
+  if (t && (!t.value.trim() || t.value.trim() === 'Asado en la Caleta')) t.value = sd.titulo || t.value;
+  const chk = document.getElementById('na-familiar');
+  if (chk) chk.checked = sd.tipo === 'familiar';
+  toast('📅 Fecha especial detectada: se copian las respuestas del calendario', 'var(--green)', 3500);
+}
+
 async function createNewAsado() {
   const title=document.getElementById('na-title').value.trim();
   const rawDate=document.getElementById('na-date').value.trim();
@@ -2032,6 +2052,7 @@ async function createNewAsado() {
   const loc  =document.getElementById('na-loc').value.trim();
   const tipo = document.getElementById('na-familiar').checked ? 'familiar' : 'normal';
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
+  let copiadas = 0;
   // Archivar actual
   await sb.from('events').update({archived:true}).eq('id',S.event.id);
   window._cuentasAvisado = false;
@@ -2055,10 +2076,26 @@ async function createNewAsado() {
       // fallback: tarea genérica
       await sb.from('tasks').insert([{event_id:data.id,name:'Definir compras',category:'🛒 Otros',assignee:me,done:false,is_template:true}]);
     }
+    // Integración con el calendario: las respuestas ya dadas para esa fecha (sí/no + pareja)
+    // pasan a ser las confirmaciones reales del asado nuevo, así nadie tiene que responder dos veces.
+    if (rawDate.includes('-') && S.rsvpCal?.[rawDate]) {
+      const ahora = new Date().toISOString();
+      const filas = Object.entries(S.rsvpCal[rawDate]).map(([nombre, resp]) => ({
+        event_id: data.id, participant_name: nombre, rsvp: resp, rsvp_at: ahora, set_by: nombre,
+        con_pareja: !!S.rsvpCalInfo?.[rawDate]?.[nombre]?.con_pareja,
+        pareja_nombre: S.rsvpCalInfo?.[rawDate]?.[nombre]?.pareja_nombre || null
+      }));
+      if (filas.length) {
+        const { error: eR } = await sb.from('rsvp').insert(filas);
+        copiadas = eR ? -1 : filas.length;
+      }
+    }
   }
   closeModal('modal-new-asado');
   await fetchAll();
-  toast('🔥 Nuevo asado creado!');
+  toast(copiadas > 0 ? '🔥 Nuevo asado creado! Se copiaron ' + copiadas + ' respuestas del calendario'
+      : copiadas < 0 ? '🔥 Asado creado, pero no se pudieron copiar las respuestas del calendario'
+      : '🔥 Nuevo asado creado!', 'var(--green)', copiadas ? 4500 : 3000);
 }
 
 // ══ HISTORIAL ═════════════════════════════════════
@@ -2088,6 +2125,68 @@ function renderHistory() {
       </div>
       <div class="ec-meta">📅 ${ev.event_date} · ${ev.time_range} · 📍 ${ev.location}</div>
     </div>`).join('');
+}
+
+// ══ ASISTENCIA POR FECHA (calendario) ═════════════
+let _afFecha = null;
+function datosAsistenciaFecha(fechaISO) {
+  const resp = S.rsvpCal?.[fechaISO] || {};
+  const info = S.rsvpCalInfo?.[fechaISO] || {};
+  const lc = {}; Object.keys(resp).forEach(k => lc[k.toLowerCase()] = k);
+  const van = [], noVan = [];
+  Object.entries(resp).forEach(([n, r]) => {
+    if (r === 'si') van.push({ nombre: n, pareja: info[n]?.con_pareja ? (info[n].pareja_nombre || 'pareja') : null });
+    else if (r === 'no') noVan.push(n);
+  });
+  const pend = S.participants.filter(pt => pt.active && pt.role !== 'pendiente' && !lc[pt.name.toLowerCase()]).map(pt => pt.name);
+  const alf = (a, b) => (a.nombre || a).localeCompare(b.nombre || b, 'es');
+  van.sort(alf); noVan.sort(alf); pend.sort(alf);
+  return { van, noVan, pend, parejas: van.filter(v => v.pareja).length };
+}
+
+function abrirAsistenciaFecha(fechaISO) {
+  _afFecha = fechaISO;
+  const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const [yy, mm, dd] = fechaISO.split('-').map(Number);
+  const sd = (S.specialDates || []).find(x => x.fecha === fechaISO);
+  const esFam = sd?.tipo === 'familiar';
+  const { van, noVan, pend, parejas } = datosAsistenciaFecha(fechaISO);
+  document.getElementById('af-titulo').textContent = '👥 ' + dd + ' de ' + meses[mm];
+  const sec = (titulo, color, items) => '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:' + color + ';margin-bottom:4px">' + titulo + '</div>' +
+    (items.length ? items.join('') : '<div style="font-size:12px;color:var(--muted);padding:6px 0">Nadie todavía</div>') + '</div>';
+  const fila = (txt, sub) => '<div style="padding:8px 0;border-bottom:1px solid var(--rim)"><span style="font-weight:600;text-transform:uppercase;font-size:13px">' + txt + '</span>' + (sub ? '<div style="font-size:11px;color:#ff69b4">' + sub + '</div>' : '') + '</div>';
+  document.getElementById('af-body').innerHTML =
+    (sd ? '<div style="font-size:13px;font-weight:700;color:' + (esFam ? '#ff69b4' : 'var(--fire)') + ';margin-bottom:10px;text-transform:uppercase">' + (esFam ? '👨‍👩‍👧 ' : '✨ ') + (sd.titulo || '') + '</div>' : '') +
+    '<div style="display:flex;gap:8px;margin-bottom:14px;text-align:center">' +
+      '<div style="flex:1;padding:8px;border-radius:8px;background:rgba(39,174,96,.1)"><div style="font-size:20px;font-weight:700;color:var(--green)">' + van.length + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">✅ Van</div></div>' +
+      (esFam ? '<div style="flex:1;padding:8px;border-radius:8px;background:rgba(255,105,180,.1)"><div style="font-size:20px;font-weight:700;color:#ff69b4">' + parejas + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">💑 Parejas</div></div>' : '') +
+      '<div style="flex:1;padding:8px;border-radius:8px;background:rgba(231,76,60,.1)"><div style="font-size:20px;font-weight:700;color:var(--red)">' + noVan.length + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">❌ No van</div></div>' +
+      '<div style="flex:1;padding:8px;border-radius:8px;background:var(--ash)"><div style="font-size:20px;font-weight:700;color:var(--muted)">' + pend.length + '</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase">⏳ Faltan</div></div>' +
+    '</div>' +
+    (esFam ? '<div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:14px">Total de comensales: <b style="color:var(--text)">' + (van.length + parejas) + '</b></div>' : '') +
+    sec('✅ Van', 'var(--green)', van.map(v => fila(v.nombre, v.pareja ? '💑 con ' + String(v.pareja).toUpperCase() : ''))) +
+    sec('❌ No van', 'var(--red)', noVan.map(n => fila(n))) +
+    sec('⏳ Sin responder', 'var(--muted)', pend.map(n => fila(n))) +
+    '<button onclick="compartirAsistenciaFecha()" style="width:100%;padding:11px;border-radius:10px;border:1px solid rgba(37,211,102,.5);background:rgba(37,211,102,.1);color:#25D366;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase">📱 Compartir lista por WhatsApp</button>';
+  openModal('modal-asistencia-fecha');
+}
+
+async function compartirAsistenciaFecha() {
+  if (!_afFecha) return;
+  const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const [yy, mm, dd] = _afFecha.split('-').map(Number);
+  const sd = (S.specialDates || []).find(x => x.fecha === _afFecha);
+  const { van, pend, parejas } = datosAsistenciaFecha(_afFecha);
+  const nom = n => String(n).split(' ')[0];
+  let msg = `🔥 *${(sd?.titulo || 'Asado').toUpperCase()}*\n📅 ${dd} de ${meses[mm]} ${yy}\n\n` +
+    `✅ *Van (${van.length}${parejas ? ' + ' + parejas + ' parejas' : ''}):*\n` +
+    (van.length ? van.map(v => '• ' + nom(v.nombre) + (v.pareja ? ' + ' + nom(v.pareja) : '')).join('\n') : '—') +
+    (pend.length ? `\n\n⏳ *Faltan responder (${pend.length}):* ${pend.map(nom).join(', ')}` : '') +
+    `\n\nConfirmá en la app 👊`;
+  if (navigator.share) { try { await navigator.share({ text: msg }); } catch(e) {} return; }
+  navigator.clipboard.writeText(msg)
+    .then(() => toast('📋 Lista copiada — pegala en el grupo', 'var(--green)', 4000))
+    .catch(() => toast('❌ No se pudo copiar', 'var(--red)'));
 }
 
 // ══ FECHAS ESPECIALES (admin) ═════════════════════
@@ -4232,7 +4331,9 @@ function renderOvCalendario(meses) {
     const familiarTag = esFamiliar ? '<span style="font-size:9px;background:#ff69b4;color:white;padding:1px 5px;border-radius:8px;font-weight:700">👨‍👩‍👧 FAMILIAR</span>' : '';
     const tituloTag = p.titulo ? '<div style="font-size:10px;color:#ff9fc9">' + p.titulo.toUpperCase() + '</div>' : '';
     const cumpleTag = cumplesMes.length ? '<div style="font-size:10px;color:var(--ember)">🎂 ' + cumplesMes.map(c=>c.name.toUpperCase()).join(', ') + '</div>' : '';
-    const vanTag = totalVan > 0 ? '<div style="font-size:10px;color:var(--green);margin-top:1px">✅ ' + totalVan + ' van' + (totalConPareja > 0 ? ' · 💑 ' + totalConPareja + ' con pareja' : '') + '</div>' : '';
+    const totalResp = Object.keys(S.rsvpCal?.[fechaISO] || {}).length;
+    const vanTxt = totalVan > 0 ? '✅ ' + totalVan + ' van' + (totalConPareja > 0 ? ' · 💑 ' + totalConPareja + ' con pareja' : '') : '👥 Ver respuestas';
+    const vanTag = (totalResp > 0 || p.tipo !== 'normal') ? '<div onclick="abrirAsistenciaFecha(\'' + fechaISO + '\')" style="font-size:11px;color:var(--green);margin-top:3px;cursor:pointer;text-decoration:underline;text-underline-offset:2px">' + vanTxt + ' ›</div>' : '';
     const rsvpBtns = p.esEste ? '<div style="font-size:18px;margin-left:8px">🔥</div>'
       : '<div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">' +
         '<button onclick="' + (esFamiliar ? 'confirmarFamiliarCalendario(\'' + fechaISO + '\')' : 'rsvpCalendario(\'' + fechaISO + '\',\'si\')') + '" style="padding:6px 10px;border-radius:8px;border:2px solid ' + (miRsvpCal==='si'?'var(--green)':'var(--rim)') + ';background:' + (miRsvpCal==='si'?'rgba(39,174,96,.15)':'var(--ash)') + ';color:' + (miRsvpCal==='si'?'var(--green)':'var(--muted)') + ';font-size:13px;cursor:pointer">✅' + (miRsvpCal==='si'&&miConPareja?'💑':'') + '</button>' +
