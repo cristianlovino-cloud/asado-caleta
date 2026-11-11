@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.20';
+  const APP_VERSION = '2.22';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -955,8 +955,7 @@ body {
 <div class="modal-bg" id="modal-participants">
   <div class="modal">
     <div class="modal-title">👥 Participantes <button class="modal-close" onclick="closeModal('modal-participants')">✕</button></div>
-    <button class="btp" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#4a90e2,#357abd)" onclick="invitarPorMailATodos()">📧 Enviar invite/recordatorio a todos</button>
-    <button class="btp" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#25D366,#128C7E)" onclick="recordarGrupoWhatsapp()">📱 Recordatorio para el grupo de WhatsApp</button>
+    <button class="btp" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#4a90e2,#357abd)" onclick="invitarPorMailATodos()">📧 Enviar invite/recordatorio a todos</button>
     <div id="part-list"></div>
     <div class="div"></div>
     <label class="fl">Agregar participante</label>
@@ -1800,9 +1799,13 @@ function recordarPorWhatsapp(nombre) {
 // así que se comparte con el selector nativo del celu (elegís el grupo vos) o se copia el texto.
 async function recordarGrupoWhatsapp() {
   if (!S.event) return;
+  const faltan = S.participants.filter(p => p.active && !getRsvp(p.name));
+  if (!faltan.length) { toast('✅ Ya respondieron todos', 'var(--green)'); return; }
+  const nom = p => p.name.split(' ')[0].charAt(0).toUpperCase() + p.name.split(' ')[0].slice(1).toLowerCase();
   const msg = `🔥 *${(S.event.title || 'Asado en La Caleta').toUpperCase()}*\n\n` +
     `📅 ${S.event.event_date} · ${S.event.time_range || ''}\n📍 ${S.event.location || ''}\n\n` +
-    `Che, recordatorio del asado — entrá a la app y confirmá tu asistencia si todavía no lo hiciste!`;
+    `⏳ Falta que confirmen (${faltan.length}): ${faltan.map(nom).join(', ')}\n\n` +
+    `Entren a la app y confirmen su asistencia 👊`;
   if (navigator.share) {
     try { await navigator.share({ text: msg }); return; } catch(e) { /* canceló, no hacer nada */ return; }
   }
@@ -1856,12 +1859,13 @@ function invitarPorMail(nombre) {
 }
 
 // Un solo mail, todos los participantes con mail cargado en BCC (no se ven los mails entre ellos)
-function invitarPorMailATodos() {
+function invitarPorMailATodos(soloPendientes) {
   if (!S.event) return;
-  const conMail = S.participants.filter(p => p.active && p.email);
-  if (!conMail.length) { toast('Nadie tiene mail cargado todavía', 'var(--red)'); return; }
+  const conMail = S.participants.filter(p => p.active && p.email && (!soloPendientes || !getRsvp(p.name)));
+  if (!conMail.length) { toast(soloPendientes ? 'Los que faltan no tienen mail cargado' : 'Nadie tiene mail cargado todavía', 'var(--red)'); return; }
   const asunto = 'Invitación: ' + (S.event.title || 'Asado en La Caleta');
   const cuerpo = `Hola!\n\n` +
+    (soloPendientes ? `Todavía no confirmaste tu asistencia.\n\n` : '') +
     `Te esperamos en ${S.event.title || 'el asado'}:\n` +
     `📅 ${S.event.event_date} · ${S.event.time_range || ''}\n` +
     `📍 ${S.event.location || ''}\n\n` +
@@ -5436,6 +5440,7 @@ function renderAsistencia() {
         <div style="color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.5px">⏳ Pendiente</div>
       </div>
     </div>`+
+    (isAdmin() && sinResp.length ? `<button class="btp" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#25D366,#128C7E)" onclick="recordarGrupoWhatsapp()">📱 Recordar a los ${sinResp.length} que faltan (WhatsApp)</button><button class="btp" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#4a90e2,#357abd)" onclick="invitarPorMailATodos(true)">📧 Recordar por mail a los que faltan</button>` : '') +
     (_asistenciaFiltro !== 'todos' ? `<div onclick="setAsistenciaFiltro('todos')" style="cursor:pointer;text-align:center;font-size:11px;color:var(--muted);text-decoration:underline;margin-bottom:8px">ver todos</div>` : '') +
     (!lista.length ? `<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">Nadie en este grupo</div>` : '') +
     [...lista].sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>{
