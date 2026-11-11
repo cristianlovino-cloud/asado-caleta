@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.22';
+  const APP_VERSION = '2.23';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -5126,17 +5126,35 @@ function dispararConfetti() {
   setTimeout(() => cont.remove(), 4000);
 }
 
+// Recarga "de verdad": location.reload() a veces vuelve a servir el HTML viejo del caché del navegador.
+// Acá se limpia el caché de la app y se pide la página con un parámetro nuevo para forzar la descarga.
+async function recargarConNueva(v) {
+  try { sessionStorage.setItem('asado_reload_intento', String(v)); } catch(e) {}
+  try { if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } } catch(e) {}
+  try { const regs = await navigator.serviceWorker?.getRegistrations?.(); (regs||[]).forEach(r => r.unregister()); } catch(e) {}
+  const u = new URL(location.href);
+  u.searchParams.set('v', v);
+  u.searchParams.set('_', Date.now());
+  location.replace(u.toString());
+}
 function mostrarBannerNuevaVersion(v) {
   if (document.getElementById('banner-nueva-version')) return; // ya se está mostrando
+  // Si ya se intentó actualizar a esta versión y sigue vieja, el archivo nuevo todavía no está subido al hosting:
+  // no entrar en un ciclo de recargas, avisar y dejar el botón manual.
+  let yaIntentado = false;
+  try { yaIntentado = sessionStorage.getItem('asado_reload_intento') === String(v); } catch(e) {}
   const el = document.createElement('div');
   el.id = 'banner-nueva-version';
   el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:linear-gradient(135deg,var(--club1),var(--club2));color:#000;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);font-family:var(--font-body)';
   el.innerHTML = `<span style="font-size:20px">🆕</span>
-    <span id="ban-version-txt" style="flex:1;font-size:12px;font-weight:700">Hay una versión nueva (v${v}) — actualizando en 6s…</span>
-    <button onclick="location.reload()" style="padding:8px 14px;border-radius:8px;border:none;background:#000;color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">AHORA</button>`;
+    <span id="ban-version-txt" style="flex:1;font-size:12px;font-weight:700">${yaIntentado
+      ? 'Se publicó la v' + v + ' pero tu app sigue en la v' + APP_VERSION + '. Puede que el archivo nuevo todavía no esté subido.'
+      : 'Hay una versión nueva (v' + v + ') — actualizando en 6s…'}</span>
+    <button onclick="recargarConNueva('${v}')" style="padding:8px 14px;border-radius:8px;border:none;background:#000;color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">${yaIntentado ? 'REINTENTAR' : 'AHORA'}</button>
+    <button onclick="document.getElementById('banner-nueva-version').remove()" style="padding:6px 10px;border-radius:8px;border:none;background:rgba(0,0,0,.2);color:#000;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0">✕</button>`;
   document.body.appendChild(el);
-  // Se actualiza sola: nadie tiene que acordarse de tocar el botón
-  setTimeout(() => location.reload(), 6000);
+  // Se actualiza sola (una sola vez por versión): nadie tiene que acordarse de tocar el botón
+  if (!yaIntentado) setTimeout(() => recargarConNueva(v), 6000);
 }
 
 function toast(msg,bg='var(--green)',dur=3000) {
