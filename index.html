@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.19';
+  const APP_VERSION = '2.20';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -1725,6 +1725,17 @@ function openModal(id) {
   if (id==='modal-asistencia') renderAsistencia();
   if (id==='modal-fechas-especiales') renderFechasEspeciales();
   document.getElementById(id).classList.add('open');
+  // Al volver a la lista de participantes (después de editar, fusionar, quitar) se queda donde estaba
+  if (id==='modal-participants' && _partScroll != null) {
+    const m = document.querySelector('#modal-participants .modal');
+    if (m) m.scrollTop = _partScroll;
+    _partScroll = null;
+  }
+}
+let _partScroll = null;
+function guardarScrollParticipantes() {
+  const m = document.querySelector('#modal-participants .modal');
+  _partScroll = m ? m.scrollTop : null;
 }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
@@ -1868,6 +1879,7 @@ function openEditParticipant(id, currentName, currentBirthday) {
   document.getElementById('ep-birthday').value = currentBirthday || '';
   document.getElementById('ep-email').value = p?.email || '';
   document.getElementById('ep-phone').value = p?.phone || '';
+  guardarScrollParticipantes();
   closeModal('modal-participants');
   openModal('modal-edit-participant');
 }
@@ -2006,6 +2018,7 @@ function renderInvitadosList() {
 }
 
 async function quitarInvitado(id) {
+  guardarScrollParticipantes();
   closeModal('modal-participants');
   if (!(await showConfirm('¿Quitar a este invitado?', { icon: '🗑️' }))) { openModal('modal-participants'); return; }
   const { error } = await sb.from('participants').delete().eq('id',id);
@@ -5463,6 +5476,7 @@ function abrirFusionar(nombre) {
     const otros = S.participants.filter(p=>p.active && normNombre(p.name)!==normNombre(nombre));
     sel.innerHTML = otros.map(p=>`<option value="${p.name}">${normalizarNombre(p.name)}</option>`).join('');
   }
+  guardarScrollParticipantes();
   closeModal('modal-participants');
   openModal('modal-fusionar');
 }
