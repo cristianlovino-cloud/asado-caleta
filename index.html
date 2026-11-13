@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.23';
+  const APP_VERSION = '2.24';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -518,6 +518,7 @@ body {
     <button class="abtn" onclick="openModal('modal-history')">📚 Historial</button>
     <button class="abtn" onclick="openModal('modal-categories')">🏷️ Categorías</button>
     <button class="abtn" onclick="openModal('modal-fechas-especiales')" style="border-color:rgba(255,105,180,.4);color:#ff69b4">👨‍👩‍👧 Fechas especiales</button>
+    <button class="abtn" onclick="openModal('modal-sorteo')" style="border-color:rgba(255,191,0,.5);color:var(--gold)">🎁 Sorteo</button>
     <button class="abtn" onclick="importarRespuestasCalendario()">📥 Traer respuestas del calendario</button>
     <button class="abtn" onclick="openModal('modal-asistencia')" style="border-color:rgba(46,134,222,.4);color:var(--blue)">👥 Asistencia</button>
     <button class="abtn" onclick="showTab('ws')">📲 WS</button>
@@ -1089,6 +1090,14 @@ body {
   </div>
 </div>
 
+<!-- Modal sorteo (asado familiar) -->
+<div class="modal-bg" id="modal-sorteo">
+  <div class="modal">
+    <div class="modal-title">🎁 Sorteo <button class="modal-close" onclick="closeModal('modal-sorteo')">✕</button></div>
+    <div id="sorteo-body"></div>
+  </div>
+</div>
+
 <!-- Modal fechas especiales -->
 <div class="modal-bg" id="modal-fechas-especiales">
   <div class="modal">
@@ -1183,7 +1192,7 @@ try {
 } catch(e) { console.warn(e); }
 
 // ══ STATE ═════════════════════════════════════════
-let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[], votaciones:[], votacion_opciones:[], votacion_votos:[], paymentReqs:[], specialDates:[], rsvpCal:{}, rsvpCalInfo:{} };
+let S = { event:null, participants:[], expenses:[], tasks:[], menu:[], allEvents:[], sponsors:[], rsvp:{}, votos:[], votosOpciones:[], cats:[], votaciones:[], votacion_opciones:[], votacion_votos:[], paymentReqs:[], specialDates:[], sorteo:null, rsvpCal:{}, rsvpCalInfo:{} };
 // ── Expiración de sesión 24hs ─────────────────────────────────────────────
 const _loginTs = parseInt(localStorage.getItem('asado_login_ts') || '0');
 if (_loginTs && (Date.now() - _loginTs) > 24 * 60 * 60 * 1000) {
@@ -1261,7 +1270,7 @@ async function fetchAll() {
   S.event = evts.find(e=>!e.archived) || evts[0];
   const eid = S.event.id;
 
-  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg,vac,vaco,vacv,pr,sd] = await Promise.all([
+  const [pa,ex,tk,mn,cr,sp,rv,vt,vo,ca,cfg,vac,vaco,vacv,pr,sd,so] = await Promise.all([
     sb.from('participants').select('*').order('created_at'),
     sb.from('expenses').select('*').eq('event_id',eid).order('created_at'),
     sb.from('tasks').select('*').eq('event_id',eid).order('created_at'),
@@ -1278,11 +1287,13 @@ async function fetchAll() {
     sb.from('votacion_votos').select('*'),
     S.event ? sb.from('payment_requests').select('*').eq('event_id', S.event?.id || 0).order('created_at', { ascending: false }) : Promise.resolve({data:[]}),
     sb.from('special_dates').select('*').order('fecha'),
+    sb.from('sorteos').select('*').eq('event_id',eid).order('id',{ascending:false}).limit(1),
   ]);
   // Fechas especiales (ej: asado familiar fuera del calendario fijo). Si la tabla
   // todavía no existe en Supabase (falta la migración), sd.error viene seteado —
   // no rompemos nada, el calendario simplemente sigue mostrando solo lo calculado.
   S.specialDates = sd?.data || [];
+  S.sorteo = so?.data?.[0] || null;   // si falta la tabla 'sorteos', queda en null y nada se rompe
   if (pa.data) S.participants = pa.data;
   if (ex.data) S.expenses     = ex.data;
   if (tk.data) S.tasks        = tk.data.filter(t => !t.archived);
@@ -1404,6 +1415,7 @@ function subscribe() {
     .on('postgres_changes',{event:'*',schema:'public',table:'expenses'},     ()=>fetchAllDebounced())
     .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},        ()=>{ if(!S.tasks.some(t=>t._saving)) fetchAllDebounced(); })
     .on('postgres_changes',{event:'*',schema:'public',table:'menu_items'},   ()=>fetchAllDebounced())
+    .on('postgres_changes',{event:'*',schema:'public',table:'sorteos'},      ()=>fetchAllDebounced())
     .on('postgres_changes',{event:'*',schema:'public',table:'app_config',filter:'key=eq.appVersion'}, payload => {
       // Aviso instantáneo a todos los que ya están adentro, sin esperar otro fetchAll
       const v = payload.new?.value;
@@ -1723,6 +1735,7 @@ function openModal(id) {
   if (id==='modal-cuentas') renderCuentas();
   if (id==='modal-asistencia') renderAsistencia();
   if (id==='modal-fechas-especiales') renderFechasEspeciales();
+  if (id==='modal-sorteo') renderSorteoModal();
   document.getElementById(id).classList.add('open');
   // Al volver a la lista de participantes (después de editar, fusionar, quitar) se queda donde estaba
   if (id==='modal-participants' && _partScroll != null) {
@@ -4860,6 +4873,7 @@ function renderOverview() {
     sponsor:    renderOvSponsor(),
     vac:        vacCard,
     miEstado:   renderOvMiEstado(miRsvp),
+    sorteo:     renderOvSorteo(),
     asistencia: renderOvAsistencia(conf, noVan, sinResp),
     pendInv:    renderPendientesInvCard(),
     cumples:    renderOvCumples(cumples, meses, parts, mesActual, diaActual),
@@ -4868,14 +4882,213 @@ function renderOverview() {
     calendario: renderOvCalendario(meses)
   };
   const ORDEN = diff === 0
-    ? ['modoDia','hero','miEstado','tareas','asistencia','pendInv','banner','vac','sponsor','cumples','votos','calendario']      // día D: lo operativo
+    ? ['modoDia','hero','sorteo','miEstado','tareas','asistencia','pendInv','banner','vac','sponsor','cumples','votos','calendario']      // día D: lo operativo
     : (diff !== null && diff > 0 && diff <= 7)
-    ? ['banner','hero','miEstado','asistencia','tareas','vac','pendInv','sponsor','cumples','calendario','votos']                 // semana previa: confirmar y preparar
+    ? ['banner','hero','sorteo','miEstado','asistencia','tareas','vac','pendInv','sponsor','cumples','calendario','votos']                 // semana previa: confirmar y preparar
     : (diff !== null && diff < 0)
-    ? ['hero','vac','sponsor','asistencia','pendInv','cumples','votos','calendario','banner','tareas','miEstado']                 // ya pasó: cierre y lo que viene
-    : ['banner','hero','vac','miEstado','calendario','sponsor','cumples','asistencia','pendInv','tareas','votos'];                 // lejos: calendario, cumples y votaciones
+    ? ['hero','sorteo','vac','sponsor','asistencia','pendInv','cumples','votos','calendario','banner','tareas','miEstado']                 // ya pasó: cierre y lo que viene
+    : ['banner','hero','sorteo','vac','miEstado','calendario','sponsor','cumples','asistencia','pendInv','tareas','votos'];                 // lejos: calendario, cumples y votaciones
   el.innerHTML = ORDEN.map(k => bloques[k] || '').join('');
   startSpCarousel();
+}
+
+
+// ══ SORTEO (asado familiar) ══════════════════════════
+// Una fila por asado en la tabla `sorteos`: numeros = [{num, nombre, pareja}], premios = [{orden, premio, ganador:{num,nombre,pareja}|null}].
+// Los números se asignan al activar (por orden de confirmación) y quedan fijos; el sorteo lo hace el admin con azar criptográfico.
+const soEsc = t => String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function azarEntero(n) {                      // 0..n-1 sin sesgo
+  const a = new Uint32Array(1), lim = Math.floor(0x100000000 / n) * n;
+  do { crypto.getRandomValues(a); } while (a[0] >= lim);
+  return a[0] % n;
+}
+function confirmadosParaSorteo() {
+  return S.participants.filter(p => p.active && getRsvp(p.name) === 'si')
+    .sort((a, b) => (getRsvpAt(a.name) || '').localeCompare(getRsvpAt(b.name) || '') || a.name.localeCompare(b.name, 'es'));
+}
+function filaSorteo(p, i) {
+  return { num: i, nombre: p.name, pareja: getRsvpConPareja(p.name) ? (getRsvpParejaNombre(p.name) || 'con pareja') : '' };
+}
+function parsePremios(txt) {
+  const l = (txt || '').split('\n').map(x => x.trim()).filter(Boolean);
+  if (l.length === 1 && /^\d{1,2}$/.test(l[0]) && +l[0] > 0) return Array.from({ length: +l[0] }, (_, i) => 'Premio ' + (i + 1));
+  return l;
+}
+function miNumeroSorteo() {
+  return me && S.sorteo ? (S.sorteo.numeros || []).find(n => n.nombre.toLowerCase() === me.toLowerCase()) || null : null;
+}
+const ganadorTxt = g => 'N° ' + g.num + ' · ' + soEsc(g.nombre) + (g.pareja && g.pareja !== 'con pareja' ? ' + ' + soEsc(g.pareja) : '');
+
+// Tarjeta de la portada: la ven todos cuando el sorteo está activo; el admin además la ve para armarlo
+function renderOvSorteo() {
+  if (!S.event || S.event.archived || S.event.tipo !== 'familiar') return '';
+  const s = S.sorteo;
+  if (!s) {
+    return isAdmin() ? `<div onclick="openModal('modal-sorteo')" style="cursor:pointer;background:rgba(255,191,0,.08);border:1px dashed var(--gold);border-radius:16px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
+      <div style="font-size:30px">🎁</div>
+      <div style="flex:1"><div style="font-weight:700;font-size:14px;text-transform:uppercase;color:var(--gold)">Armar sorteo del asado familiar</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">Solo lo ves vos · a cada confirmado le toca un número</div></div><div style="font-size:20px">→</div></div>` : '';
+  }
+  const mio = miNumeroSorteo();
+  const premios = s.premios || [];
+  const hechos = premios.filter(p => p.ganador).length;
+  const proximo = premios.find(p => !p.ganador);
+  return `<div style="background:linear-gradient(135deg,rgba(255,191,0,.14),rgba(230,126,34,.1));border:1px solid var(--gold);border-radius:16px;padding:14px 16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="font-size:30px">🎁</div>
+      <div style="flex:1"><div style="font-weight:700;font-size:14px;text-transform:uppercase;color:var(--gold)">Sorteo del asado</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">${hechos} de ${premios.length} premios sorteados</div></div>
+      ${mio ? `<div style="text-align:center;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 14px"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Tu número</div><div style="font-family:var(--font-title);font-size:34px;line-height:1;color:var(--gold)">${mio.num}</div></div>`
+           : `<div style="font-size:11px;color:var(--muted);max-width:90px;text-align:right">No tenés número (no estabas confirmado)</div>`}
+    </div>
+    <div style="margin-top:10px">${premios.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid rgba(255,255,255,.07);font-size:13px">
+      <span style="text-transform:uppercase">🎁 ${soEsc(p.premio)}</span>
+      <span style="font-weight:700;text-align:right;${p.ganador ? 'color:var(--gold)' : 'color:var(--muted)'}">${p.ganador ? '🏆 ' + ganadorTxt(p.ganador) : '⏳'}</span></div>`).join('')}</div>
+    ${isAdmin() ? `<button class="btp" style="width:100%;margin-top:10px" onclick="openModal('modal-sorteo')">${proximo ? '🎲 IR A SORTEAR' : '🎁 VER SORTEO'}</button>` : ''}
+  </div>`;
+}
+
+function renderSorteoModal() {
+  const el = document.getElementById('sorteo-body');
+  if (!el) return;
+  if (S.event?.tipo !== 'familiar') {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;line-height:1.6">El sorteo es para asados familiares.<br>Marcá este asado como familiar desde ✏️ Editar asado.</div>';
+    return;
+  }
+  const s = S.sorteo;
+  const conf = confirmadosParaSorteo();
+  if (!s) {
+    el.innerHTML = `<p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">A cada confirmado (con o sin pareja) le toca un número, por orden de confirmación. Vos también participás si confirmaste. Los números quedan fijos al activar.</p>
+      <div style="background:var(--ash);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px"><b>${conf.length}</b> confirmados van a participar</div>
+      <label class="fl">Premios (uno por línea, o solo un número)</label>
+      <textarea class="fi" id="so-premios" rows="5" placeholder="Ej:&#10;Vino&#10;Tabla de asado&#10;Chorizos&#10;&#10;O escribí solo: 5" style="resize:vertical"></textarea>
+      <button class="btp" style="width:100%;margin-top:4px" onclick="activarSorteo()">🎟️ ACTIVAR SORTEO</button>`;
+    return;
+  }
+  const premios = s.premios || [];
+  const proximo = premios.find(p => !p.ganador);
+  const nuevos = confirmadosParaSorteo().filter(p => !(s.numeros || []).some(n => n.nombre.toLowerCase() === p.name.toLowerCase()));
+  el.innerHTML = `<div style="margin-bottom:12px">${premios.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--rim);font-size:13px">
+      <span style="text-transform:uppercase">🎁 ${soEsc(p.premio)}</span>
+      <span style="font-weight:700;text-align:right;${p.ganador ? 'color:var(--gold)' : 'color:var(--muted)'}">${p.ganador ? '🏆 ' + ganadorTxt(p.ganador) : '⏳ pendiente'}</span></div>`).join('')}</div>
+    ${proximo ? `<button class="btp" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#e67e22,#c0392b)" onclick="sortearSiguiente()">🎲 SORTEAR: ${soEsc(proximo.premio).toUpperCase()}</button>`
+              : `<div style="text-align:center;font-size:13px;color:var(--green);margin-bottom:8px">✅ Sorteo completo</div>`}
+    ${nuevos.length ? `<button class="btg" style="width:100%;margin-bottom:8px" onclick="sumarNuevosSorteo()">➕ Sumar ${nuevos.length} confirmado(s) nuevo(s)</button>` : ''}
+    <button class="btg" style="width:100%;margin-bottom:8px" onclick="compartirSorteo()">📱 Compartir por WhatsApp</button>
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px">Números (${(s.numeros || []).length})</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${(s.numeros || []).map(n => {
+      const gano = premios.some(p => p.ganador?.num === n.num);
+      return `<span style="font-size:11px;padding:4px 8px;border-radius:8px;background:${gano ? 'rgba(255,191,0,.2)' : 'var(--ash)'};${gano ? 'border:1px solid var(--gold);' : ''}text-transform:uppercase"><b>${n.num}</b> ${soEsc(n.nombre.split(' ')[0])}${n.pareja ? ' 💑' : ''}</span>`;
+    }).join('')}</div>
+    <button class="btg" style="width:100%;margin-top:16px;color:var(--red);border-color:var(--red)" onclick="reiniciarSorteo()">🗑 Reiniciar sorteo</button>`;
+}
+
+async function activarSorteo() {
+  const conf = confirmadosParaSorteo();
+  if (conf.length < 2) { toast('Hacen falta al menos 2 confirmados', 'var(--red)'); return; }
+  const premios = parsePremios(document.getElementById('so-premios')?.value);
+  if (!premios.length) { toast('Cargá al menos un premio', 'var(--red)'); return; }
+  if (premios.length > conf.length) { toast('Hay más premios (' + premios.length + ') que participantes (' + conf.length + ')', 'var(--red)', 4000); return; }
+  const { error } = await sb.from('sorteos').insert({
+    event_id: S.event.id,
+    numeros: conf.map((p, i) => filaSorteo(p, i + 1)),
+    premios: premios.map((t, i) => ({ orden: i + 1, premio: t, ganador: null }))
+  });
+  if (error) { toast('❌ No se pudo crear. ¿Falta crear la tabla "sorteos" en Supabase?', 'var(--red)', 5000); return; }
+  await fetchAll();
+  renderSorteoModal();
+  toast('🎟️ Sorteo activado con ' + conf.length + ' números', 'var(--green)');
+}
+
+// Quien confirmó después de activar: se le suma el número siguiente, sin tocar los ya asignados
+async function sumarNuevosSorteo() {
+  const s = S.sorteo; if (!s) return;
+  const nuevos = confirmadosParaSorteo().filter(p => !(s.numeros || []).some(n => n.nombre.toLowerCase() === p.name.toLowerCase()));
+  if (!nuevos.length) return;
+  let sig = Math.max(0, ...(s.numeros || []).map(n => n.num)) + 1;
+  const numeros = [...(s.numeros || []), ...nuevos.map(p => filaSorteo(p, sig++))];
+  const { error } = await sb.from('sorteos').update({ numeros }).eq('id', s.id);
+  if (error) { toast('❌ No se pudieron sumar', 'var(--red)'); return; }
+  await fetchAll(); renderSorteoModal();
+  toast('➕ Se sumaron ' + nuevos.length, 'var(--green)');
+}
+
+let _sorteando = false;
+async function sortearSiguiente() {
+  const s = S.sorteo;
+  if (!s || _sorteando) return;
+  const idx = (s.premios || []).findIndex(p => !p.ganador);
+  if (idx < 0) return;
+  const ya = new Set(s.premios.filter(p => p.ganador).map(p => p.ganador.num));
+  const elegibles = (s.numeros || []).filter(n => !ya.has(n.num));     // quien ya ganó no entra de nuevo
+  if (!elegibles.length) { toast('No quedan números para sortear', 'var(--red)'); return; }
+  _sorteando = true;
+  try {
+    const gan = elegibles[azarEntero(elegibles.length)];
+    await animarSorteo(s.premios[idx].premio, elegibles, gan);
+    const premios = s.premios.map((p, i) => i === idx ? { ...p, ganador: { num: gan.num, nombre: gan.nombre, pareja: gan.pareja }, at: new Date().toISOString() } : p);
+    const { error } = await sb.from('sorteos').update({ premios }).eq('id', s.id);
+    if (error) { toast('❌ No se pudo guardar el resultado, volvé a sortear', 'var(--red)', 5000); return; }
+    await fetchAll();
+    renderSorteoModal();
+  } finally { _sorteando = false; }
+}
+
+// Pantalla completa: números girando ~3 segundos y se revela el ganador (tocar para saltear/cerrar)
+function animarSorteo(premio, elegibles, gan) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;cursor:pointer';
+    ov.innerHTML = `<div style="font-size:13px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">🎁 ${soEsc(premio)}</div>
+      <div id="so-num" style="font-family:var(--font-title);font-size:130px;line-height:1;color:var(--gold)">?</div>
+      <div id="so-nom" style="font-size:22px;font-weight:700;text-transform:uppercase;min-height:60px"></div>
+      <div id="so-hint" style="font-size:11px;color:var(--muted)">Sorteando…</div>`;
+    document.body.appendChild(ov);
+    const numEl = ov.querySelector('#so-num'), nomEl = ov.querySelector('#so-nom'), hint = ov.querySelector('#so-hint');
+    let terminado = false, revelado = false;
+    const iv = setInterval(() => { numEl.textContent = elegibles[azarEntero(elegibles.length)].num; if (navigator.vibrate) navigator.vibrate(8); }, 90);
+    const revelar = () => {
+      if (revelado) return;
+      revelado = true; clearInterval(iv);
+      numEl.textContent = gan.num; numEl.style.color = 'var(--green)';
+      nomEl.innerHTML = '🏆 ' + soEsc(gan.nombre) + (gan.pareja && gan.pareja !== 'con pareja' ? '<br><span style="font-size:16px">+ ' + soEsc(gan.pareja) + '</span>' : '');
+      hint.textContent = 'Tocá para cerrar';
+      if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+      confetiSorteo();
+      terminado = true;
+    };
+    const t = setTimeout(revelar, 3200);
+    ov.onclick = () => { if (!terminado) { clearTimeout(t); revelar(); return; } ov.remove(); resolve(); };
+  });
+}
+function confetiSorteo() {
+  const cont = document.createElement('div');
+  cont.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:10001;overflow:hidden';
+  document.body.appendChild(cont);
+  const cols = ['#ffbf00', '#e67e22', '#27ae60', '#ffffff', '#ff69b4'];
+  for (let i = 0; i < 70; i++) {
+    const p = document.createElement('div');
+    p.style.cssText = `position:absolute;top:-10px;left:${Math.random() * 100}%;width:${6 + Math.random() * 6}px;height:${8 + Math.random() * 8}px;background:${cols[i % cols.length]};transform:rotate(${Math.random() * 360}deg);animation:confetti-caer ${2 + Math.random() * 1.5}s linear forwards;animation-delay:${Math.random() * .4}s;opacity:.9`;
+    cont.appendChild(p);
+  }
+  setTimeout(() => cont.remove(), 4200);
+}
+
+async function reiniciarSorteo() {
+  closeModal('modal-sorteo');
+  if (!(await showConfirm('¿Reiniciar el sorteo? Se pierden los números asignados y los ganadores.', { icon: '🗑' }))) { openModal('modal-sorteo'); return; }
+  const { error } = await sb.from('sorteos').delete().eq('event_id', S.event.id);
+  if (error) toast('❌ No se pudo reiniciar', 'var(--red)');
+  await fetchAll();
+  openModal('modal-sorteo');
+}
+
+async function compartirSorteo() {
+  const s = S.sorteo; if (!s) return;
+  let msg = `🎁 *SORTEO · ${(S.event.title || 'Asado').toUpperCase()}*\n\n` +
+    (s.premios || []).map(p => `🎁 ${p.premio}: ` + (p.ganador ? `🏆 N° ${p.ganador.num} · ${p.ganador.nombre}${p.ganador.pareja && p.ganador.pareja !== 'con pareja' ? ' + ' + p.ganador.pareja : ''}` : '⏳ pendiente')).join('\n');
+  if (navigator.share) { try { await navigator.share({ text: msg }); } catch (e) {} return; }
+  navigator.clipboard.writeText(msg).then(() => toast('📋 Copiado', 'var(--green)')).catch(() => toast('❌ No se pudo copiar', 'var(--red)'));
 }
 
 // ── Modo día del asado: lo esencial de un vistazo, solo el día del evento ──
