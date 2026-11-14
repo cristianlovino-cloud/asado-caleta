@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.28';
+  const APP_VERSION = '2.29';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -6915,17 +6915,16 @@ async function renderCuentas() {
     .filter(p => p.payer.toLowerCase() === name.toLowerCase() && p.receiver.toLowerCase() === recaudador.toLowerCase())
     .reduce((a,p) => a + p.amount, 0);
 
-  // Lo que el recaudador ya le devolvió a alguien que puso de más
-  const pagadoPorRecaudador = name => payments
-    .filter(p => p.payer.toLowerCase() === recaudador.toLowerCase() && p.receiver.toLowerCase() === name.toLowerCase())
-    .reduce((a,p) => a + p.amount, 0);
+  const pagosHechos    = name => payments.filter(p => p.payer.toLowerCase()    === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
+  const pagosRecibidos = name => payments.filter(p => p.receiver.toLowerCase() === name.toLowerCase()).reduce((a,p) => a + p.amount, 0);
 
   // Saldo real de cada uno: su parte − lo que puso de su bolsillo en gastos − lo que ya le pagó al recaudador
   // (+ lo que el recaudador ya le devolvió). Positivo = debe; negativo = tiene saldo a favor.
   const otros = allP().filter(p => p.toLowerCase() !== recaudador.toLowerCase());
   const conNeto = otros.map(p => {
     const puso = paid(p);
-    const neto = pp - puso - pagadoAlRecaudador(p) + pagadoPorRecaudador(p);
+    // Cuentan TODOS los pagos (no solo los que van al recaudador): lo que pagó a cualquiera y lo que le pagaron a él
+    const neto = pp - puso - pagosHechos(p) + pagosRecibidos(p);
     return { name: p, puso, neto, falta: Math.max(0, neto), aFavor: Math.max(0, -neto) };
   });
   const pendientes = conNeto.filter(x => x.falta > TOLERANCIA_SALDO);
@@ -6934,10 +6933,10 @@ async function renderCuentas() {
 
   // HTML pendientes de pagar al recaudador
   const deuHtml = pendientes.map(({name:p, falta, puso}) => {
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.receiver.toLowerCase() === recaudador.toLowerCase());
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase());
     const pagosHtml = misPagos.length ? '<div style="margin:4px 0 6px;padding:5px 8px;background:var(--ash);border-radius:6px">' +
       misPagos.map(x => '<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0">' +
-        '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + recaudador.toUpperCase() + '</span>' +
+        '<span style="color:var(--muted)">' + (x.method === 'efectivo' ? '💵' : '📲') + ' → ' + x.receiver.toUpperCase() + '</span>' +
         '<div style="display:flex;align-items:center;gap:10px">' +
           '<span style="color:var(--green);font-weight:700">' + fmt(x.amount) + '</span>' +
           (isAdmin() ? '<span onclick="deshacerPago(' + x.id + ')" style="cursor:pointer;font-size:18px;padding:2px 4px">↩️</span>' : '') +
@@ -6962,7 +6961,7 @@ async function renderCuentas() {
 
   // HTML saldados
   const saldHtml = saldados.map(({name:p}) => {
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase() && x.receiver.toLowerCase() === recaudador.toLowerCase());
+    const misPagos = payments.filter(x => x.payer.toLowerCase() === p.toLowerCase());
     const totalP = misPagos.reduce((a,x) => a+x.amount, 0);
     const puestoP = paid(p);
     const medios = [...new Set(misPagos.map(x=>x.method))].map(m => m==='efectivo'?'💵':'📲').join('+');
@@ -6979,13 +6978,13 @@ async function renderCuentas() {
 
   // Quienes pusieron más que su parte: el recaudador les devuelve la diferencia
   const devHtml = aDevolver.map(({name:p, aFavor, puso}) => {
-    const misPagos = payments.filter(x => x.payer.toLowerCase() === recaudador.toLowerCase() && x.receiver.toLowerCase() === p.toLowerCase());
+    const misPagos = payments.filter(x => x.receiver.toLowerCase() === p.toLowerCase());
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim)">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
         '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + '</span>' +
         '<span style="font-size:12px;color:var(--green)">A FAVOR ' + fmt(aFavor) + '</span>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--muted);margin:-2px 0 6px">Su parte ' + fmt(pp) + ' · Puso ' + fmt(puso) + ' en gastos' + (misPagos.length ? ' · Ya se le devolvió ' + fmt(misPagos.reduce((a,x)=>a+x.amount,0)) : '') + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin:-2px 0 6px">Su parte ' + fmt(pp) + ' · Puso ' + fmt(puso) + ' en gastos' + (misPagos.length ? ' · Ya cobró ' + fmt(misPagos.reduce((a,x)=>a+x.amount,0)) : '') + '</div>' +
       (isAdmin() ? '<button onclick="abrirModalPago_btn(this)" data-payer="' + recaudador + '" data-amount="' + Math.round(aFavor) + '" data-receiver="' + p + '" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.12);color:var(--green);font-size:13px;font-weight:700;cursor:pointer">💸 REGISTRAR DEVOLUCIÓN</button>' : '') +
     '</div>';
   }).join('');
