@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.31';
+  const APP_VERSION = '2.32';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -237,7 +237,7 @@ body {
 .hdr-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .hdr-row>div:first-child{min-width:0;flex:1;overflow:hidden}
 .hdr-title{font-family:var(--font-title);font-size:20px;letter-spacing:2px;line-height:1;cursor:pointer;min-width:0}
-.hdr-sub{font-size:11px;color:var(--ember);letter-spacing:1px;text-transform:uppercase;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-sub{font-size:11px;color:var(--ember);letter-spacing:1px;text-transform:uppercase;margin-top:3px;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .uc{display:flex;align-items:center;gap:6px;background:rgba(245,197,24,.12);border:1px solid rgba(245,197,24,.25);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer}
 .uc .av{width:25px;height:25px;border-radius:50%;background:linear-gradient(135deg,var(--fire),var(--ember));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;text-transform:uppercase}
 .uc span{font-size:12px;font-weight:600;color:var(--ember)}
@@ -487,7 +487,7 @@ body {
   <div class="hdr">
     <div class="hdr-row">
       <div>
-                <div class="hdr-title" id="hdr-title" style="display:flex;align-items:center;gap:6px;min-width:0"><img src="icon-transparent.png" style="width:30px;height:30px;object-fit:contain;flex-shrink:0"> <span id="evt-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">Asado</span> <span class="ldot" id="ldot" style="display:none;flex-shrink:0"></span></div>
+                <div class="hdr-title" id="hdr-title" style="display:flex;align-items:center;gap:6px;min-width:0"><img src="icon-transparent.png" style="width:30px;height:30px;object-fit:contain;flex-shrink:0"> <span id="evt-name" style="display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-width:0;line-height:1.05;letter-spacing:1.5px">Asado</span> <span class="ldot" id="ldot" style="display:none;flex-shrink:0"></span></div>
         <div class="hdr-sub" id="hdr-sub">cargando...</div>
       </div>
       <div style="display:flex;align-items:center;gap:7px">
@@ -3926,7 +3926,10 @@ function renderMenu() {
 // ══ HEADER ════════════════════════════════════════
 function renderHeader() {
   if (!S.event) return;
-  document.getElementById('evt-name').textContent = S.event.title;
+  const evN = document.getElementById('evt-name');
+  evN.textContent = S.event.title;
+  // Títulos largos: letra un poco más chica y hasta 2 renglones, así no se cortan con "…"
+  evN.style.fontSize = S.event.title.length > 26 ? '15px' : S.event.title.length > 16 ? '17px' : '';
   document.getElementById('hdr-sub').textContent  = S.event.event_date+' · '+S.event.time_range+(S.event.location?' · '+S.event.location:'');
   // Chip fijo mientras falte la respuesta: no depende de que entren a la tarjeta "Mi estado"
   const chip = document.getElementById('hdr-chip');
