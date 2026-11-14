@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.27';
+  const APP_VERSION = '2.28';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -188,7 +188,6 @@ html { font-size:16px; background:#0E1A1B; }
   */
 }
 
-html,body{overscroll-behavior-y:contain}
 body {
   font-family:var(--font-body);
   background:var(--coal); color:var(--text);
@@ -266,9 +265,6 @@ body {
 @keyframes panelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .sk{background:linear-gradient(90deg,var(--ash) 25%,var(--rim) 50%,var(--ash) 75%);background-size:200% 100%;animation:skShine 1.2s linear infinite;border-radius:12px}
 @keyframes skShine{from{background-position:200% 0}to{background-position:-200% 0}}
-#ptr{position:fixed;left:50%;top:0;transform:translate(-50%,-60px);z-index:160;width:38px;height:38px;border-radius:50%;background:var(--smoke);border:1px solid var(--rim);box-shadow:0 4px 14px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0;pointer-events:none}
-#ptr.spin span{display:inline-block;animation:ptrSpin .8s linear infinite}
-@keyframes ptrSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.panel.active{animation:none}.sk{animation:none}}
 
 /* ── COMPONENTES ────────────────── */
@@ -1180,7 +1176,6 @@ body {
 </div>
 
 <div class="toast" id="toast"></div>
-<div id="ptr"><span>🔄</span></div>
 
 <script>
 // ══ SUPABASE ══════════════════════════════════════
@@ -5192,57 +5187,6 @@ async function cambiarAsistencia() {
   await fetchAll();
   renderAll();
 }
-
-// ══ PULL-TO-REFRESH ═══════════════════════════════
-(function initPullToRefresh() {
-  const UMBRAL = 80, MAX = 120;
-  let y0 = null, x0 = 0, tirando = false, ocupado = false, topBase = 0;
-  const ptr = () => document.getElementById('ptr');
-  const puedeTirar = (t) => {
-    if (ocupado || window.scrollY > 0) return false;
-    if (document.getElementById('app')?.style.display === 'none') return false;
-    if (document.querySelector('.modal-bg.open')) return false;
-    if (t.closest && t.closest('input,textarea,select,[contenteditable]')) return false;
-    return true;
-  };
-  const reset = () => { const el = ptr(); if (!el) return; el.classList.remove('spin'); el.style.opacity = 0; el.style.transform = 'translate(-50%,-60px)'; };
-  // Si el sistema cancela el gesto (captura de pantalla, gesto de Android), touchend no llega: se limpia acá
-  document.addEventListener('touchcancel', () => { y0 = null; tirando = false; if (!ocupado) reset(); }, { passive: true });
-  document.addEventListener('touchstart', e => {
-    if (!ocupado) reset();
-    if (e.touches.length !== 1 || !puedeTirar(e.target)) { y0 = null; return; }
-    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; tirando = false;
-    topBase = document.querySelector('.hdr')?.getBoundingClientRect().bottom || 0;
-  }, { passive: true });
-  document.addEventListener('touchmove', e => {
-    if (y0 === null) return;
-    const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
-    if (!tirando && (dy < 10 || Math.abs(dx) > dy)) return;
-    if (window.scrollY > 0) { y0 = null; return; }
-    tirando = true;
-    const d = Math.min(dy, MAX), el = ptr();
-    el.style.opacity = Math.min(1, d / UMBRAL);
-    el.style.transform = 'translate(-50%,' + (topBase + d * 0.5 - 40) + 'px) rotate(' + (d * 3) + 'deg)';
-  }, { passive: true });
-  document.addEventListener('touchend', async e => {
-    if (y0 === null || !tirando) { y0 = null; return; }
-    const dy = e.changedTouches[0].clientY - y0;
-    const el = ptr();
-    y0 = null; tirando = false;
-    if (dy >= UMBRAL) {
-      ocupado = true;
-      el.classList.add('spin');
-      el.style.opacity = 1;
-      el.style.transform = 'translate(-50%,' + (topBase + 10) + 'px)';
-      try { await Promise.race([fetchAll(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))]); toast('✅ Actualizado', 'var(--green)', 1500); }
-      catch(err) { toast('❌ No se pudo actualizar', 'var(--red)'); }
-      ocupado = false;
-    }
-    el.classList.remove('spin');
-    el.style.opacity = 0;
-    el.style.transform = 'translate(-50%,-60px)';
-  }, { passive: true });
-})();
 
 function hideSplash() {
   const s = document.getElementById('splash-screen');
