@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.29';
+  const APP_VERSION = '2.30';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -290,6 +290,7 @@ body {
 .pname{font-weight:600;font-size:13px}
 .psub{font-size:11px;color:var(--muted);margin-top:1px}
 .bval{font-family:var(--font-title);font-size:15px;letter-spacing:1px}
+.tick{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;font-family:var(--font-body);font-size:13px;font-weight:800;line-height:1;vertical-align:middle;box-shadow:0 0 0 3px rgba(39,174,96,.18)}
 .blbl{font-size:10px;text-align:right;color:var(--muted);margin-top:1px}
 
 .fw{background:var(--smoke);border-radius:12px;border:1px solid var(--rim);padding:12px;margin-bottom:10px;display:none}
@@ -551,6 +552,7 @@ body {
         <div class="sb sbb">
           <div class="sl">Comensales</div>
           <div class="sv cb" id="sc">0</div>
+          <div id="sc-sub" style="font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.3px"></div>
         </div>
         <div class="sb sbgr"><div class="sl">Tu saldo</div><div class="sv" id="sm">$0</div></div>
       </div>
@@ -2584,6 +2586,10 @@ async function renderGastos() {
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
   document.getElementById('sc').textContent  = allP().length;
+  { // Asado familiar: la cuenta se divide por confirmado, pero a la mesa se sientan también las parejas
+    const sub = document.getElementById('sc-sub');
+    if (sub) { const c = comensalesReales(), n = allP().length; sub.textContent = (S.event?.tipo === 'familiar' && c > n) ? '💑 +' + (c - n) + ' parejas · comen ' + c : ''; }
+  }
   const gAdminCtrls = document.getElementById('gastos-admin-controls');
   if (gAdminCtrls) gAdminCtrls.style.display = isAdmin() ? 'flex' : 'none';
   const btnCuentas = document.getElementById('btn-cuentas-toggle');
@@ -2628,10 +2634,10 @@ async function renderGastos() {
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
         <div><div class="pname">${p.toUpperCase()}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}${esMoroso?' <span style="font-size:10px;color:var(--red)">🐌 MOROSO</span>':''}</div>
-        <div class="psub">Gastó: ${fmt(paid(p))}${saldado?' · <span style="color:var(--green)">✅ Saldado</span>':acrCobrado?' · <span style="color:var(--green)">✅ Cobrado</span>':''}</div></div>
+        <div class="psub">Gastó: ${fmt(paid(p))}</div></div>
       </div>
       <div>
-        <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado?'✅':acrCobrado?'✅':b>=0?'+':'-'}${saldado||acrCobrado?'':b>0.5?fmt(pendienteCobrar):fmt(b)}</div>
+        <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado||acrCobrado?'<span class="tick">✓</span>':(b>=0?'+':'-')+(b>0.5?fmt(pendienteCobrar):fmt(b))}</div>
         <div class="blbl">${saldado?'saldado':acrCobrado?'cobrado':b>=0?'a cobrar':esMoroso?'🐌 moroso':'debe pagar'}</div>
         ${im && b < -0.5 && !saldado ? (tieneNotifPendiente
           ? `<div style="margin-top:4px;padding:5px 10px;border-radius:8px;background:rgba(245,197,24,.1);border:1px solid var(--fire);color:var(--fire);font-size:10px;font-weight:700;text-align:center">⏳ AVISADO, FALTA CONFIRMAR</div>`
@@ -5827,7 +5833,9 @@ const CORTES = {
   familiar:[{nombre:'Costilla/Asado',emoji:'🥩',grPorPax:300},{nombre:'Pollo',emoji:'🍗',grPorPax:250},{nombre:'Chorizos',emoji:'🌭',grPorPax:100},{nombre:'Morcillas',emoji:'⚫',grPorPax:50},{nombre:'Pan',emoji:'🍞',grPorPax:80}],
   vegano:[{nombre:'Costilla (carnívoros)',emoji:'🥩',grPorPax:300},{nombre:'Chorizos',emoji:'🌭',grPorPax:80},{nombre:'Hamburguesas vegetales',emoji:'🌱',grPorPax:150},{nombre:'Provoleta',emoji:'🧀',grPorPax:100},{nombre:'Verduras',emoji:'🥦',grPorPax:200},{nombre:'Pan',emoji:'🍞',grPorPax:80}],
 };
+let _calcManual = false;   // si tocaron +/−, se respeta lo que pusieron; si no, sigue a los confirmados (+ parejas)
 function cambiarComensalesCalc(delta) {
+  _calcManual = true;
   calcComensales = Math.max(1, calcComensales + delta);
   document.getElementById('calc-comen').textContent = calcComensales;
   calcularCarne();
@@ -5871,6 +5879,7 @@ function calcularCarne() {
 
   const tipo = sel?.value || 'completo';
   const cortes = CORTES[tipo];
+  if (!parrilla && !_calcManual) { calcComensales = comensalesReales(); const ce = document.getElementById('calc-comen'); if (ce) ce.textContent = calcComensales; }
   const n = parrilla ? comensalesReales() : calcComensales;
   const el = document.getElementById('resultado-carne');
   if (!el) return;
@@ -6968,7 +6977,7 @@ async function renderCuentas() {
     return '<div style="padding:11px 13px;border-bottom:1px solid var(--rim);opacity:.75">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">' +
         '<span style="font-weight:700;text-decoration:line-through;color:var(--muted);text-transform:uppercase">' + p.toUpperCase() + '</span>' +
-        '<span style="font-size:12px;color:var(--green)">✅ SALDADO</span>' +
+        '<span style="font-size:12px;color:var(--green);display:inline-flex;align-items:center;gap:6px"><span class="tick" style="width:18px;height:18px;font-size:11px">✓</span>SALDADO</span>' +
       '</div>' +
       '<div style="font-size:11px;color:var(--muted)">Su parte ' + fmt(pp) + (puestoP > 0 ? ' · Puso ' + fmt(puestoP) + ' en gastos' : '') + (totalP > 0 ? ' · Pagó ' + fmt(totalP) + ' ' + medios : '') + ' ' +
         (isAdmin() ? misPagos.map(x => '<span onclick="deshacerPago(' + x.id + ')" style="color:var(--muted);cursor:pointer;text-decoration:underline;margin-left:8px;font-size:10px">↩️ Deshacer</span>').join('') : '') +
