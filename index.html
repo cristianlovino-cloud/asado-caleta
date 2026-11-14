@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.30';
+  const APP_VERSION = '2.31';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -1765,10 +1765,50 @@ async function saveEvent() {
   const loc   = document.getElementById('me-loc').value.trim();
   const tipo  = document.getElementById('me-familiar').checked ? 'familiar' : 'normal';
   if (!title||!date) { toast('Completá título y fecha','var(--red)'); return; }
+  const oldISO = fechaEventoISO();
+  const newISO = rawDate.includes('-') ? rawDate : null;
   await sb.from('events').update({title,event_date:date,time_range:time,location:loc,tipo}).eq('id',S.event.id);
   closeModal('modal-event');
   await fetchAll();
   toast('✅ Asado actualizado!');
+  // Cambiaron la fecha y en el calendario había una fecha especial en la fecha vieja: se ofrece moverla (con las respuestas)
+  if (oldISO && newISO && oldISO !== newISO && (S.specialDates||[]).some(x => x.fecha === oldISO) && !(S.specialDates||[]).some(x => x.fecha === newISO)) {
+    if (await showConfirm('Cambiaste la fecha del asado. ¿Mover también la fecha especial del calendario del ' + oldISO.split('-').reverse().join('/') + ' al ' + newISO.split('-').reverse().join('/') + ', con las respuestas que ya hay?', { icon: '📅', okText: 'SÍ, MOVER' })) {
+      await moverFechaEspecial(oldISO, newISO);
+    }
+  }
+}
+
+// Mueve una fecha especial y las respuestas del calendario que tenía; si coincide con el asado activo, trae las respuestas al asado
+async function moverFechaEspecial(oldISO, newISO) {
+  try {
+    const { error: e1 } = await sb.from('special_dates').update({ fecha: newISO }).eq('fecha', oldISO);
+    if (e1) throw e1;
+    // Si alguien ya tenía respuesta en la fecha nueva, no se pisa (la clave es fecha+nombre)
+    const { data: yaEnNueva } = await sb.from('calendar_rsvp').select('nombre').eq('fecha', newISO);
+    const ocupados = new Set((yaEnNueva || []).map(r => r.nombre));
+    const { data: viejas } = await sb.from('calendar_rsvp').select('nombre').eq('fecha', oldISO);
+    for (const r of (viejas || [])) {
+      if (ocupados.has(r.nombre)) await sb.from('calendar_rsvp').delete().eq('fecha', oldISO).eq('nombre', r.nombre);
+      else await sb.from('calendar_rsvp').update({ fecha: newISO }).eq('fecha', oldISO).eq('nombre', r.nombre);
+    }
+    await fetchAll();
+    toast('📅 Fecha movida al ' + newISO.split('-').reverse().join('/'), 'var(--green)');
+    if (newISO === fechaEventoISO()) await importarRespuestasCalendario();
+  } catch(e) { toast('❌ No se pudo mover la fecha', 'var(--red)'); }
+}
+async function cambiarFechaEspecial(id) {
+  const sd = (S.specialDates||[]).find(x => x.id === id); if (!sd) return;
+  closeModal('modal-fechas-especiales');
+  const txt = await showPrompt('Nueva fecha (DD/MM/AAAA)', sd.fecha.split('-').reverse().join('/'), { icon: '📅', placeholder: '07/12/2026' });
+  openModal('modal-fechas-especiales');
+  if (!txt) return;
+  const m = txt.trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (!m) { toast('Formato DD/MM/AAAA', 'var(--red)'); return; }
+  const nueva = m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+  if (nueva === sd.fecha) return;
+  await moverFechaEspecial(sd.fecha, nueva);
+  renderFechasEspeciales();
 }
 
 // ══ ADMIN: PARTICIPANTES ═══════════════════════════
@@ -2275,7 +2315,10 @@ function renderFechasEspeciales() {
         '<div style="font-size:13px;font-weight:700">' + (dd&&mm&&yy ? dd+'/'+mm+'/'+yy : sd.fecha) + ' <span style="font-size:10px;color:' + (esFamiliar?'#ff69b4':'var(--muted)') + '">' + (esFamiliar?'👨‍👩‍👧 FAMILIAR':'✨ ESPECIAL') + '</span></div>' +
         '<div style="font-size:11px;color:var(--muted)">' + (sd.titulo||'') + '</div>' +
       '</div>' +
-      '<button onclick="borrarFechaEspecial(' + sd.id + ')" style="padding:5px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--red);font-size:12px;cursor:pointer;flex-shrink:0">🗑</button>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button onclick="cambiarFechaEspecial(' + sd.id + ')" style="padding:5px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--fire);font-size:12px;cursor:pointer">📅</button>' +
+        '<button onclick="borrarFechaEspecial(' + sd.id + ')" style="padding:5px 9px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--red);font-size:12px;cursor:pointer">🗑</button>' +
+      '</div>' +
     '</div>';
   }).join('');
 }
