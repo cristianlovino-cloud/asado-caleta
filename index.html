@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.32';
+  const APP_VERSION = '2.33';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -4934,7 +4934,7 @@ function renderOverview() {
     ? ['banner','hero','sorteo','miEstado','asistencia','tareas','vac','pendInv','sponsor','cumples','calendario','votos']                 // semana previa: confirmar y preparar
     : (diff !== null && diff < 0)
     ? ['hero','sorteo','vac','sponsor','asistencia','pendInv','cumples','votos','calendario','banner','tareas','miEstado']                 // ya pasó: cierre y lo que viene
-    : ['banner','hero','sorteo','vac','miEstado','calendario','sponsor','cumples','asistencia','pendInv','tareas','votos'];                 // lejos: calendario, cumples y votaciones
+    : ['banner','asistencia','hero','sponsor','sorteo','vac','miEstado','calendario','cumples','pendInv','tareas','votos'];                 // lejos: calendario, cumples y votaciones
   el.innerHTML = ORDEN.map(k => bloques[k] || '').join('');
   startSpCarousel();
 }
