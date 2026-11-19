@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.35';
+  const APP_VERSION = '2.36';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -491,6 +491,7 @@ body {
         <div class="hdr-sub" id="hdr-sub">cargando...</div>
       </div>
       <div style="display:flex;align-items:center;gap:7px">
+        <button id="bell-btn" onclick="abrirNotificaciones()" style="display:none;position:relative;background:none;border:none;font-size:18px;cursor:pointer;padding:4px 6px" title="Avisos">🔔<span id="bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 4px"></span></button>
         <button id="admin-toggle" onclick="toggleAdminBar()" style="display:none;background:none;border:none;font-size:16px;cursor:pointer;opacity:0.35;padding:4px 6px;transition:opacity .2s" title="Admin">⚙️</button>
         <div class="uc" onclick="toggleUserMenu()" style="cursor:pointer">
           <div class="av" id="uav"></div>
@@ -1081,6 +1082,13 @@ body {
 </div>
 
 <!-- Modal sorteo (asado familiar) -->
+<div class="modal-bg" id="modal-notif">
+  <div class="modal">
+    <div class="modal-title">🔔 Avisos <button class="modal-close" onclick="closeModal('modal-notif')">✕</button></div>
+    <div id="notif-body"></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-sorteo">
   <div class="modal">
     <div class="modal-title">🎁 Sorteo <button class="modal-close" onclick="closeModal('modal-sorteo')">✕</button></div>
@@ -1354,8 +1362,10 @@ async function fetchAll() {
   }
 
   // Build rsvp lookup: S.rsvp[name] = {rsvp, rsvp_at}
+  const rsvpPrev = S._rsvpOk ? S.rsvp : null;
   S.rsvp = {};
   if (rv.data) rv.data.forEach(r => { S.rsvp[r.participant_name.toLowerCase()] = {rsvp: r.rsvp, rsvp_at: r.rsvp_at, set_by: r.set_by, id: r.id, con_pareja: r.con_pareja, pareja_nombre: r.pareja_nombre}; });
+  if (rv.data) { if (rsvpPrev) avisarCambiosRsvp(rsvpPrev); S._rsvpOk = true; }
 
   if (sp.data?.length) {
     const hoy = ahoraAR();
@@ -3917,6 +3927,7 @@ function renderMenu() {
 
 // ══ HEADER ════════════════════════════════════════
 function renderHeader() {
+  renderBell();
   if (!S.event) return;
   const evN = document.getElementById('evt-name');
   evN.textContent = S.event.title;
@@ -4931,6 +4942,93 @@ function renderOverview() {
 }
 
 
+
+// ══ AVISOS PARA EL ADMIN (campanita) ═════════════════
+// Sin tablas ni servidor: se arma con lo que ya hay (respuestas con su hora y cumpleaños de hoy/mañana).
+// "Nuevo" = pasó desde la última vez que se abrió la campanita en este celular.
+const NOTIF_KEY = 'asado_notif_visto';
+function notifVisto() {
+  try {
+    let v = localStorage.getItem(NOTIF_KEY);
+    if (!v) { v = String(Date.now()); localStorage.setItem(NOTIF_KEY, v); }   // primera vez: no inundar con lo viejo
+    return +v;
+  } catch(e) { return Date.now(); }
+}
+function notifCumpleVisto(clave) { try { return !!localStorage.getItem('asado_notif_c_' + clave); } catch(e) { return false; } }
+function haceTxt(ms) {
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  return m < 1 ? 'recién' : m < 60 ? 'hace ' + m + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' d';
+}
+function notificacionesAdmin() {
+  if (!isAdmin() || !S.event) return [];
+  const visto = notifVisto(), out = [];
+  const limite = Date.now() - 7 * 86400000;
+  Object.entries(S.rsvp || {}).forEach(([k, r]) => {
+    if (!r.rsvp || !r.rsvp_at) return;
+    const pa = S.participants.find(x => x.name.toLowerCase() === k);
+    if (!pa || (me && pa.name.toLowerCase() === me.toLowerCase())) return;
+    const ts = Date.parse(r.rsvp_at); if (!ts || ts < limite) return;
+    out.push({ tipo: 'rsvp', ts, nuevo: ts > visto,
+      html: (r.rsvp === 'si' ? '✅ <b>' + soEsc(pa.name) + '</b> confirmó que va' + (r.con_pareja ? ' · 💑 ' + soEsc(r.pareja_nombre || 'con pareja') : '') : '❌ <b>' + soEsc(pa.name) + '</b> avisó que no va') });
+  });
+  const hoy = ahoraAR(), man = new Date(hoy.getTime() + 86400000);
+  S.participants.filter(p => p.active && p.birthday).forEach(p => {
+    const [d, m] = p.birthday.split('/').map(Number);
+    const esHoy = d === hoy.getDate() && m === hoy.getMonth() + 1;
+    const esMan = d === man.getDate() && m === man.getMonth() + 1;
+    if (!esHoy && !esMan) return;
+    const clave = p.name + '_' + (esHoy ? 'hoy_' : 'man_') + hoy.getFullYear() + '-' + (hoy.getMonth() + 1) + '-' + hoy.getDate();
+    out.push({ tipo: 'cumple', ts: Date.now() + (esHoy ? 1 : 0), clave, nombre: p.name, esHoy, nuevo: !notifCumpleVisto(clave),
+      html: '🎂 <b>' + soEsc(p.name) + '</b> ' + (esHoy ? 'cumple años HOY' : 'cumple años mañana') });
+  });
+  return out.sort((a, b) => b.ts - a.ts);
+}
+function renderBell() {
+  const btn = document.getElementById('bell-btn'); if (!btn) return;
+  const adm = isAdmin();
+  btn.style.display = adm ? '' : 'none';
+  if (!adm) return;
+  const n = notificacionesAdmin().filter(x => x.nuevo).length;
+  const b = document.getElementById('bell-badge');
+  b.style.display = n ? 'block' : 'none';
+  b.textContent = n > 9 ? '9+' : n;
+}
+function abrirNotificaciones() {
+  const items = notificacionesAdmin();
+  const body = document.getElementById('notif-body');
+  body.innerHTML = items.length ? items.map(x => `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--rim)">
+      ${x.nuevo ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--fire);flex-shrink:0"></span>' : '<span style="width:8px;flex-shrink:0"></span>'}
+      <div style="flex:1;font-size:13px;line-height:1.4">${x.html}<div style="font-size:11px;color:var(--muted);margin-top:2px">${x.tipo === 'rsvp' ? haceTxt(x.ts) : (x.esHoy ? 'hoy' : 'mañana')}</div></div>
+      ${x.tipo === 'cumple' && x.esHoy ? `<button onclick="enviarFelizCumple('${x.nombre.replace(/'/g, "\\'")}')" style="flex-shrink:0;padding:7px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:#fff;font-size:12px;font-weight:700;cursor:pointer">SALUDAR</button>` : ''}
+    </div>`).join('')
+    : '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Sin novedades de los últimos 7 días</div>';
+  openModal('modal-notif');
+  // al abrir se marca todo como visto (la lista de esta vez conserva los puntitos de "nuevo")
+  try {
+    localStorage.setItem(NOTIF_KEY, String(Date.now()));
+    items.filter(x => x.tipo === 'cumple').forEach(x => localStorage.setItem('asado_notif_c_' + x.clave, '1'));
+  } catch(e) {}
+  renderBell();
+}
+// En vivo: si con la app abierta llega una respuesta nueva o cambiada de otro, se avisa con un cartelito
+function avisarCambiosRsvp(prev) {
+  if (!isAdmin() || !me) return;
+  Object.entries(S.rsvp).forEach(([k, r]) => {
+    if (!r.rsvp || prev[k]?.rsvp === r.rsvp) return;
+    if (k === me.toLowerCase()) return;
+    const pa = S.participants.find(x => x.name.toLowerCase() === k); if (!pa) return;
+    toast((r.rsvp === 'si' ? '✅ ' + pa.name + ' confirmó que va' + (r.con_pareja ? ' 💑' : '') : '❌ ' + pa.name + ' avisó que no va'), r.rsvp === 'si' ? 'var(--green)' : 'var(--red)', 4500);
+  });
+}
+// Al abrir la app: si hoy cumple alguien y todavía no se avisó hoy, un cartelito
+function avisarCumplesAdmin() {
+  if (!isAdmin() || window._cumpleAvisado) return;
+  const hoy = notificacionesAdmin().filter(x => x.tipo === 'cumple' && x.esHoy && x.nuevo);
+  if (!hoy.length) return;
+  window._cumpleAvisado = true;
+  toast('🎂 Hoy cumple ' + hoy.map(x => x.nombre.split(' ')[0]).join(' y '), 'var(--fire)', 5000);
+}
+
 // ══ SORTEO (asado familiar) ══════════════════════════
 // Una fila por asado en la tabla `sorteos`: numeros = [{num, nombre, pareja}], premios = [{orden, premio, ganador:{num,nombre,pareja}|null}].
 // Los números se asignan al activar (por orden de confirmación) y quedan fijos; el sorteo lo hace el admin con azar criptográfico.
@@ -5246,6 +5344,7 @@ function renderAll() {
   startClock();
   renderCumples();
   renderHeader();
+  avisarCumplesAdmin();
   renderGastos();
   renderTasks();
   renderMenu();
