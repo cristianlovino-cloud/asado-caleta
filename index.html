@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.40';
+  const APP_VERSION = '2.41';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -2396,7 +2396,16 @@ function populateSel() {
 const getTotal = ()=> S.expenses.reduce((a,e)=>a+parseFloat(e.amount),0);
 const getPP    = ()=> { const n = allP().length; return n?Math.round(getTotal()/n):0; };
 const paid     = n => S.expenses.filter(e=>e.payer.toLowerCase()===n.toLowerCase()).reduce((a,e)=>a+parseFloat(e.amount),0);
-const bal      = n => paid(n)-getPP();
+// Quién entra en la cuenta: los confirmados (cada uno paga UNA parte, la pareja va incluida en la de su acompañante)
+// + cualquiera que haya puesto plata aunque no haya confirmado (parte 0: no paga, pero hay que devolverle lo que puso).
+const cuentaP  = () => {
+  const base = allP(), vistos = new Set(base.map(n=>n.toLowerCase())), extra = [];
+  S.expenses.forEach(e => { const k = (e.payer||'').toLowerCase(); if (k && !vistos.has(k)) { vistos.add(k); extra.push(S.participants.find(p=>p.name.toLowerCase()===k)?.name || e.payer); } });
+  return [...base, ...extra];
+};
+const esComensalCuenta = n => allP().some(p=>p.toLowerCase()===n.toLowerCase());
+const parteDe  = n => esComensalCuenta(n) ? getPP() : 0;
+const bal      = n => paid(n)-parteDe(n);
 // Margen de tolerancia para considerar una deuda/cobro como saldado (diferencias chicas por
 // redondeo o pagos en efectivo "cerrados" no deberían seguir marcando a alguien como pendiente).
 const TOLERANCIA_SALDO = 500;
@@ -2583,7 +2592,7 @@ async function renderGastos() {
       <div class="ov-card" style="text-align:center;margin-bottom:12px">
         <div class="ov-label">💰 Tu parte del asado</div>
         <div style="font-size:42px;font-weight:700;font-family:var(--font-title);color:var(--fire);letter-spacing:2px">${fmt(pp)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas${S.event?.tipo==='familiar'?' (cada pareja va incluida en la parte de su acompañante)':''}</div>
       </div>
       <div class="ov-card">
         <div class="ov-label">📋 Gastos del asado</div>
@@ -2671,7 +2680,7 @@ async function renderGastos() {
   sm.textContent = miSaldado ? '✅ $0' : (mb>=0?'+':'-')+fmt(mbDisplay);
   sm.className='sv '+(mb>=0||miSaldado?'cgr':'cr');
 
-  document.getElementById('ballist').innerHTML = allP().map(p=>{
+  document.getElementById('ballist').innerHTML = cuentaP().map(p=>{
     const b=bal(p), im=p.toLowerCase()===me.toLowerCase();
     const yaPago = pagadoPorGastos(p);
     const saldado = b < -0.5 && yaPago >= Math.abs(b) - TOLERANCIA_SALDO;
@@ -2691,7 +2700,7 @@ async function renderGastos() {
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
         <div><div class="pname">${p.toUpperCase()}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}${esMoroso?' <span style="font-size:10px;color:var(--red)">🐌 MOROSO</span>':''}</div>
-        <div class="psub">Gastó: ${fmt(paid(p))}</div></div>
+        <div class="psub">Gastó: ${fmt(paid(p))}${!esComensalCuenta(p)?' · no come (sin confirmar)':(S.event?.tipo==='familiar'&&getRsvpConPareja(p)?' · 💑 parte de a dos':'')}</div></div>
       </div>
       <div>
         <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado||acrCobrado?'<span class="tick">✓</span>':(b>=0?'+':'-')+(b>0.5?fmt(pendienteCobrar):fmt(b))}</div>
@@ -2704,7 +2713,7 @@ async function renderGastos() {
     </div>`;
   }).join('');
 
-  const faltanPagar = allP().filter(p => bal(p) < -0.5 && pagadoPorGastos(p) < Math.abs(bal(p)) - TOLERANCIA_SALDO);
+  const faltanPagar = cuentaP().filter(p => bal(p) < -0.5 && pagadoPorGastos(p) < Math.abs(bal(p)) - TOLERANCIA_SALDO);
   const ballistEl = document.getElementById('ballist');
   if(ballistEl) ballistEl.innerHTML += isAdmin() && faltanPagar.length>0
     ? `<div style="margin-top:10px;padding:10px 12px;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);border-radius:10px;font-size:12px;text-transform:uppercase">⚠️ <strong>Faltan pagar:</strong> ${faltanPagar.map(p=>p.toUpperCase()).join(', ')} — <span onclick="openModal('modal-cuentas')" style="color:var(--fire);cursor:pointer;text-decoration:underline">Cerrar cuentas</span></div>`
@@ -4013,8 +4022,8 @@ function buildMsg(type) {
   const pp=fmt(getPP()),tot=fmt(getTotal());
   const mn=S.menu.map(m=>`   ${m.emoji} ${m.name}`).join('\n')||'   (en construcción)';
   const pt=S.tasks.filter(t=>!t.done);
-  const deu=allP().filter(p=>bal(p)<-100);
-  const acr=allP().filter(p=>bal(p)>100);
+  const deu=cuentaP().filter(p=>bal(p)<-100);
+  const acr=cuentaP().filter(p=>bal(p)>100);
   return ({
     convocatoria:
 `🔥 *${ev.title||'ASADO'}* 🔥
@@ -6078,10 +6087,14 @@ function esDiaDelAsado() {
 function carneModoActivo() { return _carneModoParrilla === null ? esDiaDelAsado() : _carneModoParrilla; }
 function setCarneModo(v) { _carneModoParrilla = v; calcularCarne(); }
 // Comensales reales = confirmados (+ parejas si el asado es familiar)
+// Si la pareja ya confirmó por su cuenta (figura en allP), no se suma otra vez como acompañante.
+function parejasExtra() {
+  if (S.event?.tipo !== 'familiar') return 0;
+  const conf = new Set(allP().map(n => n.toLowerCase()));
+  return S.participants.filter(p => p.active && getRsvp(p.name)==='si' && getRsvpConPareja(p.name) && !conf.has((getRsvpParejaNombre(p.name)||'').trim().toLowerCase())).length;
+}
 function comensalesReales() {
-  const base = allP().length;
-  const parejas = S.event?.tipo === 'familiar' ? S.participants.filter(p => p.active && getRsvp(p.name)==='si' && getRsvpConPareja(p.name)).length : 0;
-  return Math.max(1, base + parejas);
+  return Math.max(1, allP().length + parejasExtra());
 }
 function carneListosKey() { return 'carne_listos_' + (S.event?.id || '0'); }
 function carneListos() { try { return JSON.parse(localStorage.getItem(carneListosKey()) || '[]'); } catch(e) { return []; } }
@@ -6985,7 +6998,7 @@ function abrirModalPago(payerName, amount, receiverName) {
   document.getElementById('mp-amount').value  = amount     || '';
   // Si hay un recaudador elegido para este asado, se preselecciona directo.
   // Si no, y hay un solo acreedor (lo más común: recaudás todo vos), se usa ese.
-  const acreedores = allP().filter(p => bal(p) > 0.5);
+  const acreedores = cuentaP().filter(p => bal(p) > 0.5);
   const receiverFinal = receiverName || S.event?.recaudador || (acreedores.length === 1 ? acreedores[0] : '');
   document.getElementById('mp-receiver').value = receiverFinal;
   document.getElementById('mp-receiver-label').textContent = receiverFinal ? receiverFinal.toUpperCase() : 'Elegir...';
@@ -7000,7 +7013,7 @@ async function elegirPagoPersona(campo) {
   // pero también cualquier otro participante (puede ser que alguien cobre la plata
   // de todos y todavía no tenga saldo positivo calculado, ej: recaudó antes de cargar sus gastos)
   const opciones = esPayer ? allP().sort((a,b)=>a.localeCompare(b,'es')) : (() => {
-    const todos = allP().sort((a,b)=>a.localeCompare(b,'es'));
+    const todos = cuentaP().sort((a,b)=>a.localeCompare(b,'es'));
     const rec = S.event?.recaudador;
     if (rec && todos.some(p=>p.toLowerCase()===rec.toLowerCase())) {
       return [rec, ...todos.filter(p=>p.toLowerCase()!==rec.toLowerCase())];
@@ -7078,7 +7091,8 @@ async function renderCuentas() {
   const payments = await fetchPayments();
   const total  = S.expenses.reduce((a,e) => a + parseFloat(e.amount), 0);
   const numP   = allP().length;
-  const pp     = numP > 0 ? total / numP : 0;
+  const ppBase = numP > 0 ? total / numP : 0;
+  const pp     = ppBase;
   const recaudador = S.event?.recaudador || '';
 
   // Quién cobra el pozo. Si todavía no está elegido, no tiene sentido mostrar nada más.
@@ -7156,12 +7170,12 @@ async function renderCuentas() {
 
   // Saldo real de cada uno: su parte − lo que puso de su bolsillo en gastos − lo que ya le pagó al recaudador
   // (+ lo que el recaudador ya le devolvió). Positivo = debe; negativo = tiene saldo a favor.
-  const otros = allP().filter(p => p.toLowerCase() !== recaudador.toLowerCase());
+  const otros = cuentaP().filter(p => p.toLowerCase() !== recaudador.toLowerCase());
   const conNeto = otros.map(p => {
-    const puso = paid(p);
+    const puso = paid(p), pp = esComensalCuenta(p) ? ppBase : 0;   // quien no confirmó no paga parte, solo recupera lo que puso
     // Cuentan TODOS los pagos (no solo los que van al recaudador): lo que pagó a cualquiera y lo que le pagaron a él
     const neto = pp - puso - pagosHechos(p) + pagosRecibidos(p);
-    return { name: p, puso, neto, falta: Math.max(0, neto), aFavor: Math.max(0, -neto) };
+    return { name: p, puso, parte: pp, neto, falta: Math.max(0, neto), aFavor: Math.max(0, -neto) };
   });
   const pendientes = conNeto.filter(x => x.falta > TOLERANCIA_SALDO);
   const aDevolver  = conNeto.filter(x => x.aFavor > TOLERANCIA_SALDO);
@@ -7206,7 +7220,7 @@ async function renderCuentas() {
         '<span style="font-weight:700;text-decoration:line-through;color:var(--muted);text-transform:uppercase">' + p.toUpperCase() + '</span>' +
         '<span style="font-size:12px;color:var(--green);display:inline-flex;align-items:center;gap:6px"><span class="tick" style="width:18px;height:18px;font-size:11px">✓</span>SALDADO</span>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--muted)">Su parte ' + fmt(pp) + (puestoP > 0 ? ' · Puso ' + fmt(puestoP) + ' en gastos' : '') + (totalP > 0 ? ' · Pagó ' + fmt(totalP) + ' ' + medios : '') + ' ' +
+      '<div style="font-size:11px;color:var(--muted)">Su parte ' + fmt(esComensalCuenta(p)?pp:0) + (puestoP > 0 ? ' · Puso ' + fmt(puestoP) + ' en gastos' : '') + (totalP > 0 ? ' · Pagó ' + fmt(totalP) + ' ' + medios : '') + ' ' +
         (isAdmin() ? misPagos.map(x => '<span onclick="deshacerPago(' + x.id + ')" style="color:var(--muted);cursor:pointer;text-decoration:underline;margin-left:8px;font-size:10px">↩️ Deshacer</span>').join('') : '') +
       '</div>' +
     '</div>';
@@ -7220,7 +7234,7 @@ async function renderCuentas() {
         '<span style="font-weight:700;text-transform:uppercase">' + p.toUpperCase() + '</span>' +
         '<span style="font-size:12px;color:var(--green)">A FAVOR ' + fmt(aFavor) + '</span>' +
       '</div>' +
-      '<div style="font-size:11px;color:var(--muted);margin:-2px 0 6px">Su parte ' + fmt(pp) + ' · Puso ' + fmt(puso) + ' en gastos' + (misPagos.length ? ' · Ya cobró ' + fmt(misPagos.reduce((a,x)=>a+x.amount,0)) : '') + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin:-2px 0 6px">' + (esComensalCuenta(p) ? 'Su parte ' + fmt(pp) : 'No confirmó, no paga parte') + ' · Puso ' + fmt(puso) + ' en gastos' + (misPagos.length ? ' · Ya cobró ' + fmt(misPagos.reduce((a,x)=>a+x.amount,0)) : '') + '</div>' +
       (isAdmin() ? '<button onclick="abrirModalPago_btn(this)" data-payer="' + recaudador + '" data-amount="' + Math.round(aFavor) + '" data-receiver="' + p + '" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.12);color:var(--green);font-size:13px;font-weight:700;cursor:pointer">💸 REGISTRAR DEVOLUCIÓN</button>' : '') +
     '</div>';
   }).join('');
@@ -7234,7 +7248,7 @@ async function renderCuentas() {
   const totalTransf = payments.filter(p=>p.method==='transferencia' && p.receiver.toLowerCase()===recaudador.toLowerCase() && p.payer.toLowerCase()!==recaudador.toLowerCase()).reduce((a,p)=>a+p.amount,0);
   const totalPendiente = pendientes.reduce((a,x) => a + x.falta, 0);
   // Lo que falta juntar entre todos menos el recaudador (que ya puso su propia parte).
-  const montoACircular = otros.reduce((a,p) => a + Math.max(0, pp - paid(p)), 0);
+  const montoACircular = conNeto.reduce((a,x) => a + Math.max(0, x.parte - x.puso), 0);
   const totalADevolver = aDevolver.reduce((a,x) => a + x.aFavor, 0);
   // Cobrado = lo que efectivamente hacía falta juntar menos lo pendiente — así
   // "cobrado + pendiente" da SIEMPRE exacto el monto a juntar, sin trampa.
