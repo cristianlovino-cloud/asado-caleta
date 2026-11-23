@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.43';
+  const APP_VERSION = '2.44';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -1594,7 +1594,7 @@ async function doLogin() {
       .select('rsvp').eq('event_id', S.event.id).ilike('participant_name', v).single();
     if (rsvpCheck?.rsvp === 'si' || rsvpCheck?.rsvp === 'no') yaConfirmo = true;
   }
-  if (yaConfirmo) {
+  if (yaConfirmo || asistenciaBloqueada()) {
     entrarApp(v);
     return;
   }
@@ -2129,6 +2129,7 @@ async function insertarRsvpFilas(filas) {
 // Cada usuario: si ya había respondido en el calendario para la fecha de este asado y acá todavía
 // no tiene respuesta, se la pasa solo (cubre asados creados antes y respuestas que llegaron tarde).
 async function sincronizarMiRsvpDesdeCalendario() {
+  if (asistenciaBloqueada()) return;
   if (!sbOk || !me || !S.event || S.event.archived || getRsvp(me) || window._calSyncEnCurso) return;
   const iso = fechaEventoISO();
   const resp = iso && S.rsvpCal?.[iso]?.[me];
@@ -2409,6 +2410,8 @@ const cuentaP  = () => {
   S.expenses.forEach(e => { const k = (e.payer||'').toLowerCase(); if (k && !vistos.has(k)) { vistos.add(k); extra.push(S.participants.find(p=>p.name.toLowerCase()===k)?.name || e.payer); } });
   return [...base, ...extra];
 };
+// Con las cuentas cerradas el reparto ya está fijo: nadie (salvo el admin) puede tocar la asistencia ni las parejas.
+const asistenciaBloqueada = () => !isAdmin() && !!S.cuentasAbiertas && !!S.event && !S.event.archived;
 const esComensalCuenta = n => allP().some(p=>p.toLowerCase()===n.toLowerCase());
 const parteDe  = n => esComensalCuenta(n) ? getPP() : 0;
 const bal      = n => paid(n)-parteDe(n);
@@ -4186,6 +4189,7 @@ function renderCumples() {
 
 async function rsvpCalendario(fechaISO, resp) {
   if (!sbOk || !me) return;
+  if (fechaISO === fechaEventoISO() && asistenciaBloqueada()) { toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   const prev = S.rsvpCal?.[fechaISO]?.[me];
   const newResp = prev === resp ? null : resp; // toggle off si es igual
 
@@ -4218,6 +4222,7 @@ async function rsvpCalendario(fechaISO, resp) {
 // porque acá el "✅" siempre es "confirmar/editar mi respuesta", nunca un apagado.
 async function confirmarFamiliarCalendario(fechaISO) {
   if (!sbOk || !me) return;
+  if (fechaISO === fechaEventoISO() && asistenciaBloqueada()) { toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   const conPareja = await showConfirm('¿Vas a venir con tu pareja?', { title: '👨‍👩‍👧 ASADO FAMILIAR', icon: '💑', okText: 'SÍ, CON PAREJA', cancelText: 'VOY SOLO/A' });
   let parejaNombre = '';
   if (conPareja) {
@@ -4276,12 +4281,13 @@ function climaNum(temp)  { return (temp||'🌡️ --°C').split(' ').slice(1).jo
 
 function renderOvMiEstado(miRsvp) {
   let btn = '';
-  if (miRsvp==='si') btn = '<button onclick="cambiarAsistencia()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase;margin-right:4px">CAMBIAR</button>';
+  if (asistenciaBloqueada()) btn = '<span style="font-size:11px;color:var(--muted);text-transform:uppercase">🔒 Cuentas cerradas</span>';
+  else if (miRsvp==='si') btn = '<button onclick="cambiarAsistencia()" style="padding:7px 14px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;text-transform:uppercase;margin-right:4px">CAMBIAR</button>';
   else if (miRsvp==='no') btn = '<button onclick="cambiarAsistencia()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--green);background:rgba(39,174,96,.1);color:var(--green);font-size:11px;cursor:pointer;text-transform:uppercase">VOY DESPUÉS DE TODO ✅</button>';
   else btn = '<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>';
   const calBtn = '<button onclick="agregarACalendario()" title="Agregar a mi calendario" style="padding:7px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:14px;cursor:pointer;margin-right:4px">📅</button>';
   const estado = miRsvp==='si' ? '✅ VAS AL ' + (S.event?.title||'ASADO').split(' ')[0].toUpperCase() : miRsvp==='no' ? '❌ NO VAS' : '🤷 SIN CONFIRMAR';
-  const fam = S.event?.tipo === 'familiar' && miRsvp === 'si';
+  const fam = S.event?.tipo === 'familiar' && miRsvp === 'si' && !asistenciaBloqueada();
   const parejaFila = fam ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--rim)">' +
     '<span style="font-size:12px;color:#ff69b4">' + (getRsvpConPareja(me) ? '💑 Con pareja' + (getRsvpParejaNombre(me) ? ': ' + soEsc(getRsvpParejaNombre(me)) : '') : '🙋 Vas solo/a') + '</span>' +
     '<button onclick="editarPareja()" style="padding:6px 12px;border-radius:8px;border:1px solid #ff69b4;background:none;color:#ff69b4;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase">' + (getRsvpConPareja(me) ? 'Cambiar' : '+ Agregar pareja') + '</button></div>' : '';
@@ -5420,6 +5426,7 @@ function updateClock() {
 }
 
 function mostrarConfirmScreen() {
+  if (asistenciaBloqueada()) { toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   document.getElementById('app').style.display='none';
   var pregEl = document.getElementById('rsvp-pregunta');
   if (pregEl && S.event) {
@@ -5453,6 +5460,7 @@ async function preguntarPareja(nombre) {
 // Agregar / sacar / cambiar la pareja SIN tocar la confirmación (la propia persona o el admin)
 async function editarPareja(nombre) {
   if (!S.event || S.event.tipo !== 'familiar') return;
+  if (asistenciaBloqueada()) { toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   nombre = nombre || me;
   if (nombre.toLowerCase() !== me.toLowerCase() && !isAdmin()) return;
   if (getRsvp(nombre) !== 'si') { toast('Primero confirmá la asistencia', 'var(--red)'); return; }
@@ -5470,6 +5478,7 @@ async function editarPareja(nombre) {
 }
 async function cambiarAsistencia() {
   if (!S.event) return;
+  if (asistenciaBloqueada()) { toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   const actual = getRsvp(me);
   const nuevoRsvp = actual === 'si' ? 'no' : 'si';
   let info = null;
@@ -5803,6 +5812,7 @@ function startAutoRefresh() {
 // ══ AUTOCOMPLETE NOMBRE ═══════════════════════════
 // ══ CONFIRMACIÓN ASISTENCIA ════════════════════════
 async function confirmarAsistencia(resp) {
+  if (asistenciaBloqueada()) { toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   let parejaInfo = null;
   // Si este asado está marcado como "familiar", antes de anotar un "sí" pregunto
   // si viene con pareja (y el nombre), para tener la cabeza de cantidad real.
@@ -5823,6 +5833,7 @@ async function confirmarAsistencia(resp) {
 }
 
 async function upsertRsvp(name, resp, parejaInfo) {
+  if (asistenciaBloqueada()) { toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   if (!S.event) await fetchAll();   // fuerza la carga si todavía no estaba
   if (!S.event) return;             // recién ahí, si sigue sin haber evento, corta
   const conPareja = parejaInfo?.con_pareja || false;
@@ -6094,6 +6105,7 @@ document.addEventListener('click', function(e) {
 });
 
 function cambiarRsvp() {
+  if (asistenciaBloqueada()) { document.getElementById('user-menu').style.display='none'; toast('🔒 Las cuentas ya están cerradas: solo el admin puede cambiar la asistencia', 'var(--red)', 4000); return; }
   // Limpiar localStorage y mostrar pantalla de confirmación
   const key = 'rsvp_'+(S.event?.id||'')+'_'+me.toLowerCase();
   localStorage.removeItem(key);
