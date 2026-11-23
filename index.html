@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.38';
+  const APP_VERSION = '2.39';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -541,6 +541,8 @@ body {
   <!-- OVERVIEW -->
   <div class="panel active" id="panel-overview">
     <div id="ov-content"><div class="sk" style="height:150px;margin-bottom:12px"></div><div class="sk" style="height:90px;margin-bottom:12px"></div><div class="sk" style="height:120px;margin-bottom:12px"></div><div class="sk" style="height:90px"></div></div>
+    <div id="ov-musica"></div>
+    <div id="ov-post"></div>
   </div>
 
   <!-- GASTOS -->
@@ -4948,7 +4950,16 @@ function renderOverview() {
     : (diff !== null && diff < 0)
     ? ['hero','sorteo','musica','vac','sponsor','asistencia','pendInv','cumples','votos','calendario','banner','tareas','miEstado']                 // ya pasó: cierre y lo que viene
     : ['banner','asistencia','hero','sponsor','sorteo','musica','vac','miEstado','calendario','cumples','pendInv','tareas','votos'];                 // lejos: calendario, cumples y votaciones
-  el.innerHTML = ORDEN.map(k => bloques[k] || '').join('');
+  // La música va en su propio contenedor: si se redibujara con el resto, cada actualización cortaría la canción.
+  const iM = ORDEN.indexOf('musica');
+  const render = ks => ks.map(k => bloques[k] || '').join('');
+  el.innerHTML = render(iM < 0 ? ORDEN : ORDEN.slice(0, iM));
+  const mEl = document.getElementById('ov-musica'), pEl = document.getElementById('ov-post');
+  if (mEl) {
+    const mh = iM < 0 ? '' : (bloques.musica || '');
+    if (mh !== _musHtmlPrev) { mEl.innerHTML = mh; _musHtmlPrev = mh; }
+  }
+  if (pEl) pEl.innerHTML = iM < 0 ? '' : render(ORDEN.slice(iM + 1));
   startSpCarousel();
 }
 
@@ -5047,11 +5058,12 @@ function parseSpotify(url) {
   const m = (url || '').match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(playlist|album|track|artist|show|episode)\/([A-Za-z0-9]+)/);
   return m ? { tipo: m[1], id: m[2] } : null;
 }
-let _spExpandido = false;
+let _spExpandido = false, _musHtmlPrev = '';
 function toggleSpotifyAlto() {
   _spExpandido = !_spExpandido;
   const f = document.getElementById('mus-frame'); if (f) f.style.height = _spExpandido ? '352px' : '152px';
   const b = document.getElementById('mus-toggle'); if (b) b.textContent = _spExpandido ? 'Ver menos' : 'Ver lista completa';
+  _musHtmlPrev = renderOvMusica();   // que el próximo redibujado no recargue el reproductor
 }
 function renderOvMusica() {
   if (!S.event || S.event.archived) return '';
@@ -5068,7 +5080,7 @@ function renderOvMusica() {
       <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#1ed760">🎵 La música del asado</span>
       <button id="mus-toggle" onclick="toggleSpotifyAlto()" style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer">${_spExpandido ? 'Ver menos' : 'Ver lista completa'}</button>
     </div>
-    <iframe id="mus-frame" src="https://open.spotify.com/embed/${sp.tipo}/${sp.id}?utm_source=generator&theme=0" width="100%" style="height:${_spExpandido ? 352 : 152}px;border:0;border-radius:12px;transition:height .25s" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+    <iframe id="mus-frame" src="https://open.spotify.com/embed/${sp.tipo}/${sp.id}?utm_source=generator&theme=0" width="100%" style="height:${_spExpandido ? 352 : 152}px;border:0;border-radius:12px;transition:height .25s" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
     <a href="${link}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:8px;padding:9px;border-radius:10px;background:#1ed760;color:#000;font-weight:700;font-size:13px;text-decoration:none;text-transform:uppercase;letter-spacing:.5px">Abrir en Spotify</a>
   </div>`;
 }
