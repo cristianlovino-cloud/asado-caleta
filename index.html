@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.42';
+  const APP_VERSION = '2.43';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -551,7 +551,7 @@ body {
     <div class="gastos-financiero">
       <div class="sg">
         <div class="sb sbf"><div class="sl">TOTAL GASTADO</div><div class="sv cf" id="st">$0</div></div>
-        <div class="sb sbg"><div class="sl">POR PERSONA</div><div class="sv cg" id="spp">$0</div></div>
+        <div class="sb sbg"><div class="sl" id="spp-lbl">POR PERSONA</div><div class="sv cg" id="spp">$0</div></div>
         <div class="sb sbb">
           <div class="sl">Comensales</div>
           <div class="sv cb" id="sc">0</div>
@@ -908,7 +908,7 @@ body {
     </button>
     <input type="hidden" id="recaudar-receiver">
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Normalmente sos vos. Elegí otro solo si cobraste para dárselo a quien efectivamente compró (así queda un solo movimiento, no dos).</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">MONTO POR PERSONA $</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">MONTO POR PERSONA / PAREJA $</div>
     <input class="fi fi-monto" id="recaudar-monto" type="text" placeholder="0" inputmode="numeric" oninput="formatMontoInput(this)" style="margin-bottom:14px">
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px">¿QUIÉN YA PAGÓ?</div>
     <div id="recaudar-lista" style="margin-bottom:16px;max-height:280px;overflow-y:auto"></div>
@@ -2380,7 +2380,13 @@ function showTab(t) {
   if (t==='sugerencias') { renderSugerencias(); clearMencionesBadge(); }
   if (t==='gastos') fetchAll().then(()=>renderGastos());
 }
-function tf(id) { document.getElementById(id).classList.toggle('open'); }
+function tf(id) {
+  const el = document.getElementById(id); if (!el) return;
+  el.classList.toggle('open');
+  if (id === 'fexp' && el.classList.contains('open')) {   // que se vea el formulario aunque estés más abajo
+    setTimeout(() => { try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); document.getElementById('fedesc')?.focus({ preventScroll: true }); } catch (e) {} }, 60);
+  }
+}
 // Todos los participantes activos (no solo confirmados) para asignar tareas
 const allPActive = () => S.participants.filter(p=>p.active).map(p=>p.name);
 
@@ -2426,7 +2432,14 @@ async function addExpense() {
   toast('✅ Gasto cargado!');
   // Sincronizar con Supabase en background
   sb.from('expenses').insert({event_id:S.event.id,payer:me,description:desc,amount:amt,foto_url})
-    .then(()=>fetchAll());
+    .then(({error}) => {
+      if (error) {
+        S.expenses = S.expenses.filter(e => e.id !== tempExp.id); renderGastos();
+        toast('❌ No se pudo guardar el gasto: ' + (error.message || 'error') , 'var(--red)', 5000);
+        return;
+      }
+      return fetchAll();
+    }).catch(() => toast('❌ Sin conexión: el gasto no se guardó', 'var(--red)', 5000));
 }
 
 
@@ -2592,7 +2605,7 @@ async function renderGastos() {
       <div class="ov-card" style="text-align:center;margin-bottom:12px">
         <div class="ov-label">💰 Tu parte del asado</div>
         <div style="font-size:42px;font-weight:700;font-family:var(--font-title);color:var(--fire);letter-spacing:2px">${fmt(pp)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas${S.event?.tipo==='familiar'?' (cada pareja va incluida en la parte de su acompañante)':''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ${fmt(total)} · ${allP().length} personas${S.event?.tipo==='familiar'?' · se paga por pareja':''}</div>
       </div>
       <div class="ov-card">
         <div class="ov-label">📋 Gastos del asado</div>
@@ -2651,6 +2664,7 @@ async function renderGastos() {
 
   document.getElementById('st').textContent  = fmt(total);
   document.getElementById('spp').textContent = fmt(pp);
+  { const l = document.getElementById('spp-lbl'); if (l) l.textContent = S.event?.tipo === 'familiar' ? 'POR PAREJA' : 'POR PERSONA'; }
   document.getElementById('sc').textContent  = allP().length;
   { // Asado familiar: la cuenta se divide por confirmado, pero a la mesa se sientan también las parejas
     const sub = document.getElementById('sc-sub');
@@ -2700,7 +2714,7 @@ async function renderGastos() {
       <div class="pl">
         <div class="av${im?'':' n'}">${p[0].toUpperCase()}</div>
         <div><div class="pname">${p.toUpperCase()}${im?' <span style="font-size:10px;color:var(--fire)">(vos)</span>':''}${esMoroso?' <span style="font-size:10px;color:var(--red)">🐌 MOROSO</span>':''}</div>
-        <div class="psub">Gastó: ${fmt(paid(p))}${!esComensalCuenta(p)?' · no come (sin confirmar)':(S.event?.tipo==='familiar'&&getRsvpConPareja(p)?' · 💑 parte de a dos':'')}</div></div>
+        <div class="psub">Gastó: ${fmt(paid(p))}${!esComensalCuenta(p)?' · no come (sin confirmar)':(S.event?.tipo==='familiar'&&getRsvpConPareja(p)?' · 💑 '+(getRsvpParejaNombre(p)?'con '+getRsvpParejaNombre(p):'con pareja'):'')}</div></div>
       </div>
       <div>
         <div class="bval ${saldado||acrCobrado?'cgr':b>=0?'cgr':'cr'}">${saldado||acrCobrado?'<span class="tick">✓</span>':(b>=0?'+':'-')+(b>0.5?fmt(pendienteCobrar):fmt(b))}</div>
@@ -7093,7 +7107,7 @@ async function compartirResumenCuentas() {
   if (!r || !S.event) return;
   const nom = n => n.split(' ')[0];
   let msg = `💰 *CUENTAS — ${(S.event.title || 'Asado').toUpperCase()}*\n` +
-    `Total gastado: ${fmt(r.total)}\nPor persona (${r.numP}): *${fmt(r.pp)}*\n\n` +
+    `Total gastado: ${fmt(r.total)}\n${S.event?.tipo === 'familiar' ? 'Por pareja' : 'Por persona'} (${r.numP}): *${fmt(r.pp)}*\n\n` +
     `Le pagan a: *${r.recaudador.toUpperCase()}*${r.alias ? '\nAlias: ' + r.alias : ''}\n\n`;
   msg += r.pendientes.length
     ? `⏳ *Falta pagar:*\n` + r.pendientes.map(x => `• ${nom(x.name)}: ${fmt(x.falta)}`).join('\n')
@@ -7176,8 +7190,8 @@ async function renderCuentas() {
     el.innerHTML = stepper +
       '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:10px">' +
         '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
-        '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">CONFIRMADOS</span><span style="font-weight:700">' + numP + '</span></div>' +
-        '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">' + (S.event?.tipo === 'familiar' ? 'PAREJAS / CONFIRMADOS' : 'CONFIRMADOS') + '</span><span style="font-weight:700">' + numP + '</span></div>' +
+        '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase">' + (S.event?.tipo === 'familiar' ? 'POR PAREJA' : 'POR PERSONA') + '</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
       '</div>' +
       (quienPuso ? '<div style="margin-bottom:8px"><span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Pusieron plata:</span><br>' + quienPuso + '</div>' : '') +
       '<div style="margin-bottom:14px">' + gastosHtml + '</div>' +
@@ -7307,8 +7321,8 @@ async function renderCuentas() {
     recHtml +
     '<div style="padding:12px 13px;background:var(--ash);border-radius:10px;margin-bottom:12px">' +
       '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">TOTAL GASTADO</span><span style="font-weight:700;color:var(--fire)">' + fmt(total) + '</span></div>' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">CONFIRMADOS</span><span style="font-weight:700">' + numP + '</span></div>' +
-      '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">POR PERSONA</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">' + (S.event?.tipo === 'familiar' ? 'PAREJAS / CONFIRMADOS' : 'CONFIRMADOS') + '</span><span style="font-weight:700">' + numP + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">' + (S.event?.tipo === 'familiar' ? 'POR PAREJA' : 'POR PERSONA') + '</span><span style="font-weight:700;color:var(--gold)">' + fmt(pp) + '</span></div>' +
     '</div>' +
     (isAdmin() ? '<button onclick="abrirModalPago_btn(null)" style="width:100%;margin-bottom:12px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--fire),var(--ember));color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:Bebas Neue,cursive;letter-spacing:1px">➕ REGISTRAR PAGO</button>' : '') +
     '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px">💰 TODOS LE PAGAN A ' + recaudador.toUpperCase() + '</div>' +
