@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.39';
+  const APP_VERSION = '2.40';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -5058,12 +5058,21 @@ function parseSpotify(url) {
   const m = (url || '').match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(playlist|album|track|artist|show|episode)\/([A-Za-z0-9]+)/);
   return m ? { tipo: m[1], id: m[2] } : null;
 }
-let _spExpandido = false, _musHtmlPrev = '';
-function toggleSpotifyAlto() {
-  _spExpandido = !_spExpandido;
-  const f = document.getElementById('mus-frame'); if (f) f.style.height = _spExpandido ? '352px' : '152px';
-  const b = document.getElementById('mus-toggle'); if (b) b.textContent = _spExpandido ? 'Ver menos' : 'Ver lista completa';
-  _musHtmlPrev = renderOvMusica();   // que el próximo redibujado no recargue el reproductor
+let _spVerPlayer = false, _musHtmlPrev = '', _spMeta = {};
+async function cargarMetaSpotify(sp) {
+  const k = sp.tipo + sp.id; if (_spMeta[k] !== undefined) return;
+  _spMeta[k] = null;
+  try {
+    const r = await fetch('https://open.spotify.com/oembed?url=' + encodeURIComponent('https://open.spotify.com/' + sp.tipo + '/' + sp.id));
+    if (r.ok) { const j = await r.json(); _spMeta[k] = { titulo: j.title || '', img: j.thumbnail_url || '' }; }
+  } catch (e) {}
+  const el = document.getElementById('ov-musica');
+  if (el && S.event) { const h = renderOvMusica(); el.innerHTML = h; _musHtmlPrev = h; }
+}
+function toggleSpotifyPlayer() {
+  _spVerPlayer = !_spVerPlayer;
+  const el = document.getElementById('ov-musica');
+  if (el) { const h = renderOvMusica(); el.innerHTML = h; _musHtmlPrev = h; }
 }
 function renderOvMusica() {
   if (!S.event || S.event.archived) return '';
@@ -5075,13 +5084,24 @@ function renderOvMusica() {
       <div style="font-size:11px;color:var(--muted);margin-top:2px">Solo lo ves vos · pegá el link en Editar asado</div></div><div style="font-size:18px">→</div></div>` : '';
   }
   const link = 'https://open.spotify.com/' + sp.tipo + '/' + sp.id;
+  const meta = _spMeta[sp.tipo + sp.id];
+  if (meta === undefined) cargarMetaSpotify(sp);
+  const tipoTxt = { playlist:'Playlist', album:'Álbum', track:'Canción', artist:'Artista', show:'Podcast', episode:'Episodio' }[sp.tipo] || '';
+  const portada = meta && meta.img
+    ? `<img src="${soEsc(meta.img)}" alt="" style="width:76px;height:76px;border-radius:10px;object-fit:cover;flex-shrink:0;background:#222">`
+    : `<div style="width:76px;height:76px;border-radius:10px;background:linear-gradient(135deg,#1ed760,#0b6b30);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🎵</div>`;
   return `<div style="background:var(--card,#1a1a1a);border:1px solid rgba(30,215,96,.35);border-radius:16px;padding:12px;margin-bottom:12px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px">
-      <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#1ed760">🎵 La música del asado</span>
-      <button id="mus-toggle" onclick="toggleSpotifyAlto()" style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer">${_spExpandido ? 'Ver menos' : 'Ver lista completa'}</button>
-    </div>
-    <iframe id="mus-frame" src="https://open.spotify.com/embed/${sp.tipo}/${sp.id}?utm_source=generator&theme=0" width="100%" style="height:${_spExpandido ? 352 : 152}px;border:0;border-radius:12px;transition:height .25s" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
-    <a href="${link}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:8px;padding:9px;border-radius:10px;background:#1ed760;color:#000;font-weight:700;font-size:13px;text-decoration:none;text-transform:uppercase;letter-spacing:.5px">Abrir en Spotify</a>
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#1ed760;margin-bottom:10px">🎵 La música del asado</div>
+    <a href="${link}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit">
+      ${portada}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">${tipoTxt} · Spotify</div>
+        <div style="font-weight:700;font-size:15px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${soEsc((meta && meta.titulo) || 'Playlist del asado')}</div>
+      </div>
+      <div style="width:44px;height:44px;border-radius:50%;background:#1ed760;color:#000;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">▶</div>
+    </a>
+    ${_spVerPlayer ? `<iframe id="mus-frame" src="https://open.spotify.com/embed/${sp.tipo}/${sp.id}?utm_source=generator&theme=0" width="100%" style="height:352px;border:0;border-radius:12px;margin-top:10px" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>` : ''}
+    <div style="text-align:center;margin-top:8px"><button id="mus-toggle" onclick="toggleSpotifyPlayer()" style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;cursor:pointer">${_spVerPlayer ? 'Ocultar reproductor' : 'Probar reproductor acá'}</button></div>
   </div>`;
 }
 
