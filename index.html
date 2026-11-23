@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.36';
+  const APP_VERSION = '2.37';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -5254,8 +5254,23 @@ function renderModoDiaAsado(conf, noVan, sinResp, pendientes) {
 }
 
 function enviarFelizCumple(nombre) {
-  const msg = '🎂 *¡FELIZ CUMPLE MANDI '+nombre.toUpperCase()+'!* 🎉\n\nDesde el grupo te deseamos un día increíble, que la pases bomba y que el próximo asado sea tuyo! 🔥🥩';
-  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  const N = nombre.toUpperCase();
+  const msgs = [
+    `🎂 *¡FELIZ CUMPLE MANDI ${N}!* 🎉\n\nDesde el grupo te deseamos un día increíble, que la pases bomba y que el próximo asado sea tuyo! 🔥🥩`,
+    `🥳 *¡${N}, HOY TE TOCA A VOS!* 🎂\n\nQue cumplas muchos más y que nunca falte la parrilla prendida. ¡Feliz cumple, mandi! 🔥`,
+    `🔥 *¡FELIZ CUMPLE, ${N}!* 🎉\n\nHoy se merece un buen asado y una vuelta de brindis. Que sea un año a punto, ni crudo ni pasado. 🥩🍻`,
+    `🎉 *¡${N} CUMPLE AÑOS!* 🎂\n\nUn abrazo enorme de todos los mandis. ¡Que la pases de diez y que el 7:45 te encuentre siempre en la mesa! 🙌`,
+    `🍻 *¡SALUD POR ${N}!* 🎂\n\nFeliz cumple, crack. Que se te cumpla todo lo que querés y que te sobren las ganas de asado. 🔥🥩`,
+    `🥩 *¡FELIZ CUMPLE MANDI ${N}!* 🎉\n\nQue este año venga con buenas brasas, buena gente y mejores motivos para juntarnos. ¡Un abrazo grande! 🤗`,
+    `🎂 *${N}, FELIZ CUMPLEAÑOS* 🎊\n\nGracias por ser parte de la mesa. Que lo disfrutes a lo grande y que el próximo asado lo festejemos juntos. 🔥`,
+    `🎈 *¡HOY BRINDAMOS POR ${N}!* 🥂\n\nFeliz cumple, hermano. Que tengas un día de campeón y una parrilla siempre a punto. 🥩🔥`
+  ];
+  // Que no se repita el mismo saludo seguido en este celular
+  let i = Math.floor(Math.random() * msgs.length), ult = -1;
+  try { ult = +localStorage.getItem('asado_ult_saludo'); } catch(e) {}
+  if (i === ult) i = (i + 1) % msgs.length;
+  try { localStorage.setItem('asado_ult_saludo', String(i)); } catch(e) {}
+  window.open('https://wa.me/?text='+encodeURIComponent(msgs[i]),'_blank');
 }
 
 // Reloj countdown dinámico
