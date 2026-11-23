@@ -67,7 +67,7 @@
     return new Date(tieneOffset ? iso : iso + 'Z');
   }
 
-  const APP_VERSION = '2.41';
+  const APP_VERSION = '2.42';
   localStorage.setItem('asado_app_version', APP_VERSION);
 
   // Compara versiones tipo "2.18" vs "2.9" numéricamente (no como texto).
@@ -4267,9 +4267,13 @@ function renderOvMiEstado(miRsvp) {
   else btn = '<button onclick="mostrarConfirmScreen()" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--club1),var(--club2));color:white;font-size:12px;font-weight:700;cursor:pointer;text-transform:uppercase">CONFIRMAR</button>';
   const calBtn = '<button onclick="agregarACalendario()" title="Agregar a mi calendario" style="padding:7px 10px;border-radius:8px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:14px;cursor:pointer;margin-right:4px">📅</button>';
   const estado = miRsvp==='si' ? '✅ VAS AL ' + (S.event?.title||'ASADO').split(' ')[0].toUpperCase() : miRsvp==='no' ? '❌ NO VAS' : '🤷 SIN CONFIRMAR';
+  const fam = S.event?.tipo === 'familiar' && miRsvp === 'si';
+  const parejaFila = fam ? '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--rim)">' +
+    '<span style="font-size:12px;color:#ff69b4">' + (getRsvpConPareja(me) ? '💑 Con pareja' + (getRsvpParejaNombre(me) ? ': ' + soEsc(getRsvpParejaNombre(me)) : '') : '🙋 Vas solo/a') + '</span>' +
+    '<button onclick="editarPareja()" style="padding:6px 12px;border-radius:8px;border:1px solid #ff69b4;background:none;color:#ff69b4;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase">' + (getRsvpConPareja(me) ? 'Cambiar' : '+ Agregar pareja') + '</button></div>' : '';
   return '<div class="ov-card"><div class="ov-label">👤 Mi estado — ' + me.toUpperCase() + '</div>' +
     '<div style="display:flex;justify-content:space-between;align-items:center">' +
-    '<span style="font-size:14px;font-weight:700">' + estado + '</span><div style="display:flex;align-items:center">' + calBtn + btn + '</div></div></div>';
+    '<span style="font-size:14px;font-weight:700">' + estado + '</span><div style="display:flex;align-items:center">' + calBtn + btn + '</div></div>' + parejaFila + '</div>';
 }
 
 // ── Agregar el asado al calendario del celular (.ics, funciona en iOS y Android) ──
@@ -5420,11 +5424,43 @@ function mostrarConfirmScreen() {
   if (csSinConfBtn) csSinConfBtn.style.display = '';
 }
 
+// Pregunta "¿viene con pareja?" (+ nombre). Devuelve {con_pareja, pareja_nombre}, o null si se arrepintió.
+async function preguntarPareja(nombre) {
+  const para = nombre && nombre.toLowerCase() !== (me||'').toLowerCase() ? '¿' + nombre + ' viene con pareja?' : '¿Vas a venir con tu pareja?';
+  const conPareja = await showConfirm(para, { title: '👨‍👩‍👧 ASADO FAMILIAR', icon: '💑', okText: 'SÍ, CON PAREJA', cancelText: 'VA SOLO/A' });
+  let parejaNombre = '';
+  if (conPareja) {
+    const nom = await showPrompt('Nombre de la pareja', getRsvpParejaNombre(nombre), { title: '¿CÓMO SE LLAMA?', placeholder: 'Nombre...' });
+    if (nom === null) return null;
+    parejaNombre = nom.trim();
+  }
+  return { con_pareja: conPareja, pareja_nombre: parejaNombre };
+}
+// Agregar / sacar / cambiar la pareja SIN tocar la confirmación (la propia persona o el admin)
+async function editarPareja(nombre) {
+  if (!S.event || S.event.tipo !== 'familiar') return;
+  nombre = nombre || me;
+  if (nombre.toLowerCase() !== me.toLowerCase() && !isAdmin()) return;
+  if (getRsvp(nombre) !== 'si') { toast('Primero confirmá la asistencia', 'var(--red)'); return; }
+  const info = await preguntarPareja(nombre);
+  if (!info) return;
+  await upsertRsvp(nombre, 'si', info);
+  // Si la fecha tiene respuesta en el calendario, la mantenemos igual para que no quede una versión vieja
+  try {
+    const iso = fechaEventoISO();
+    if (iso && S.rsvpCal?.[iso]?.[nombre]) await sb.from('calendar_rsvp').upsert({ fecha: iso, nombre, resp: 'si', con_pareja: info.con_pareja, pareja_nombre: info.pareja_nombre || null }, { onConflict: 'fecha,nombre' });
+  } catch (e) {}
+  await fetchAll();
+  renderAll();
+  toast(info.con_pareja ? '💑 Pareja anotada' + (info.pareja_nombre ? ': ' + info.pareja_nombre : '') : 'Quedó sin pareja', 'var(--green)');
+}
 async function cambiarAsistencia() {
   if (!S.event) return;
   const actual = getRsvp(me);
   const nuevoRsvp = actual === 'si' ? 'no' : 'si';
-  await upsertRsvp(me, nuevoRsvp);
+  let info = null;
+  if (nuevoRsvp === 'si' && S.event.tipo === 'familiar') { info = await preguntarPareja(me); if (!info) return; }
+  await upsertRsvp(me, nuevoRsvp, info);
   await fetchAll();
   renderAll();
 }
@@ -5863,6 +5899,7 @@ function renderAsistencia() {
           ${isAdmin()
             ?`<button onclick="setRsvpAdmin('${p.name}','si')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='si'?'var(--green)':'var(--rim)'};background:${r==='si'?'rgba(39,174,96,.15)':'var(--ash)'};color:${r==='si'?'var(--green)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600;white-space:nowrap">✅ VA</button>
              <button onclick="setRsvpAdmin('${p.name}','no')" style="padding:4px 10px;border-radius:6px;border:1px solid ${r==='no'?'var(--red)':'var(--rim)'};background:${r==='no'?'rgba(231,76,60,.15)':'var(--ash)'};color:${r==='no'?'var(--red)':'var(--muted)'};font-size:12px;cursor:pointer;text-transform:uppercase;font-weight:600;white-space:nowrap">❌ NO</button>
+             ${(esFamiliar && r==='si')?'<button onclick="editarPareja(\''+ p.name +'\')" title="Editar pareja" style="padding:4px 8px;border-radius:6px;border:1px solid #ff69b4;background:var(--ash);font-size:12px;cursor:pointer">💑</button>':''}
              ${r?'<button onclick="clearRsvpAdmin(\''+ p.name +'\')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--rim);background:var(--ash);color:var(--muted);font-size:11px;cursor:pointer;white-space:nowrap" title="Borrar respuesta">✕</button>':''}`
             :`<span style="font-size:13px">${r==='si'?'✅':r==='no'?'❌':'⏳'}</span>`
           }
@@ -6015,7 +6052,12 @@ async function clearRsvpAdmin(nombre) {
 async function setRsvpAdmin(nombre, resp) {
   if (!sbOk) return;
   try {
-    await upsertRsvp(nombre, resp);
+    let info = null;
+    if (resp === 'si' && S.event?.tipo === 'familiar') {
+      if (getRsvp(nombre) === 'si') return;   // ya estaba: tocar "sí" de nuevo no debe borrar la pareja
+      info = await preguntarPareja(nombre); if (!info) return;
+    }
+    await upsertRsvp(nombre, resp, info);
     await fetchAll();
     renderAsistencia();
     renderInvitadosList();
